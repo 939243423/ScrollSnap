@@ -6,6 +6,8 @@ public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
     case chatRecord      // 微信/聊天模式 (保留首图顶栏与尾图底栏，切除中间图的重叠顶栏与输入框)
     case webArticle      // 网页长文模式 (过滤吸顶网址栏与吸底工具栏)
     case continuousFeed  // 信息流/无固定栏模式 (纯连续重叠滚动)
+    case movieSubtitles  // 电影台词拼图 (首图全画幅，后续图仅提取字幕栏叠加)
+    case horizontalCompare // 横向对比拼图 (多张图左右排版并列展示)
     
     public var id: String { rawValue }
     
@@ -14,11 +16,37 @@ public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
         case .smartAuto:
             return "智能识别"
         case .chatRecord:
-            return "聊天对话"
+            return "微信聊天"
         case .webArticle:
             return "网页文章"
         case .continuousFeed:
             return "信息瀑布流"
+        case .movieSubtitles:
+            return "电影台词"
+        case .horizontalCompare:
+            return "横向对比"
+        }
+    }
+    
+    public var defaultTopCropInset: CGFloat {
+        switch self {
+        case .smartAuto, .chatRecord:
+            return 88.0
+        case .webArticle:
+            return 96.0
+        case .continuousFeed, .movieSubtitles, .horizontalCompare:
+            return 0.0
+        }
+    }
+    
+    public var defaultBottomCropInset: CGFloat {
+        switch self {
+        case .smartAuto, .chatRecord:
+            return 84.0
+        case .webArticle:
+            return 54.0
+        case .continuousFeed, .movieSubtitles, .horizontalCompare:
+            return 0.0
         }
     }
 }

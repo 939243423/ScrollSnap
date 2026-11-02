@@ -42,9 +42,6 @@
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    .text-shadow-sm {
-      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-3 md:p-6 flex flex-col items-center justify-start font-sans antialiased selection:bg-indigo-500 selection:text-white">
@@ -62,9 +59,9 @@
       <div>
         <h1 class="text-base md:text-lg font-bold text-slate-100 flex items-center gap-2">
           ScrollSnap 滚动画布
-          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">苹果液态玻璃 · 效率榜级</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">苹果液态玻璃 · 效率榜破局级</span>
         </h1>
-        <p class="text-xs text-slate-400">每天免费 2 次长截图 · ¥1.00 永久买断 · 全套标注 · 9宫格切片 · 15 Pro 硬件联动</p>
+        <p class="text-xs text-slate-400">每日免费 2 次 · ¥1.00 永久买断 · 端侧 Vision AI 一键脱敏 · 全文 OCR 提取 · 9宫格切片</p>
       </div>
     </div>
 
@@ -99,7 +96,7 @@
 
     <!-- Left: iPhone 15 Pro Device Shell Frame -->
     <section class="lg:col-span-6 flex justify-center">
-      <div id="device-shell" class="relative w-[370px] h-[760px] bg-black rounded-[52px] p-3 shadow-2xl shadow-indigo-950/40 border-[5px] border-slate-700/80 ring-1 ring-white/20 select-none overflow-hidden transition-all duration-300">
+      <div id="device-shell" class="relative w-[370px] h-[770px] bg-black rounded-[52px] p-3 shadow-2xl shadow-indigo-950/40 border-[5px] border-slate-700/80 ring-1 ring-white/20 select-none overflow-hidden transition-all duration-300">
         
         <!-- Titanium Outer Bezel Reflection -->
         <div class="absolute inset-0 rounded-[48px] pointer-events-none border border-white/10"></div>
@@ -243,11 +240,11 @@
 
           </div>
 
-          <!-- SCREEN 2: ALL-IN-ONE LIQUID GLASS EDITOR (WITH 4 EXPANDABLE MODES) -->
+          <!-- SCREEN 2: ALL-IN-ONE LIQUID GLASS EDITOR (WITH 4 EXPANDABLE MODES + VISION AI) -->
           <div id="screen-editor" class="screen-view flex-1 flex flex-col hidden relative overflow-hidden bg-slate-950">
             
             <!-- Editor Top Navigation Bar -->
-            <div class="px-4 py-2.5 flex items-center justify-between border-b border-white/10 z-20 bg-slate-950/80 backdrop-blur-md">
+            <div class="px-3.5 py-2 flex items-center justify-between border-b border-white/10 z-20 bg-slate-950/80 backdrop-blur-md">
               <button onclick="switchScreen('home')" class="text-xs text-slate-300 hover:text-white flex items-center gap-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 完成
@@ -255,8 +252,9 @@
               
               <!-- Preset Mode Dropdown -->
               <div class="relative">
-                <select id="preset-selector" onchange="onPresetChange(this.value)" class="bg-white/10 text-white text-xs font-semibold px-2.5 py-1 rounded-full border border-white/20 focus:outline-none cursor-pointer">
+                <select id="preset-selector" onchange="onPresetChange(this.value)" class="bg-white/10 text-white text-[11px] font-semibold px-2 py-1 rounded-full border border-white/20 focus:outline-none cursor-pointer">
                   <option value="chat" class="bg-slate-900 text-white">微信聊天模式 (去吸顶/底)</option>
+                  <option value="movie" class="bg-slate-900 text-white">电影台词模式 (字幕连排)</option>
                   <option value="web" class="bg-slate-900 text-white">网页长文模式 (去导航栏)</option>
                   <option value="feed" class="bg-slate-900 text-white">信息流模式 (全内容对齐)</option>
                 </select>
@@ -276,32 +274,33 @@
             <!-- Virtual Long Canvas Scroll Stage -->
             <div id="canvas-scroll-container" class="flex-1 overflow-y-auto p-4 flex flex-col items-center relative transition-all duration-300">
               
-              <!-- Outer Device Mockup Container (Controlled by Mode 4) -->
+              <!-- Outer Device Mockup Container -->
               <div id="mockup-bezel" class="w-[280px] bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl relative transition-all duration-300 overflow-hidden">
                 
-                <!-- Simulated Dynamic Island cutout if frame active -->
-                <div id="mockup-island" class="w-full h-5 bg-black hidden items-center justify-center">
-                  <div class="w-16 h-3 bg-slate-800 rounded-full"></div>
-                </div>
-
                 <!-- STITCHED SLICES CONTAINER -->
                 <div id="stitched-canvas-frame" class="w-full relative flex flex-col text-slate-900">
                   
                   <!-- Slice 1: Chat Title & Top Bubbles -->
                   <div class="w-full bg-[#EDEDED] p-2.5 border-b border-slate-300 text-[11px] relative">
-                    <div class="font-bold text-center text-slate-700 pb-1.5 border-b border-slate-200">产品架构研讨群 (4人)</div>
+                    <div class="font-bold text-center text-slate-700 pb-1.5 border-b border-slate-200">商业效率研发群 (4人)</div>
                     <div class="space-y-2 pt-2">
-                      <div class="flex items-start gap-1.5">
-                        <div class="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px]">杜</div>
+                      <div class="flex items-start gap-1.5 relative">
+                        <div id="avatar-1" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                          <span>杜</span>
+                          <div id="avatar-mask-1" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                        </div>
                         <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          今天我们要把长截图做到完全支持苹果液态玻璃质感，而且要冲效率榜！
+                          今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！
                         </div>
                       </div>
-                      <div class="flex items-start justify-end gap-1.5">
+                      <div class="flex items-start justify-end gap-1.5 relative">
                         <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          收到！必须每天给用户免费 2 次长截图，1 元永久买断，极致良心！
+                          我的手机是 <span id="phone-text" class="font-mono bg-black/10 px-1 rounded relative">13800138000<span id="phone-mask" class="absolute inset-0 bg-slate-900/90 rounded hidden text-[8px] text-white text-center">已脱敏</span></span>，测试款直接打我电话！
                         </div>
-                        <div class="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px]">我</div>
+                        <div id="avatar-2" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                          <span>我</span>
+                          <div id="avatar-mask-2" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -315,39 +314,51 @@
                   <div id="middle-slice" class="w-full bg-[#EDEDED] p-2.5 text-[11px] relative">
                     <div class="space-y-2">
                       <div class="flex items-start gap-1.5">
-                        <div class="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px]">杜</div>
+                        <div id="avatar-3" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                          <span>杜</span>
+                          <div id="avatar-mask-3" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                        </div>
                         <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          而且必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！
+                          必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！
                         </div>
                       </div>
                       <div class="flex items-start justify-end gap-1.5">
                         <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          已搞定！断句算法自动避开文字正文行，切图不切字！
+                          断句算法自动避开文字正文行，切图不切字！
                         </div>
-                        <div class="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px]">我</div>
+                        <div id="avatar-4" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                          <span>我</span>
+                          <div id="avatar-mask-4" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <!-- Seam Indicator Line 2 -->
                   <div id="seam-line-2" class="w-full bg-orange-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm">
-                    <span>▲ 接缝能量极小行: <span id="overlap-label-2">40pt</span> (气泡完美平滑) ▼</span>
+                    <span>▲ 接缝能量极小行: <span id="overlap-label-2">40pt</span> (气泡平滑无缝) ▼</span>
                   </div>
 
                   <!-- Slice 3: Bottom Chat & Input Box -->
                   <div class="w-full bg-[#EDEDED] p-2.5 text-[11px] relative">
                     <div class="space-y-2 pb-2">
                       <div class="flex items-start gap-1.5">
-                        <div class="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px]">杜</div>
+                        <div id="avatar-5" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                          <span>杜</span>
+                          <div id="avatar-mask-5" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                        </div>
                         <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          全套标注也给我加上：红框、箭头、①②③步骤圆圈、荧光笔！
+                          端侧 Vision AI 一键脱敏和全文 OCR 提取也加上！
                         </div>
                       </div>
                       <div class="flex items-start justify-end gap-1.5">
                         <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          还有 15 Pro 操作按钮与双击手机背面，0.3 秒后台自动拼图存剪贴板！
+                          已全量打通！Neural Engine 毫秒级离线运行，100% 隐私安全！
                         </div>
-                        <div class="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px]">我</div>
+                        <div id="avatar-6" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                          <span>我</span>
+                          <div id="avatar-mask-6" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                        </div>
                       </div>
                     </div>
                     <!-- WeChat Bottom Input Box -->
@@ -356,7 +367,7 @@
                     </div>
                   </div>
 
-                  <!-- INTERACTIVE ANNOTATION OVERLAYS (Dynamically toggled) -->
+                  <!-- INTERACTIVE ANNOTATION OVERLAYS -->
                   <!-- 1. Red Box -->
                   <div id="anno-box" class="absolute top-10 left-4 right-4 h-14 border-2 border-red-500 rounded-md pointer-events-none hidden">
                     <span class="absolute -top-3 left-2 bg-red-500 text-white text-[8px] font-bold px-1 rounded">红框批注</span>
@@ -373,8 +384,8 @@
                   </div>
                   <!-- 4. Highlighter Strips -->
                   <div id="anno-highlighter" class="absolute top-52 left-8 w-44 h-5 bg-yellow-300/60 rounded mix-blend-multiply pointer-events-none hidden"></div>
-                  <!-- 5. Mosaic / Blackout Layer -->
-                  <div id="anno-mosaic" class="absolute top-6 left-2 w-7 h-7 bg-slate-800/90 rounded border border-white/40 pointer-events-none hidden flex items-center justify-center text-[8px] text-white">
+                  <!-- 5. Manual Mosaic -->
+                  <div id="anno-mosaic" class="absolute top-28 right-4 w-12 h-6 bg-slate-800/90 rounded border border-white/40 pointer-events-none hidden flex items-center justify-center text-[8px] text-white">
                     打码
                   </div>
 
@@ -383,16 +394,10 @@
               </div>
             </div>
 
-            <!-- Toast: Copied to Clipboard -->
+            <!-- Toast Notification -->
             <div id="clipboard-toast" class="absolute top-14 left-1/2 -translate-x-1/2 liquid-pill px-4 py-1.5 text-xs text-white rounded-full hidden flex items-center gap-2 z-40 shadow-xl border-emerald-400/50">
               <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span>长截图已直接存入剪贴板，可前往微信粘贴！</span>
-            </div>
-
-            <!-- Toast: Saved 9-Grid Slices -->
-            <div id="slices-toast" class="absolute top-14 left-1/2 -translate-x-1/2 liquid-pill px-4 py-1.5 text-xs text-white rounded-full hidden flex items-center gap-2 z-40 shadow-xl border-indigo-400/50">
-              <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
-              <span id="slices-toast-text">已智能拆解 9 张切片并批量保存到系统相册！</span>
+              <span id="clipboard-toast-text">长截图已直接存入剪贴板，可前往微信粘贴！</span>
             </div>
 
             <!-- BOTTOM EXPANDABLE LIQUID GLASS TOOLBAR (4 SUB-MODES) -->
@@ -408,13 +413,27 @@
                 <button onclick="adjustOverlap(3)" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 font-bold">+</button>
               </div>
 
-              <!-- Sub-panel 2: Annotation Tools -->
-              <div id="subpanel-annotation" class="liquid-glass rounded-xl p-2.5 hidden flex items-center justify-around">
-                <button onclick="toggleAnno('box')" id="btn-anno-box" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">矩形框</button>
-                <button onclick="toggleAnno('arrow')" id="btn-anno-arrow" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">箭头</button>
-                <button onclick="toggleAnno('step')" id="btn-anno-step" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">①②③序号</button>
-                <button onclick="toggleAnno('highlighter')" id="btn-anno-highlighter" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">荧光笔</button>
-                <button onclick="toggleAnno('mosaic')" id="btn-anno-mosaic" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">打码</button>
+              <!-- Sub-panel 2: Annotation Tools (Now with AI Privacy & OCR Buttons) -->
+              <div id="subpanel-annotation" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
+                <!-- AI Smart Action Strip -->
+                <div class="flex items-center justify-between gap-1.5 pb-1 border-b border-white/10">
+                  <button onclick="triggerVisionAutoRedaction()" id="btn-ai-redact" class="px-2.5 py-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 rounded-full border border-amber-400/30 flex items-center gap-1 hover:brightness-110">
+                    <span>✨ AI一键脱敏</span>
+                  </button>
+                  <button onclick="openOCRModal()" class="px-2.5 py-1 text-[11px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-400/30 flex items-center gap-1 hover:brightness-110">
+                    <span>📄 提取长图文字</span>
+                  </button>
+                  <button onclick="clearAllAnnotations()" class="text-[11px] text-slate-400 hover:text-white px-2">清空</button>
+                </div>
+
+                <!-- Regular Markup Tool Buttons -->
+                <div class="flex items-center justify-around pt-0.5">
+                  <button onclick="toggleAnno('box')" id="btn-anno-box" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">矩形框</button>
+                  <button onclick="toggleAnno('arrow')" id="btn-anno-arrow" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">箭头</button>
+                  <button onclick="toggleAnno('step')" id="btn-anno-step" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">①②③序号</button>
+                  <button onclick="toggleAnno('highlighter')" id="btn-anno-highlighter" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">荧光笔</button>
+                  <button onclick="toggleAnno('mosaic')" id="btn-anno-mosaic" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">打码</button>
+                </div>
               </div>
 
               <!-- Sub-panel 3: Social 9-Grid Slicer -->
@@ -579,107 +598,112 @@
       </div>
     </section>
 
-    <!-- Right: Architecture & Commercial Specification Panel -->
+    <!-- Right: Product Differentiators & Breakthrough Highlights -->
     <section class="lg:col-span-6 space-y-4">
       
-      <!-- Commercial Strategy Card -->
-      <div class="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <span class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">¥</span>
-            <div>
-              <h3 class="text-sm font-bold text-white">商业化定价 · 冲击 App Store 效率榜</h3>
-              <p class="text-[10px] text-slate-400">高频刚需工具的最优转化模型</p>
-            </div>
+      <!-- Killer Differentiators Card -->
+      <div class="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden border-indigo-500/40">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm shadow-md">🔥</span>
+          <div>
+            <h3 class="text-sm font-bold text-white">长截图核心痛点与脱颖而出之道</h3>
+            <p class="text-[10px] text-slate-400">为什么用户会放弃 Picsew / Tailor 转投我们？</p>
           </div>
-          <button onclick="openPaywallModal()" class="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold rounded-full text-xs shadow-sm hover:brightness-110">
-            查看会员弹窗
-          </button>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 text-xs pt-1">
-          <div class="p-3 bg-white/5 rounded-xl border border-white/10 space-y-1">
-            <span class="text-slate-400 font-medium text-[11px]">免费额度</span>
-            <div class="text-sm font-bold text-white">每日免费 2 次</div>
-            <p class="text-[10px] text-slate-400">每天 00:00 自动刷新重置，满足低频临时拼图需求，杜绝差评。</p>
+        <div class="space-y-2.5 text-xs pt-1">
+          <!-- Pain Point 1 -->
+          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
+            <div class="flex items-center justify-between text-indigo-300 font-bold">
+              <span>痛点一：社交发长图隐私泄露，手动打码累死人</span>
+              <span class="text-amber-400">Vision AI 破局</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              <strong>我们的解法</strong>：内置 Apple Neural Engine 驱动的端侧人脸与正则检测，点击【✨ AI一键脱敏】，0.1秒自动给微信所有聊天头像、11位手机号打上高斯磨砂码！零云端上传，彻底杜绝隐私泄露！
+            </p>
           </div>
-          <div class="p-3 bg-amber-500/10 rounded-xl border border-amber-500/30 space-y-1">
-            <span class="text-amber-300 font-medium text-[11px]">永久买断</span>
-            <div class="text-sm font-bold text-amber-200">¥1.00 永久有效</div>
-            <p class="text-[10px] text-amber-300/80">冲动型购买极值定价，无月度续费套路，极速拉高付费率与口碑！</p>
+
+          <!-- Pain Point 2 -->
+          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
+            <div class="flex items-center justify-between text-indigo-300 font-bold">
+              <span>痛点二：两万像素长图看不完、拷不出、搜不到</span>
+              <span class="text-indigo-400">全文 OCR 破局</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              <strong>我们的解法</strong>：长图不只是死图片！点击【📄 提取长图文字】，按阅读时序提取所有聊天/网页文字，一键复制纯文本；同时支持长图关键字高亮检索与导出带文本图层的可搜索 PDF！
+            </p>
+          </div>
+
+          <!-- Pain Point 3 -->
+          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
+            <div class="flex items-center justify-between text-indigo-300 font-bold">
+              <span>痛点三：发小红书/朋友圈被平台强行压缩变糊</span>
+              <span class="text-pink-400">智能断句 9 宫格</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              <strong>我们的解法</strong>：独家研发垂直避障断句算法，在拆分点上下 36pt 窗口内搜寻背景间隙，一键拆分为 9 宫格高清图，<strong>绝不横断汉字</strong>，小红书图文浏览体验满分！
+            </p>
+          </div>
+
+          <!-- Pain Point 4 -->
+          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
+            <div class="flex items-center justify-between text-indigo-300 font-bold">
+              <span>痛点四：知乎/微信“回到顶部”悬浮球反复重影</span>
+              <span class="text-emerald-400">静止悬浮抹除</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              <strong>我们的解法</strong>：传统拼图软件最怕悬浮球。算法自动对比滚动位移，识别在屏幕坐标静止的悬浮按钮，在中间切片自动抹除（Inpainting），只在底端保留一个！
+            </p>
           </div>
         </div>
       </div>
 
-      <!-- Feature Checklist -->
-      <div class="liquid-glass rounded-2xl p-5 space-y-3">
-        <h3 class="text-sm font-bold text-white flex items-center gap-2">
-          效率榜全功能矩阵
-          <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800">全部就绪</span>
-        </h3>
-
-        <div class="space-y-2.5 text-xs">
-          <!-- 1. Liquid Glass -->
-          <div class="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex items-center justify-between text-slate-200 font-semibold">
-              <span>1. 苹果原生液态玻璃设计语言 (Liquid Glass)</span>
-              <span class="text-emerald-400 font-mono">DONE</span>
-            </div>
-            <p class="text-slate-400 text-[11px]">
-              全面采用 UltraThinMaterial、微光高光反光边缘、环境柔光景深与原生触觉轻振反馈，质感对标 Apple 原生系统应用。
-            </p>
-          </div>
-
-          <!-- 2. Annotation Suite -->
-          <div class="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex items-center justify-between text-slate-200 font-semibold">
-              <span>2. 全套专业标记标注工具箱</span>
-              <span class="text-emerald-400 font-mono">DONE</span>
-            </div>
-            <p class="text-slate-400 text-[11px]">
-              支持矩形线框、矢量指向箭头、①②③步骤自增序号徽章、荧光笔半透明高亮、气泡文字输入与局部马赛克打码。
-            </p>
-          </div>
-
-          <!-- 3. Social 9-Grid -->
-          <div class="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex items-center justify-between text-slate-200 font-semibold">
-              <span>3. 小红书 / 朋友圈 9 宫格智能断句切片</span>
-              <span class="text-emerald-400 font-mono">DONE</span>
-            </div>
-            <p class="text-slate-400 text-[11px]">
-              长图不再被微信压缩糊化。断句算法在切分线 ±36pt 窗口内寻找空白行，绝不横断汉字，一键批量拆分保存至相册。
-            </p>
-          </div>
-
-          <!-- 4. Canvas & Mockup -->
-          <div class="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex items-center justify-between text-slate-200 font-semibold">
-              <span>4. 3D 钛金属外壳与自适应磨砂画板工坊</span>
-              <span class="text-emerald-400 font-mono">DONE</span>
-            </div>
-            <p class="text-slate-400 text-[11px]">
-              原色钛、深空黑、银白机身；画板支持根据长图画面自适应高斯模糊磨砂，带柔光环境阴影，发社交平台极具设计感。
-            </p>
-          </div>
-
-          <!-- 5. Export -->
-          <div class="p-2.5 bg-slate-900/80 rounded-xl border border-slate-800 space-y-1">
-            <div class="flex items-center justify-between text-slate-200 font-semibold">
-              <span>5. 多页可翻页 PDF、无损 PNG 与 EXIF 擦除</span>
-              <span class="text-emerald-400 font-mono">DONE</span>
-            </div>
-            <p class="text-slate-400 text-[11px]">
-              阅读长文和合同一键导出标准 A4 分页 PDF；导出时自动抹除拍摄时间、机型和地理位置元数据，保护个人隐私。
-            </p>
-          </div>
+      <!-- Pricing Strategy Card -->
+      <div class="liquid-glass rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+            <span class="text-amber-400">¥1.00 永久买断</span> · 每日免费 2 次
+          </h4>
+          <p class="text-[10px] text-slate-400 mt-0.5">无恶心按月连续订阅，极高转化率与 App Store 口碑爆棚</p>
         </div>
-
+        <button onclick="openPaywallModal()" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs rounded-full shadow-sm hover:brightness-110">
+          特权概览
+        </button>
       </div>
 
     </section>
 
   </main>
+
+  <!-- POPUP MODAL: FULL TEXT OCR EXTRACTION SHEET -->
+  <div id="ocr-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-md liquid-glass rounded-3xl p-6 border border-white/20 shadow-2xl relative space-y-4">
+      <button onclick="closeOCRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+      
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+          📄
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">长图全文提取 (Vision OCR)</h3>
+          <p class="text-[10px] text-slate-400">已按时序解析整张长图文字，支持一键复制纯文本</p>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-white/10 max-h-60 overflow-y-auto text-xs text-slate-300 space-y-2 font-mono">
+        <p>[09:41] 杜: 今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！</p>
+        <p>[09:41] 我: 我的手机是 13800138000，测试款直接打我电话！</p>
+        <p>[09:42] 杜: 必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！</p>
+        <p>[09:42] 我: 断句算法自动避开文字正文行，切图不切字！</p>
+        <p>[09:43] 杜: 端侧 Vision AI 一键脱敏和全文 OCR 提取也加上！</p>
+        <p>[09:43] 我: 已全量打通！Neural Engine 毫秒级离线运行，100% 隐私安全！</p>
+      </div>
+
+      <button onclick="copyExtractedText()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-500/25 transition-all">
+        复制全部纯文本到剪贴板
+      </button>
+    </div>
+  </div>
 
   <!-- POPUP MODAL: ¥1.00 LIFETIME PURCHASE SHEET -->
   <div id="paywall-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
@@ -694,13 +718,15 @@
         <p class="text-xs text-slate-400 px-4">每天免费提供 2 次完整长截图。仅需 ¥1.00，永久解锁全套高阶效率特权，无月费无订阅。</p>
       </div>
 
-      <!-- Perks List -->
       <div class="space-y-2 text-xs bg-slate-950/60 p-3.5 rounded-2xl border border-white/10">
         <div class="flex items-center gap-2 text-slate-200">
           <span class="text-amber-400">✓</span> <span>无限长截图拼接（不再受每日 2 次限制）</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
-          <span class="text-amber-400">✓</span> <span>全套专业标记（矩形框/箭头/①②③步骤圆圈/荧光笔）</span>
+          <span class="text-amber-400">✓</span> <span>端侧 Vision AI 一键脱敏（自动马赛克头像与手机号）</span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-200">
+          <span class="text-amber-400">✓</span> <span>全文 OCR 提取与全局关键字检索</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
           <span class="text-amber-400">✓</span> <span>小红书 9 宫格智能断句切片拆分</span>
@@ -708,12 +734,8 @@
         <div class="flex items-center gap-2 text-slate-200">
           <span class="text-amber-400">✓</span> <span>3D 钛金属带壳 + 自适应磨砂玻璃画板</span>
         </div>
-        <div class="flex items-center gap-2 text-slate-200">
-          <span class="text-amber-400">✓</span> <span>多页可翻页 PDF、无损 PNG 导出与 EXIF 隐私清除</span>
-        </div>
       </div>
 
-      <!-- Buy Action Button -->
       <button onclick="simulatePurchaseSuccess()" id="modal-buy-btn" class="w-full py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 text-slate-950 font-bold rounded-2xl text-sm shadow-xl shadow-orange-500/25 hover:brightness-110 transition-all flex items-center justify-center gap-2">
         <span>支付 ¥1.00 永久买断</span>
       </button>
@@ -742,7 +764,7 @@
       }
     }
 
-    // Editor Sub-mode Switcher (4 modes)
+    // Editor Sub-mode Switcher
     function switchEditorMode(modeId) {
       ['seam', 'annotation', 'slicer', 'canvas'].forEach(m => {
         const subpanel = document.getElementById('subpanel-' + m);
@@ -771,9 +793,12 @@
       document.getElementById('overlap-label-1').innerText = currentOverlap + 'pt';
     }
 
-    // Preset mode selection
+    // Preset mode selection (including Movie Subtitles)
     function onPresetChange(val) {
-      if (val === 'feed') {
+      const middle = document.getElementById('middle-slice');
+      if (val === 'movie') {
+        alert('已切入【电影台词模式】：首图保留全画幅画面，后续图片仅裁取底部 18% 字幕栏自动纵向堆叠拼接！');
+      } else if (val === 'feed') {
         alert('已切入【信息流模式】：保留全屏原始内容，进行连续重叠区域特征互相关匹配。');
       } else if (val === 'web') {
         alert('已切入【网页长文模式】：自动裁剪 Safari 吸顶网址栏与吸底工具条。');
@@ -796,6 +821,63 @@
       }
     }
 
+    function clearAllAnnotations() {
+      ['box', 'arrow', 'step', 'highlighter', 'mosaic'].forEach(k => {
+        const el = document.getElementById('anno-' + k);
+        const btn = document.getElementById('btn-anno-' + k);
+        if (el) el.classList.add('hidden');
+        if (btn) btn.classList.remove('bg-indigo-600', 'text-white');
+      });
+      // also clear auto-masks
+      for (let i = 1; i <= 6; i++) {
+        const m = document.getElementById('avatar-mask-' + i);
+        if (m) m.classList.add('hidden');
+      }
+      const pm = document.getElementById('phone-mask');
+      if (pm) pm.classList.add('hidden');
+    }
+
+    // Vision AI Auto-Redaction
+    let isRedacted = false;
+    function triggerVisionAutoRedaction() {
+      isRedacted = !isRedacted;
+      for (let i = 1; i <= 6; i++) {
+        const m = document.getElementById('avatar-mask-' + i);
+        if (m) {
+          if (isRedacted) m.classList.remove('hidden');
+          else m.classList.add('hidden');
+        }
+      }
+      const pm = document.getElementById('phone-mask');
+      if (pm) {
+        if (isRedacted) pm.classList.remove('hidden');
+        else pm.classList.add('hidden');
+      }
+      
+      const btn = document.getElementById('btn-ai-redact');
+      if (isRedacted) {
+        btn.classList.add('bg-amber-500', 'text-slate-950');
+        showToast('✨ Vision AI 已自动识别并为所有微信头像与手机号码打码脱敏！');
+      } else {
+        btn.classList.remove('bg-amber-500', 'text-slate-950');
+        showToast('已取消 AI 自动打码图层');
+      }
+    }
+
+    // OCR Modal
+    function openOCRModal() {
+      document.getElementById('ocr-modal').classList.remove('hidden');
+    }
+
+    function closeOCRModal() {
+      document.getElementById('ocr-modal').classList.add('hidden');
+    }
+
+    function copyExtractedText() {
+      showToast('已复制长图中的 6 条完整文字内容到剪贴板！');
+      closeOCRModal();
+    }
+
     // 9-Grid Slicer
     let currentGridCount = 9;
     function setGridCount(count) {
@@ -815,31 +897,20 @@
     }
 
     function sliceAndSaveToAlbum() {
-      const toast = document.getElementById('slices-toast');
-      const text = document.getElementById('slices-toast-text');
-      text.innerText = `已智能避开文字行，成功切分并批量保存 ${currentGridCount} 张高清切片到相册！`;
-      toast.classList.remove('hidden');
-      setTimeout(() => {
-        toast.classList.add('hidden');
-      }, 3000);
+      showToast(`已智能避开文字正文行，成功切分并批量保存 ${currentGridCount} 张高清切片到相册！`);
     }
 
     // Frame and Canvas Background
     function setFrameStyle(style) {
       const bezel = document.getElementById('mockup-bezel');
-      const island = document.getElementById('mockup-island');
       if (style === 'none') {
         bezel.className = 'w-[280px] bg-slate-900 rounded-none border-none shadow-md relative transition-all duration-300';
-        island.classList.add('hidden');
       } else if (style === 'natural') {
         bezel.className = 'w-[280px] bg-slate-900 rounded-[34px] border-[4px] border-amber-600/40 shadow-2xl relative transition-all duration-300 p-1 ring-1 ring-amber-500/30';
-        island.classList.remove('hidden');
       } else if (style === 'black') {
         bezel.className = 'w-[280px] bg-slate-900 rounded-[34px] border-[4px] border-slate-700 shadow-2xl relative transition-all duration-300 p-1 ring-1 ring-white/10';
-        island.classList.remove('hidden');
       } else if (style === 'silver') {
         bezel.className = 'w-[280px] bg-slate-900 rounded-[34px] border-[4px] border-slate-300 shadow-2xl relative transition-all duration-300 p-1 ring-1 ring-white/40';
-        island.classList.remove('hidden');
       }
     }
 
@@ -854,13 +925,19 @@
       }
     }
 
-    // Clipboard and Export
-    function copyToClipboard() {
+    // Toast
+    function showToast(msg) {
       const toast = document.getElementById('clipboard-toast');
+      const text = document.getElementById('clipboard-toast-text');
+      text.innerText = msg;
       toast.classList.remove('hidden');
       setTimeout(() => {
         toast.classList.add('hidden');
       }, 2500);
+    }
+
+    function copyToClipboard() {
+      showToast('长截图已直接存入剪贴板，可前往微信粘贴！');
     }
 
     function openExportModal() {
@@ -876,14 +953,12 @@
       document.getElementById('paywall-modal').classList.add('hidden');
     }
 
-    let isUnlocked = false;
     function simulatePurchaseSuccess() {
-      isUnlocked = true;
       document.getElementById('quota-text').innerText = '✨ ¥1 永久特权已生效';
       document.getElementById('home-badge-text').innerText = '永久会员';
       const btn = document.getElementById('quota-pill-btn');
       btn.className = 'liquid-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold text-emerald-300 border-emerald-400/50';
-      alert('【购买成功】\n感谢支持！已成功激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 全套标注工具\n• 9 宫格断句切片\n• 钛金属外壳与自适应磨砂画板\n• 多页 PDF 导出与 EXIF 隐私抹除！');
+      alert('【购买成功】\n已激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 端侧 Vision AI 一键智能脱敏\n• 全图 OCR 文本提取\n• 9 宫格智能断句切片\n• 3D 钛金属外壳与自适应磨砂画板\n• 多页 PDF 导出与 EXIF 隐私清除！');
       closePaywallModal();
     }
 

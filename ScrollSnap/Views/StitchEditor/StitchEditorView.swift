@@ -24,6 +24,8 @@ public struct StitchEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var quotaManager = QuotaManager.shared
     @StateObject private var storeKit = StoreKitManager.shared
+    @StateObject private var privacySanitizer = PrivacySanitizer.shared
+    @StateObject private var textExtractor = TextExtractor.shared
     
     @State var session: StitchSession
     @State private var activeToolMode: EditorToolMode = .seamTuner
@@ -53,6 +55,10 @@ public struct StitchEditorView: View {
     @State private var isSlicing: Bool = false
     @State private var isShowingSlicesSavedAlert: Bool = false
     
+    // OCR Text Extraction State
+    @State private var isShowingTextExtractorSheet: Bool = false
+    @State private var extractedFullText: String = ""
+    
     // Export State
     @State private var selectedExportFormat: ExportFormat = .jpeg
     @State private var isShowingExportSheet: Bool = false
@@ -60,6 +66,7 @@ public struct StitchEditorView: View {
     @State private var isExporting: Bool = false
     @State private var isShowingPaywall: Bool = false
     @State private var isCopiedToClipboardToast: Bool = false
+    @State private var toastMessage: String = "长截图已复制到剪贴板，可直接粘贴"
     
     public init(session: StitchSession) {
         self._session = State(initialValue: session)
@@ -132,6 +139,9 @@ public struct StitchEditorView: View {
             }
             .sheet(isPresented: $isShowingPaywall) {
                 ProSubscriptionView()
+            }
+            .sheet(isPresented: $isShowingTextExtractorSheet) {
+                TextExtractorSheet(text: extractedFullText)
             }
             .alert("添加文字说明", isPresented: $isShowingTextAlert) {
                 TextField("输入批注文字", text: $textInputPrompt)
@@ -219,9 +229,19 @@ public struct StitchEditorView: View {
             if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                let image = UIImage(contentsOfFile: fileURL.path) {
                 
-                let displayVisibleHeight = slice.visibleHeight / 3.0
+                let isMovieSubtitlesMode = (session.presetMode == .movieSubtitles)
+                let displayVisibleHeight: CGFloat
                 let displayOriginalHeight = slice.originalHeight / 3.0
-                let displayTopCrop = slice.topCropInset / 3.0
+                let displayTopCrop: CGFloat
+                
+                if isMovieSubtitlesMode && index > 0 {
+                    // Movie Subtitles Mode: slice 1..N only show bottom 18% subtitle bar
+                    displayVisibleHeight = displayOriginalHeight * 0.18
+                    displayTopCrop = displayOriginalHeight * 0.82
+                } else {
+                    displayVisibleHeight = slice.visibleHeight / 3.0
+                    displayTopCrop = slice.topCropInset / 3.0
+                }
                 
                 ZStack(alignment: .topLeading) {
                     Image(uiImage: image)
@@ -493,18 +513,47 @@ public struct StitchEditorView: View {
         .liquidGlassPill()
     }
     
-    // Sub-panel: Annotation Tools
+    // Sub-panel: Annotation Tools (Now with AI Privacy & OCR Buttons)
     private var annotationToolsPanel: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 14) {
-                annotationKindButton(kind: .rectangle, icon: "rectangle")
-                annotationKindButton(kind: .arrow, icon: "arrow.up.right")
-                annotationKindButton(kind: .stepBadge, icon: "1.circle.fill")
-                annotationKindButton(kind: .highlighter, icon: "pencil.tip")
-                annotationKindButton(kind: .textNote, icon: "text.bubble")
-                annotationKindButton(kind: .mosaic, icon: "checkerboard.rectangle")
+            // Smart Action Strip
+            HStack(spacing: 10) {
+                Button {
+                    runVisionAutoSanitization()
+                } label: {
+                    HStack(spacing: 4) {
+                        if privacySanitizer.isDetecting {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "sparkles")
+                        }
+                        Text("AI智能脱敏")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.orange.opacity(0.18))
+                    .foregroundStyle(Color.orange)
+                    .clipShape(Capsule())
+                }
+                .disabled(privacySanitizer.isDetecting)
                 
-                Divider().frame(height: 18)
+                Button {
+                    runFullTextOCR()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text.viewfinder")
+                        Text("提取长图文字")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.indigo.opacity(0.18))
+                    .foregroundStyle(Color.indigo)
+                    .clipShape(Capsule())
+                }
+                
+                Spacer()
                 
                 Button {
                     if !annotations.isEmpty {
@@ -516,6 +565,17 @@ public struct StitchEditorView: View {
                         .font(.system(size: 13, weight: .semibold))
                 }
                 .disabled(annotations.isEmpty)
+            }
+            
+            Divider().opacity(0.3)
+            
+            HStack(spacing: 14) {
+                annotationKindButton(kind: .rectangle, icon: "rectangle")
+                annotationKindButton(kind: .arrow, icon: "arrow.up.right")
+                annotationKindButton(kind: .stepBadge, icon: "1.circle.fill")
+                annotationKindButton(kind: .highlighter, icon: "pencil.tip")
+                annotationKindButton(kind: .textNote, icon: "text.bubble")
+                annotationKindButton(kind: .mosaic, icon: "checkerboard.rectangle")
             }
             
             // Color Palette Selector
@@ -536,7 +596,7 @@ public struct StitchEditorView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
     }
     
@@ -645,7 +705,7 @@ public struct StitchEditorView: View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.green)
-            Text("已复制长截图到剪贴板，可直接粘贴")
+            Text(toastMessage)
                 .font(.footnote.bold())
         }
         .padding(.horizontal, 16)
@@ -702,6 +762,50 @@ public struct StitchEditorView: View {
         HapticFeedbackManager.shared.triggerSelection()
     }
     
+    // AI Vision Auto Sanitization
+    private func runVisionAutoSanitization() {
+        Task {
+            let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            try? TiledImageRenderer.renderStitchedImageToFile(
+                session: session,
+                outputURL: tempOutput,
+                format: .jpeg
+            )
+            
+            if let image = UIImage(contentsOfFile: tempOutput.path) {
+                let autoMosaics = await privacySanitizer.detectSensitiveRegions(in: image)
+                await MainActor.run {
+                    self.annotations.append(contentsOf: autoMosaics)
+                    HapticFeedbackManager.shared.triggerSnap()
+                    self.toastMessage = "AI 已自动对头像与敏感数字打码脱敏！"
+                    showToast()
+                }
+            }
+        }
+    }
+    
+    // Full-Text OCR Extraction
+    private func runFullTextOCR() {
+        Task {
+            let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            try? TiledImageRenderer.renderStitchedImageToFile(
+                session: session,
+                outputURL: tempOutput,
+                format: .jpeg
+            )
+            
+            if let image = UIImage(contentsOfFile: tempOutput.path) {
+                let result = await textExtractor.extractFullText(from: image)
+                await MainActor.run {
+                    self.extractedFullText = result.plainText
+                    UIPasteboard.general.string = result.plainText
+                    self.isShowingTextExtractorSheet = true
+                    HapticFeedbackManager.shared.triggerSnap()
+                }
+            }
+        }
+    }
+    
     private func triggerSliceAndSave() {
         guard !session.slices.isEmpty else { return }
         isSlicing = true
@@ -731,7 +835,6 @@ public struct StitchEditorView: View {
     }
     
     private func copyDirectlyToClipboard() {
-        // Quota check
         guard quotaManager.canStitch() else {
             isShowingPaywall = true
             return
@@ -752,15 +855,20 @@ public struct StitchEditorView: View {
                 
                 await MainActor.run {
                     HapticFeedbackManager.shared.triggerSnap()
-                    withAnimation {
-                        isCopiedToClipboardToast = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                        withAnimation {
-                            isCopiedToClipboardToast = false
-                        }
-                    }
+                    self.toastMessage = "已复制长截图到剪贴板，可直接粘贴"
+                    showToast()
                 }
+            }
+        }
+    }
+    
+    private func showToast() {
+        withAnimation {
+            isCopiedToClipboardToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation {
+                isCopiedToClipboardToast = false
             }
         }
     }
@@ -810,5 +918,44 @@ public struct ShareSheetView: UIViewControllerRepresentable {
     }
     
     public func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+public struct TextExtractorSheet: View {
+    public let text: String
+    @Environment(\.dismiss) private var dismiss
+    
+    public var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                TextEditor(text: .constant(text))
+                    .font(.body)
+                    .padding(8)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                
+                Button {
+                    UIPasteboard.general.string = text
+                    HapticFeedbackManager.shared.triggerSnap()
+                    dismiss()
+                } label: {
+                    Label("复制全部文字并关闭", systemImage: "doc.on.doc.fill")
+                        .font(.body.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(Color.accentColor)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding()
+            .navigationTitle("长图全文提取 (OCR)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
 }
 #endif
