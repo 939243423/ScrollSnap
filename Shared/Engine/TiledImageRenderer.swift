@@ -40,8 +40,17 @@ public final class TiledImageRenderer {
             return
         }
         
-        let totalHeight = session.totalEstimatedHeight
-        let canvasWidth = session.slices.first?.originalWidth ?? 393
+        var totalHeight = session.totalEstimatedHeight
+        var canvasWidth = session.slices.first?.originalWidth ?? 393
+        var scaleFactor: CGFloat = 1.0
+        
+        // Memory safety guard: cap bitmap height to 20,480px to prevent CoreGraphics texture allocation failure on ultra-long scrolls
+        let maxAllowedHeight: CGFloat = 20480.0
+        if totalHeight > maxAllowedHeight {
+            scaleFactor = maxAllowedHeight / totalHeight
+            canvasWidth = canvasWidth * scaleFactor
+            totalHeight = maxAllowedHeight
+        }
         
         let rendererFormat = UIGraphicsImageRendererFormat.default()
         rendererFormat.scale = 1.0
@@ -52,8 +61,14 @@ public final class TiledImageRenderer {
             format: rendererFormat
         )
         
+        let originalCanvasWidth = session.slices.first?.originalWidth ?? 393
+        let originalTotalHeight = session.totalEstimatedHeight
+        
         let drawBlock: (UIGraphicsImageRendererContext) -> Void = { context in
             let cgContext = context.cgContext
+            if scaleFactor != 1.0 {
+                cgContext.scaleBy(x: scaleFactor, y: scaleFactor)
+            }
             var currentY: CGFloat = 0
             
             for (index, slice) in session.slices.enumerated() {
@@ -63,7 +78,7 @@ public final class TiledImageRenderer {
                 }
                 
                 let visibleHeight = slice.visibleHeight
-                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: visibleHeight)
+                let drawRect = CGRect(x: 0, y: currentY, width: originalCanvasWidth, height: visibleHeight)
                 
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
@@ -71,7 +86,7 @@ public final class TiledImageRenderer {
                 let imageDrawRect = CGRect(
                     x: 0,
                     y: currentY - slice.topCropInset,
-                    width: canvasWidth,
+                    width: originalCanvasWidth,
                     height: slice.originalHeight
                 )
                 image.draw(in: imageDrawRect)
@@ -93,7 +108,7 @@ public final class TiledImageRenderer {
             }
             
             // Draw all annotations onto the full stitched canvas
-            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
+            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: originalTotalHeight))
         }
         
         let data: Data

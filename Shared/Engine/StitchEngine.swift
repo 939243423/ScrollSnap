@@ -87,22 +87,39 @@ public final class StitchEngine {
                     case .continuousFeed:
                         topCrop = 0
                         bottomCrop = 0
+                    case .movieSubtitles:
+                        // Movie subtitles: slice 0 retains 100% full frame; slices 1..N retain bottom 18% subtitle bar
+                        if index == 0 {
+                            topCrop = 0
+                            bottomCrop = 0
+                        } else {
+                            topCrop = height * 0.82
+                            bottomCrop = 0
+                        }
+                    case .horizontalCompare:
+                        topCrop = 0
+                        bottomCrop = 0
                     }
                     
                     var overlapOffset: CGFloat = 0
                     var seamLineY: CGFloat = 0
                     
                     if index > 0 {
-                        let prevImage = cgImages[index - 1]
-                        let prevItem = items[index - 1]
-                        let match = ImageOverlapDetector.findOverlap(
-                            topSlice: prevImage,
-                            bottomSlice: cgImage,
-                            topCropInset: topCrop,
-                            bottomCropInset: prevItem.bottomCropInset
-                        )
-                        overlapOffset = match.offset
-                        seamLineY = match.optimalSeamY
+                        if presetMode == .movieSubtitles || presetMode == .horizontalCompare {
+                            overlapOffset = 0
+                            seamLineY = 0
+                        } else {
+                            let prevImage = cgImages[index - 1]
+                            let prevItem = items[index - 1]
+                            let match = ImageOverlapDetector.findOverlap(
+                                topSlice: prevImage,
+                                bottomSlice: cgImage,
+                                topCropInset: topCrop,
+                                bottomCropInset: prevItem.bottomCropInset
+                            )
+                            overlapOffset = match.offset
+                            seamLineY = match.optimalSeamY
+                        }
                     }
                     
                     let item = StitchItem(

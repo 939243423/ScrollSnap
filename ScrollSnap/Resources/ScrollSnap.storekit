@@ -1,0 +1,90 @@
+{
+  "identifier" : "D68579FA-9D22-4822-8A76-857D059DFE1E",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "1.00",
+      "familyShareable" : true,
+      "internalID" : "6499887711",
+      "localizations" : [
+        {
+          "description" : "永久解锁无限长截图拼接、AI智能脱敏、全文OCR提取与3D摄影棚制图特权",
+          "displayName" : "ScrollSnap 永久终身买断",
+          "locale" : "zh_CN"
+        },
+        {
+          "description" : "Lifetime access to unlimited long screenshots, on-device AI redaction, and 3D studio.",
+          "displayName" : "ScrollSnap Lifetime Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.scrollsnap.lifetime.tier1",
+      "referenceName" : "ScrollSnap 永久买断 (Tier 1)",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6499887700",
+    "_developerTeamID" : "TEAMID1234",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 752251000,
+    "_locale" : "zh_CN",
+    "_storefront" : "CHN",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
