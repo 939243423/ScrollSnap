@@ -27,7 +27,7 @@ public struct SettingsView: View {
                             }
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(storeKit.isProUser ? "✨ 已激活 ¥1 永久特权" : "纯粹效率 · 1元永久买断")
+                                Text(storeKit.isProUser ? "已激活 ¥1 永久特权" : "纯粹效率 · 1元永久买断")
                                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                                     .foregroundStyle(.primary)
                                 Text(storeKit.isProUser ? "享有无限制拼图、AI脱敏与9宫格切片" : "每日免费 2 次 · ¥1.00 永久买断")
