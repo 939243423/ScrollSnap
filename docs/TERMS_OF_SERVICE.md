@@ -66,4 +66,4 @@
 如对本服务协议有任何疑问或需要法律协助，请联系我们：
 
 - **官方协议仓库**：[https://github.com/939243423/protocol__ScrollSnap](https://github.com/939243423/protocol__ScrollSnap)
-- **电子邮箱**：`939243423@qq.com`
+- **电子邮箱**：`ruohui49@gmail.com`

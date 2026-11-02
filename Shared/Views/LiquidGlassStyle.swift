@@ -111,3 +111,66 @@ public extension View {
         modifier(LiquidGlassPillModifier(accentTint: accentTint))
     }
 }
+
+public struct LiquidGlassIconPod: View {
+    public let systemName: String
+    public let tint: Color
+    public var size: CGFloat
+    public var cornerRadius: CGFloat
+    
+    @Environment(\.colorScheme) private var colorScheme
+    
+    public init(
+        systemName: String,
+        tint: Color = .accentColor,
+        size: CGFloat = 38,
+        cornerRadius: CGFloat = 11
+    ) {
+        self.systemName = systemName
+        self.tint = tint
+        self.size = size
+        self.cornerRadius = cornerRadius
+    }
+    
+    public var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    tint.opacity(colorScheme == .dark ? 0.35 : 0.22),
+                                    tint.opacity(colorScheme == .dark ? 0.12 : 0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.45),
+                                    tint.opacity(0.3),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: tint.opacity(0.25), radius: 6, x: 0, y: 3)
+            
+            Image(systemName: systemName)
+                .font(.system(size: size * 0.46, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(tint)
+        }
+        .frame(width: size, height: size)
+    }
+}

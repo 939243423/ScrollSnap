@@ -246,15 +246,12 @@ public struct HomeStitchView: View {
     
     private func actionCard(title: String, subtitle: String, iconName: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(tint.opacity(0.15))
-                    .frame(width: 40, height: 40)
-                Image(systemName: iconName)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(tint)
-                    .font(.body.weight(.semibold))
-            }
+            LiquidGlassIconPod(
+                systemName: iconName,
+                tint: tint,
+                size: 40,
+                cornerRadius: 12
+            )
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -278,14 +275,12 @@ public struct HomeStitchView: View {
             isShowingActionShortcutGuide = true
         } label: {
             HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Color.blue.opacity(0.14))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "iphone.radiowaves.left.and.right")
-                        .foregroundStyle(Color.blue)
-                        .font(.body.weight(.semibold))
-                }
+                LiquidGlassIconPod(
+                    systemName: "iphone.radiowaves.left.and.right",
+                    tint: Color.blue,
+                    size: 44,
+                    cornerRadius: 14
+                )
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
@@ -319,15 +314,12 @@ public struct HomeStitchView: View {
     
     private var broadcastGuideCard: some View {
         HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color(red: 0.78, green: 0.58, blue: 0.28).opacity(0.15))
-                    .frame(width: 48, height: 48)
-                Image(systemName: "record.circle")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color(red: 0.78, green: 0.58, blue: 0.28))
-                    .font(.title3)
-            }
+            LiquidGlassIconPod(
+                systemName: "record.circle.fill",
+                tint: Color.orange,
+                size: 46,
+                cornerRadius: 14
+            )
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("跨应用滚动截屏 (录屏广播)")

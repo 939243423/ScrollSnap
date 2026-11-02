@@ -78,5 +78,5 @@
 如您对本隐私政策或个人信息保护有任何疑问、意见或反馈，请通过以下方式联系我们：
 
 - **官方协议仓库**：[https://github.com/939243423/protocol__ScrollSnap](https://github.com/939243423/protocol__ScrollSnap)
-- **电子邮箱**：`939243423@qq.com`
+- **电子邮箱**：`ruohui49@gmail.com`
 - **问题反馈 (Issues)**：[https://github.com/939243423/protocol__ScrollSnap/issues](https://github.com/939243423/protocol__ScrollSnap/issues)
