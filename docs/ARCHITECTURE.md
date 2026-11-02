@@ -18,19 +18,18 @@ flowchart TD
     end
 
     subgraph AppGroupFS ["跨进程共享存储 (App Group File Sandbox)"]
-        FS1["/slices/ (JPEG 帧切片缓存)"]
-        FS2["/session.json (当前录屏会话元数据)"]
+        FS1["/active_session/ (JPEG 帧切片缓冲)"]
+        FS2["/completed_stitches/ (已完成长截图库)"]
         FS3["UserDefaults(suiteName: 'group.com.scrollsnap')"]
     end
 
     subgraph MainAppProcess ["主应用进程 (ScrollSnap)"]
         MA1[DarwinNotification 监听器]
-        MA2[StitchCoordinator 会话调度器]
-        MA3[StitchEngine 纯端侧拼合计算核]
-        MA4[StitchEditorView 分块画布渲染]
-        MA5[ActivityKit 实时活动状态同步]
-        MA1 --> MA2 --> MA3 --> MA4
-        MA2 --> MA5
+        MA2[StitchEngine 纯端侧拼合计算核]
+        MA3[StitchEditorView 分块画布渲染]
+        MA4[ActivityKit 实时活动状态同步]
+        MA1 --> MA2 --> MA3
+        MA2 --> MA4
     end
 
     subgraph WidgetProcess ["小组件进程 (ScrollSnapWidget)"]
@@ -40,10 +39,9 @@ flowchart TD
     end
 
     RP3 -->|分块写入| FS1
-    RP3 -->|写入元数据| FS2
     RP3 -->|发布通知| MA1
-    MA5 -->|ActivityKit 驱动| WG1
-    FS3 -->|读取状态| WG2
+    MA4 -->|ActivityKit 驱动| WG1
+    FS2 -->|读取展示| WG2
     WG3 -->|直接更新| FS3
 ```
 
@@ -136,12 +134,21 @@ public func notifyWidgetReloadDebounced(kind: String = "RecentStitchWidget") {
 - **正确规范**：将跨单例交互推迟至具体方法执行时，或使用 `Task { @MainActor in ... }` 异步解耦。
 
 ### 4.2 纯端侧计算隔离
-拼接运算（重叠搜索、NCC 矩阵乘积、接缝雕刻）严禁阻塞 `@MainActor`，必须封装于 Swift Actor 或后台并发队列：
+拼接运算（重叠搜索、NCC 矩阵乘积、接缝雕刻）严禁阻塞 `@MainActor`，必须封装于后台并发队列：
 
 ```swift
-public actor StitchingTaskActor {
-    public func processAlignment(topSlice: CGImage, bottomSlice: CGImage) async throws -> StitchOverlapResult {
-        // 在后台线程并发池中执行密集像素矩阵运算
+public final class StitchEngine {
+    private let processingQueue = DispatchQueue(
+        label: "com.scrollsnap.stitching.engine",
+        qos: .userInitiated
+    )
+
+    public func stitchSlices(...) async throws -> StitchSession {
+        return try await withCheckedThrowingContinuation { continuation in
+            processingQueue.async {
+                // 密集像素矩阵运算在后台池并发执行
+            }
+        }
     }
 }
 ```

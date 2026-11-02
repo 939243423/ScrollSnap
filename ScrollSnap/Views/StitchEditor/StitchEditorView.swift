@@ -15,7 +15,6 @@ public struct StitchEditorView: View {
     @State private var exportedFileURL: URL?
     @State private var isExporting = false
     @State private var showDeviceFrame = false
-    @State private var isShowingModePicker = false
     
     public init(session: StitchSession) {
         self._session = State(initialValue: session)

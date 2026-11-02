@@ -40,7 +40,7 @@ public struct ProSubscriptionView: View {
                         featureRow(icon: "infinity", title: "无限切片拼接", detail: "免费版限 8 屏，Pro 版支持无上限长篇滚动截屏")
                         featureRow(icon: "sparkles", title: "无损 Retina 原始分辨率导出", detail: "保持 3x 原生像素导出，排版字体纤毫毕现")
                         featureRow(icon: "iphone.gen3", title: "3D 物理级钛金属带壳", detail: "为长截图套上拟真 iPhone 边框与精致阴影")
-                        featureRow(icon: "checkerboard.shield", title: "智能脱敏马赛克", detail: "端侧离线脱敏头像、电话等隐私信息")
+                        featureRow(icon: "checkerboard.shield", title: "非破坏性马赛克脱敏", detail: "支持像素马赛克与纯黑打码，保护头像与隐私")
                     }
                     .padding(20)
                     .background(Color(uiColor: .secondarySystemGroupedBackground))

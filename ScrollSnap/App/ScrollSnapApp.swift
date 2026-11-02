@@ -24,6 +24,7 @@ struct ScrollSnapApp: App {
             Task { @MainActor in
                 // Active session finished recording in ReplayKit
                 PhotoLibraryObserver.shared.scanRecentScreenshots()
+                NotificationCenter.default.post(name: NSNotification.Name("RefreshBroadcastSession"), object: nil)
             }
         }
     }

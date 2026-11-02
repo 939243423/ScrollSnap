@@ -41,13 +41,4 @@ public enum SubscriptionTier: String, CaseIterable, Identifiable {
             return true
         }
     }
-    
-    public var allowsSmartPrivacyAutoBlur: Bool {
-        switch self {
-        case .freeTier:
-            return false
-        case .proVip:
-            return true
-        }
-    }
 }

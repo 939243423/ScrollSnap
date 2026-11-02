@@ -97,6 +97,9 @@ public struct HomeStitchView: View {
             .onAppear {
                 refreshActiveBroadcastSlices()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshBroadcastSession"))) { _ in
+                refreshActiveBroadcastSlices()
+            }
             .onChange(of: selectedPhotoItems) { _, items in
                 handleSelectedPhotoPickerItems(items)
             }

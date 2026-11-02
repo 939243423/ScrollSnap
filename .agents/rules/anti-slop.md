@@ -57,3 +57,9 @@ Reference source files, symbols, and documentation using Markdown links formatte
 - State technical constraints, memory ceilings, coordinate transformations, and thread boundaries directly.
 - Avoid promotional prose.
 - Present API contracts, state transitions, and edge-case handling with measurable values (bytes, milliseconds, points, pixel ratios).
+
+## 5. Commit & Auto-Commit Rules
+- 每次完成代码修改并通过编译验证后，必须自动执行 `git add`、`git commit` 与 `git push` 提交代码，无需等待用户额外催促。
+- 每次执行 `git pull` 拉取远端更新后，必须立即执行 `xcodebuild` 验证构建是否通过；如存在合并产生的重复声明或编译错误，立即修复并推送。
+- 严禁空洞赞美与夸张修饰（如 `feat: leverage advanced AI to empower seamless capture`）。
+- 采用祈使句，说明修改了什么与原因（如 `feat(stitching): calculate overlap offset and eliminate repeating status bars`）。

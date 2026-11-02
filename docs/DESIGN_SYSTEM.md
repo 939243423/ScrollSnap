@@ -74,18 +74,19 @@ public extension View {
 为防止手势滑动或切片拖拽时 Taptic Engine 过载，引入 70ms 硬件防抖门限：
 
 ```swift
-public final class SnapHaptic {
-    private static var lastImpactTimestamp: TimeInterval = 0
-    private static let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+public final class HapticFeedbackManager {
+    public static let shared = HapticFeedbackManager()
+    private var lastHapticTimestamp: TimeInterval = 0
+    private let debounceThreshold: TimeInterval = 0.07 // 70ms 硬件防抖门限
 
-    public static func selectionChanged() {
+    public func triggerSelection() {
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastImpactTimestamp > 0.07 else { return }
-        lastImpactTimestamp = now
-        feedbackGenerator.impactOccurred()
+        guard now - lastHapticTimestamp >= debounceThreshold else { return }
+        lastHapticTimestamp = now
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    public static func taskSucceeded() {
+    public func triggerSuccess() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 }

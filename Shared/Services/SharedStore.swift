@@ -10,12 +10,8 @@ public final class SharedStore {
     private var reloadDebounceWorkItem: DispatchWorkItem?
     private let fileManager = FileManager.default
     
-    private var defaults: UserDefaults? {
-        UserDefaults(suiteName: suiteName)
-    }
-    
     private init() {
-        // Strict anti-deadlock rule: zero synchronous calls to other singletons
+        // Concurrency safety: Zero synchronous singleton calls in init()
         ensureDirectoriesExist()
     }
     
@@ -28,14 +24,12 @@ public final class SharedStore {
         try? fileManager.createDirectory(at: completeDir, withIntermediateDirectories: true)
     }
     
-    // MARK: - Active Broadcast Session Management
+    // MARK: - Active Broadcast Slices Management
     
     public func resetActiveBroadcastSession() {
         guard let dir = AppGroupConstants.activeSessionDirectory else { return }
         try? fileManager.removeItem(at: dir)
         try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
-        
-        defaults?.removeObject(forKey: AppGroupConstants.keyActiveSessionMetadata)
     }
     
     public func writeBroadcastSlice(data: Data, index: Int) -> String? {
@@ -49,16 +43,6 @@ public final class SharedStore {
         } catch {
             return nil
         }
-    }
-    
-    public func saveActiveSessionMetadata(_ session: StitchSession) {
-        guard let data = try? JSONEncoder().encode(session) else { return }
-        defaults?.set(data, forKey: AppGroupConstants.keyActiveSessionMetadata)
-    }
-    
-    public func loadActiveSessionMetadata() -> StitchSession? {
-        guard let data = defaults?.data(forKey: AppGroupConstants.keyActiveSessionMetadata) else { return }
-        return try? JSONDecoder().decode(StitchSession.self, from: data)
     }
     
     public func listActiveBroadcastSlicePaths() -> [String] {

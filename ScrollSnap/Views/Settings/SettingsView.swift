@@ -80,7 +80,7 @@ public struct SettingsView: View {
                     HStack {
                         Text("算法内核")
                         Spacer()
-                        Text("Accelerate NCC")
+                        Text("CoreGraphics NCC")
                             .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
