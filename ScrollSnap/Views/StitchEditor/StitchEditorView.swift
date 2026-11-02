@@ -4,7 +4,8 @@ import UIKit
 #endif
 
 public enum EditorToolMode: String, CaseIterable, Identifiable {
-    case seamTuner = "接缝对齐"
+    case seamTuner = "棘轮对齐"
+    case privacyBrush = "隐私涂抹"
     case annotation = "专业标注"
     case socialSlicer = "九宫格切片"
     case canvasStudio = "带壳画布"
@@ -12,7 +13,8 @@ public enum EditorToolMode: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
     public var iconName: String {
         switch self {
-        case .seamTuner: return "arrow.up.and.down.and.sparkles"
+        case .seamTuner: return "dial.low"
+        case .privacyBrush: return "paintbrush.pointed"
         case .annotation: return "pencil.tip.crop.circle"
         case .socialSlicer: return "square.grid.3x3"
         case .canvasStudio: return "iphone"
@@ -30,8 +32,14 @@ public struct StitchEditorView: View {
     @State var session: StitchSession
     @State private var activeToolMode: EditorToolMode = .seamTuner
     
-    // Seam Fine-tuning State
+    // Seam Fine-tuning State with Tactile Dial
     @State private var selectedSliceIndex: Int = 1
+    @State private var seamDialOffset: CGFloat = 0.0
+    
+    // Privacy Scratch & Brush State
+    @State private var brushStrokes: [RedactionStroke] = []
+    @State private var activeBrushType: RedactionBrushType = .frostedGlass
+    @State private var brushStrokeWidth: CGFloat = 24.0
     
     // Annotation Suite State
     @State private var annotations: [AnnotationItem] = []
@@ -53,6 +61,7 @@ public struct StitchEditorView: View {
     @State private var canvasBackground: CanvasBackgroundStyle = .adaptiveBlur
     @State private var canvasPadding: CGFloat = 20.0
     @State private var currentScrollOffset: CGFloat = 0.0
+    @State private var isShowingStudioShowroomSheet: Bool = false
     
     // Social Slicer State
     @State private var selectedSlicePreset: ImageSlicer.SlicePreset = .nine
@@ -83,6 +92,18 @@ public struct StitchEditorView: View {
                 // Main Interactive Canvas
                 canvasScrollView
                 
+                // Top Floating Telemetry Matrix Capsule (Docked at Top Center)
+                VStack {
+                    FloatingTelemetryIslandView(
+                        canvasWidth: Int(session.slices.first?.originalWidth ?? 1170),
+                        canvasHeight: Int(session.totalEstimatedHeight),
+                        memoryUsageMB: 34.2,
+                        memoryLimitMB: 50.0
+                    )
+                    .padding(.top, 6)
+                    Spacer()
+                }
+                
                 // Floating Minimap Radar Scrubbing HUD (Docked on Right Edge)
                 VStack {
                     Spacer().frame(height: 70)
@@ -100,7 +121,7 @@ public struct StitchEditorView: View {
                     }
                     Spacer()
                 }
-                .allowsHitTesting(activeToolMode != .annotation)
+                .allowsHitTesting(activeToolMode != .annotation && activeToolMode != .privacyBrush)
                 
                 // Bottom Liquid Glass Floating Modular Control Bar
                 bottomLiquidControlBar
@@ -141,6 +162,14 @@ public struct StitchEditorView: View {
                         }
                         
                         Menu {
+                            Section("3D 摄影棚") {
+                                Button {
+                                    isShowingStudioShowroomSheet = true
+                                    HapticFeedbackManager.shared.triggerSelection()
+                                } label: {
+                                    Label("3D 悬浮立体制图", systemImage: "cube.transparent")
+                                }
+                            }
                             Section("导出格式") {
                                 ForEach(ExportFormat.allCases) { format in
                                     Button {
@@ -162,6 +191,16 @@ public struct StitchEditorView: View {
                         .disabled(isExporting)
                     }
                 }
+            }
+            .sheet(isPresented: $isShowingStudioShowroomSheet) {
+                StudioShowroomView(
+                    stitchedImage: nil,
+                    onSavePoster: {
+                        isShowingStudioShowroomSheet = false
+                        toastMessage = "3D 摄影棚展示海报已保存至相册"
+                        withAnimation { isCopiedToClipboardToast = true }
+                    }
+                )
             }
             .sheet(isPresented: $isShowingExportSheet) {
                 if let url = exportedFileURL {
@@ -231,6 +270,11 @@ public struct StitchEditorView: View {
                 renderAnnotationOverlay(item: item, canvasWidth: displayWidth, canvasHeight: totalDisplayHeight)
             }
             
+            // Rendered Privacy Frost & Mosaic Strokes
+            ForEach(brushStrokes) { stroke in
+                renderBrushStroke(stroke: stroke)
+            }
+            
             // Current In-progress Drawing Shape
             if let drawing = currentDrawingItem {
                 renderAnnotationOverlay(item: drawing, canvasWidth: displayWidth, canvasHeight: totalDisplayHeight)
@@ -247,6 +291,18 @@ public struct StitchEditorView: View {
                             }
                             .onEnded { value in
                                 handleAnnotationDragEnded(value: value, canvasSize: CGSize(width: displayWidth, height: totalDisplayHeight))
+                            }
+                    )
+            } else if activeToolMode == .privacyBrush {
+                Color.white.opacity(0.001)
+                    .frame(width: displayWidth, height: totalDisplayHeight)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                handleBrushDragChanged(value: value)
+                            }
+                            .onEnded { _ in
+                                handleBrushDragEnded()
                             }
                     )
             }
@@ -462,6 +518,43 @@ public struct StitchEditorView: View {
         HapticFeedbackManager.shared.triggerSnap()
     }
     
+    private func handleBrushDragChanged(value: DragGesture.Value) {
+        let loc = value.location
+        if brushStrokes.isEmpty || brushStrokes.last?.points.isEmpty == true {
+            let newStroke = RedactionStroke(points: [loc], brushType: activeBrushType, lineWidth: brushStrokeWidth)
+            brushStrokes.append(newStroke)
+        } else {
+            let lastIdx = brushStrokes.count - 1
+            brushStrokes[lastIdx].points.append(loc)
+        }
+        HapticFeedbackManager.shared.triggerDialDetent()
+    }
+    
+    private func handleBrushDragEnded() {
+        HapticFeedbackManager.shared.triggerSnap()
+    }
+    
+    @ViewBuilder
+    private func renderBrushStroke(stroke: RedactionStroke) -> some View {
+        let path = Path { p in
+            guard let first = stroke.points.first else { return }
+            p.move(to: first)
+            for pt in stroke.points.dropFirst() {
+                p.addLine(to: pt)
+            }
+        }
+        
+        switch stroke.brushType {
+        case .frostedGlass:
+            path.stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .round, lineJoin: .round))
+                .blur(radius: 6)
+        case .pixelateMosaic:
+            path.stroke(Color.gray.opacity(0.85), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .square, lineJoin: .miter, dash: [4, 4]))
+        case .confidentialInk:
+            path.stroke(Color(white: 0.12), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .round, lineJoin: .round))
+        }
+    }
+    
     // MARK: - Liquid Glass Bottom Control Bar
     
     private var bottomLiquidControlBar: some View {
@@ -469,7 +562,23 @@ public struct StitchEditorView: View {
             // Secondary expanded tool options panel
             switch activeToolMode {
             case .seamTuner:
-                seamTunerPanel
+                TactileSeamDialView(
+                    offset: $seamDialOffset,
+                    optimalOffset: 0.0,
+                    range: -35...35,
+                    onSnapToOptimal: {
+                        if selectedSliceIndex < session.slices.count {
+                            adjustSliceOverlap(sliceIndex: selectedSliceIndex, delta: -Int(seamDialOffset))
+                            seamDialOffset = 0.0
+                        }
+                    }
+                )
+            case .privacyBrush:
+                LiquidBrushRedactionView(
+                    strokes: $brushStrokes,
+                    activeBrush: $activeBrushType,
+                    brushWidth: $brushStrokeWidth
+                )
             case .annotation:
                 annotationToolsPanel
             case .socialSlicer:

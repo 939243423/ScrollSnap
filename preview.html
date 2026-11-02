@@ -6,6 +6,10 @@
   <title>ScrollSnap 滚动画布 · 纯粹效率长截图原型</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
+    :root {
+      --specular-deg: 135deg;
+      --specular-opacity: 0.28;
+    }
     @keyframes pulse-subtle {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.6; }
@@ -14,7 +18,7 @@
       animation: pulse-subtle 2s infinite ease-in-out;
     }
     .perspective-stage {
-      perspective: 900px;
+      perspective: 1000px;
     }
     .cover-card-left {
       transform: rotateY(32deg) scale(0.85);
@@ -27,24 +31,28 @@
     }
     /* Apple Liquid Glass Styling */
     .liquid-glass {
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border: 1px solid rgba(255, 255, 255, 0.16);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45);
     }
     .liquid-specular {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0) 100%);
+      background: linear-gradient(var(--specular-deg), rgba(255, 255, 255, var(--specular-opacity)) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0) 100%);
     }
     .liquid-pill {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.09);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+    /* Knurled Dial Styling */
+    .knurled-track {
+      background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.15) 0, rgba(255, 255, 255, 0.15) 1px, transparent 1px, transparent 8px);
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-3 md:p-6 flex flex-col items-center justify-start font-sans antialiased selection:bg-indigo-500 selection:text-white">
+<body onmousemove="handleGlobalMouseMove(event)" class="bg-slate-950 text-slate-100 min-h-screen p-3 md:p-6 flex flex-col items-center justify-start font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
   <!-- Top Controller Bar with Liquid Glass -->
   <header class="w-full max-w-5xl mb-6 flex flex-col md:flex-row items-center justify-between gap-4 liquid-glass rounded-2xl p-4 shadow-2xl relative overflow-hidden">
@@ -61,7 +69,7 @@
           ScrollSnap 滚动画布
           <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">苹果液态玻璃 · 效率榜破局级</span>
         </h1>
-        <p class="text-xs text-slate-400">微缩雷达导轨 · 放大镜细节检视 · 3D 拟物展台 · 每日免费 2 次 · ¥1.00 永久买断</p>
+        <p class="text-xs text-slate-400">棘轮机械对齐 · 隐私毛玻璃刮刮乐 · 3D摄影棚海报 · 每日免费2次 · ¥1.00 永久买断</p>
       </div>
     </div>
 
@@ -81,6 +89,9 @@
         <button onclick="switchScreen('editor')" id="tab-editor" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">
           全能编辑器
         </button>
+        <button onclick="switchScreen('studio')" id="tab-studio" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1">
+          <span>✨ 3D摄影棚</span>
+        </button>
         <button onclick="switchScreen('dynamic-island')" id="tab-island" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">
           灵动岛
         </button>
@@ -94,664 +105,757 @@
   <!-- Main Simulator Container -->
   <main class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start justify-center">
 
-    <!-- Left: iPhone 15 Pro Device Shell Frame -->
+    <!-- Left: iPhone 15 Pro Device Shell Frame with 3D Gyro Tilt -->
     <section class="lg:col-span-6 flex justify-center">
-      <div id="device-shell" class="relative w-[370px] h-[770px] bg-black rounded-[52px] p-3 shadow-2xl shadow-indigo-950/40 border-[5px] border-slate-700/80 ring-1 ring-white/20 select-none overflow-hidden transition-all duration-300">
-        
-        <!-- Titanium Outer Bezel Reflection -->
-        <div class="absolute inset-0 rounded-[48px] pointer-events-none border border-white/10"></div>
-        
-        <!-- iPhone Screen Interior -->
-        <div class="w-full h-full bg-slate-950 rounded-[42px] overflow-hidden flex flex-col relative text-slate-100">
+      <div id="device-wrapper" class="perspective-stage">
+        <div id="device-shell" class="relative w-[370px] h-[770px] bg-black rounded-[52px] p-3 shadow-2xl shadow-indigo-950/40 border-[5px] border-slate-700/80 ring-1 ring-white/20 select-none overflow-hidden transition-transform duration-200 ease-out">
+          
+          <!-- Titanium Outer Bezel Reflection -->
+          <div id="bezel-specular" class="absolute inset-0 rounded-[48px] pointer-events-none border border-white/10 transition-opacity"></div>
+          
+          <!-- iPhone Screen Interior -->
+          <div class="w-full h-full bg-slate-950 rounded-[42px] overflow-hidden flex flex-col relative text-slate-100">
 
-          <!-- iOS Status Bar & Dynamic Island -->
-          <div class="w-full pt-2.5 pb-2 px-6 flex items-center justify-between z-30 bg-slate-950/80 backdrop-blur-md">
-            <span class="text-xs font-semibold text-slate-300 font-mono">9:41</span>
-            
-            <!-- Dynamic Island Pill -->
-            <div id="dynamic-island-pill" class="w-24 h-6 bg-black rounded-full flex items-center justify-between px-2.5 shadow-inner transition-all duration-300 cursor-pointer hover:w-28" onclick="switchScreen('dynamic-island')">
-              <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-              <span class="text-[10px] text-slate-400 font-mono">4屏切片</span>
-            </div>
-            
-            <div class="flex items-center gap-1.5 text-slate-300">
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zm-2.829 2.828a3 3 0 00-4.242 0 1 1 0 01-1.415-1.414 5 5 0 017.072 0 1 1 0 01-1.415 1.414zM9 16a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd"/></svg>
-              <span class="text-[10px] font-mono">100%</span>
-            </div>
-          </div>
-
-          <!-- SCREEN 1: HOME WORKBENCH (LIQUID GLASS REDESIGN + 3D GESTURE CARDS) -->
-          <div id="screen-home" class="screen-view flex-1 overflow-y-auto px-4 pb-12 space-y-4">
-            
-            <!-- Header Title -->
-            <div class="pt-2 flex items-center justify-between">
-              <div>
-                <h2 class="text-xl font-bold tracking-tight text-white">长截图工坊</h2>
-                <p class="text-[11px] text-slate-400">端侧无损连续拼接 · 支持 15 Pro 硬件极速联动</p>
-              </div>
-              <button onclick="openPaywallModal()" class="liquid-pill px-2.5 py-1 text-[11px] font-bold text-amber-300 flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                <span id="home-badge-text">今日 2/2</span>
-              </button>
-            </div>
-
-            <!-- Active Broadcast Slices Detected -->
-            <div class="liquid-glass rounded-2xl p-3.5 flex items-center gap-3 relative overflow-hidden">
-              <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-400/30">
-                <span class="w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-amber-200">检测到录屏广播切片 (12 屏)</p>
-                <p class="text-[10px] text-slate-400 truncate">微信聊天记录 · 0.25x 降采样防爆内存</p>
-              </div>
-              <button onclick="switchScreen('editor')" class="px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 rounded-full hover:brightness-110 shadow-sm shrink-0">
-                立即拼合
-              </button>
-            </div>
-
-            <!-- Auto-detected Recent Continuous Screenshots -->
-            <div class="liquid-glass rounded-2xl p-3.5 space-y-2 relative overflow-hidden">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-indigo-400">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 012.828 0L19.414 11A2 2 0 0120 12.414V16a2 2 0 01-2 2h-7.071A5.002 5.002 0 0110 14.243zM15 13a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-                  </span>
-                  <span class="text-xs font-bold text-white">检测到 4 张最近连续截屏</span>
-                </div>
-                <button onclick="switchScreen('editor')" class="px-2.5 py-1 text-xs font-bold bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-colors shadow-sm">
-                  一键拼合
-                </button>
-              </div>
-              <p class="text-[11px] text-slate-400">相册 5 分钟内连续截取，符合同机型宽高比，算法已就绪。</p>
-            </div>
-
-            <!-- Core 2-Column Action Tiles -->
-            <div class="grid grid-cols-2 gap-3">
-              <div onclick="switchScreen('editor')" class="liquid-glass rounded-2xl p-3.5 flex flex-col justify-between h-24 cursor-pointer hover:border-indigo-400/40 transition-all">
-                <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-400/20">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                </div>
-                <div>
-                  <h4 class="text-xs font-bold text-white">相册多图拼接</h4>
-                  <p class="text-[10px] text-slate-400">选择连续截图对齐</p>
-                </div>
-              </div>
-
-              <div onclick="alert('网页长截屏：输入任意 URL，WKWebView 后台全量测量高度，一键直出完整长图！')" class="liquid-glass rounded-2xl p-3.5 flex flex-col justify-between h-24 cursor-pointer hover:border-teal-400/40 transition-all">
-                <div class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-400/20">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
-                </div>
-                <div>
-                  <h4 class="text-xs font-bold text-white">网页全页截图</h4>
-                  <p class="text-[10px] text-slate-400">输入网址一键滚截</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Hardware Action Button & Back Tap Card -->
-            <div onclick="switchScreen('action-button')" class="liquid-glass rounded-2xl p-3.5 flex items-center justify-between cursor-pointer hover:border-blue-400/40 transition-all">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-400/20">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                </div>
-                <div>
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-xs font-bold text-white">15 Pro 操作按钮 & 轻点背面</span>
-                    <span class="text-[9px] font-bold px-1.5 py-0.2 bg-blue-500 text-white rounded-full">0.3秒</span>
-                  </div>
-                  <p class="text-[10px] text-slate-400">连按截屏后，轻敲背面或按侧键，免开 App 秒拼入剪贴板</p>
-                </div>
-              </div>
-              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-            </div>
-
-            <!-- 3D Cover Flow Stage with Interactive Swapping -->
-            <div class="space-y-2 pt-1">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-300">历史长截图展台 (点按切换 3D 卡片)</span>
-                <span class="text-[10px] text-slate-500">空间透视流</span>
-              </div>
-              <div class="w-full h-36 bg-slate-900/60 rounded-2xl border border-white/10 flex items-center justify-center perspective-stage overflow-hidden relative">
-                <!-- Left 3D Card -->
-                <div onclick="swapCoverCard('left')" id="card-left" class="cover-card-left w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute left-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
-                  <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
-                  <div class="w-3/4 h-2 bg-slate-700 rounded mb-2"></div>
-                  <div class="flex-1 bg-slate-900 rounded"></div>
-                  <span class="text-[7px] text-slate-400 text-center mt-1">知乎长文</span>
-                </div>
-                <!-- Center Active 3D Card -->
-                <div onclick="switchScreen('editor')" id="card-center" class="cover-card-center w-24 h-32 bg-slate-800 rounded-xl border-2 border-indigo-500 shadow-2xl z-10 flex flex-col p-1.5 relative cursor-pointer transition-all duration-300">
-                  <div class="w-full h-2.5 bg-indigo-500/40 rounded mb-1.5"></div>
-                  <div class="w-full space-y-1">
-                    <div class="w-12 h-2 bg-slate-700 rounded"></div>
-                    <div class="w-16 h-2 bg-indigo-900/60 rounded"></div>
-                    <div class="w-10 h-2 bg-slate-700 rounded"></div>
-                  </div>
-                  <span class="absolute bottom-1 right-1 text-[8px] bg-indigo-600 text-white px-1 rounded font-mono">3420px</span>
-                </div>
-                <!-- Right 3D Card -->
-                <div onclick="swapCoverCard('right')" id="card-right" class="cover-card-right w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute right-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
-                  <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
-                  <div class="w-1/2 h-2 bg-slate-700 rounded mb-2"></div>
-                  <div class="flex-1 bg-slate-900 rounded"></div>
-                  <span class="text-[7px] text-slate-400 text-center mt-1">小红书图文</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- SCREEN 2: ALL-IN-ONE LIQUID GLASS EDITOR (WITH RADAR MINIMAP & LOUPE) -->
-          <div id="screen-editor" class="screen-view flex-1 flex flex-col hidden relative overflow-hidden bg-slate-950">
-            
-            <!-- Editor Top Navigation Bar -->
-            <div class="px-3.5 py-2 flex items-center justify-between border-b border-white/10 z-20 bg-slate-950/80 backdrop-blur-md">
-              <button onclick="switchScreen('home')" class="text-xs text-slate-300 hover:text-white flex items-center gap-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                完成
-              </button>
+            <!-- iOS Status Bar & Dynamic Island -->
+            <div class="w-full pt-2.5 pb-2 px-6 flex items-center justify-between z-30 bg-slate-950/80 backdrop-blur-md">
+              <span class="text-xs font-semibold text-slate-300 font-mono">9:41</span>
               
-              <!-- Preset Mode Dropdown -->
-              <div class="relative">
-                <select id="preset-selector" onchange="onPresetChange(this.value)" class="bg-white/10 text-white text-[11px] font-semibold px-2 py-1 rounded-full border border-white/20 focus:outline-none cursor-pointer">
-                  <option value="chat" class="bg-slate-900 text-white">微信聊天模式 (去吸顶/底)</option>
-                  <option value="movie" class="bg-slate-900 text-white">电影台词模式 (字幕连排)</option>
-                  <option value="web" class="bg-slate-900 text-white">网页长文模式 (去导航栏)</option>
-                  <option value="feed" class="bg-slate-900 text-white">信息流模式 (全内容对齐)</option>
-                </select>
+              <!-- Dynamic Island Pill -->
+              <div id="dynamic-island-pill" class="w-24 h-6 bg-black rounded-full flex items-center justify-between px-2.5 shadow-inner transition-all duration-300 cursor-pointer hover:w-28" onclick="switchScreen('dynamic-island')">
+                <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                <span class="text-[10px] text-slate-400 font-mono">4屏切片</span>
               </div>
-
-              <!-- Fast Export Actions -->
-              <div class="flex items-center gap-1.5">
-                <button onclick="copyToClipboard()" title="复制长图到剪贴板" class="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-slate-300 hover:text-white">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-                </button>
-                <button onclick="openExportModal()" class="px-2.5 py-1 text-xs font-bold bg-indigo-600 text-white rounded-full hover:bg-indigo-500 shadow-sm flex items-center gap-1">
-                  <span>导出</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Virtual Long Canvas Scroll Stage -->
-            <div id="canvas-scroll-container" onscroll="syncMinimapScroll()" class="flex-1 overflow-y-auto p-4 flex flex-col items-center relative transition-all duration-300">
               
-              <!-- FLOATING MINIMAP RADAR SCRUBBER (RIGHT EDGE) -->
-              <div id="minimap-track" class="absolute right-2 top-16 w-5 h-44 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex flex-col items-center p-1 z-30 shadow-lg cursor-pointer">
-                <div class="w-1 h-1 bg-white/40 rounded-full mb-1"></div>
-                <div id="minimap-thumb" class="w-3 h-8 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full border border-white/70 shadow-md transition-all"></div>
-                <div class="w-1 h-1 bg-white/40 rounded-full mt-auto"></div>
-              </div>
-
-              <!-- FLOATING MAGNIFYING LOUPE (INSPECTION LENS) -->
-              <div id="loupe-lens" class="w-24 h-24 rounded-full border-[3px] border-amber-400/80 shadow-2xl absolute pointer-events-none hidden z-40 bg-[#EDEDED] overflow-hidden -translate-x-12 -translate-y-28">
-                <!-- Loupe Crosshairs -->
-                <div class="absolute inset-0 flex items-center justify-center">
-                  <div class="w-full h-px bg-orange-500/60"></div>
-                  <div class="h-full w-px bg-orange-500/60 absolute"></div>
-                  <div class="w-4 h-4 rounded-full border border-orange-500/60 absolute"></div>
-                </div>
-                <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] bg-black/70 text-white px-1 rounded font-mono">2.5x</div>
-              </div>
-
-              <!-- Outer Device Mockup Container -->
-              <div id="mockup-bezel" class="w-[280px] bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl relative transition-all duration-300 overflow-hidden">
-                
-                <!-- STITCHED SLICES CONTAINER -->
-                <div id="stitched-canvas-frame" onmousemove="handleLoupeMove(event)" class="w-full relative flex flex-col text-slate-900">
-                  
-                  <!-- Slice 1: Chat Title & Top Bubbles -->
-                  <div class="w-full bg-[#EDEDED] p-2.5 border-b border-slate-300 text-[11px] relative">
-                    <div class="font-bold text-center text-slate-700 pb-1.5 border-b border-slate-200">商业效率研发群 (4人)</div>
-                    <div class="space-y-2 pt-2">
-                      <div class="flex items-start gap-1.5 relative">
-                        <div id="avatar-1" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
-                          <span>杜</span>
-                          <div id="avatar-mask-1" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
-                        </div>
-                        <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！
-                        </div>
-                      </div>
-                      <div class="flex items-start justify-end gap-1.5 relative">
-                        <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          我的手机是 <span id="phone-text" class="font-mono bg-black/10 px-1 rounded relative">13800138000<span id="phone-mask" class="absolute inset-0 bg-slate-900/90 rounded hidden text-[8px] text-white text-center">已脱敏</span></span>，测试款直接打我电话！
-                        </div>
-                        <div id="avatar-2" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
-                          <span>我</span>
-                          <div id="avatar-mask-2" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Seam Indicator Line 1 -->
-                  <div id="seam-line-1" class="w-full bg-orange-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm">
-                    <span>▲ 接缝能量极小行: <span id="overlap-label-1">44pt</span> (避开文字，无割裂) ▼</span>
-                  </div>
-
-                  <!-- Slice 2: Middle Chat Content -->
-                  <div id="middle-slice" class="w-full bg-[#EDEDED] p-2.5 text-[11px] relative">
-                    <div class="space-y-2">
-                      <div class="flex items-start gap-1.5">
-                        <div id="avatar-3" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
-                          <span>杜</span>
-                          <div id="avatar-mask-3" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
-                        </div>
-                        <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！
-                        </div>
-                      </div>
-                      <div class="flex items-start justify-end gap-1.5">
-                        <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          断句算法自动避开文字正文行，切图不切字！
-                        </div>
-                        <div id="avatar-4" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
-                          <span>我</span>
-                          <div id="avatar-mask-4" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Seam Indicator Line 2 -->
-                  <div id="seam-line-2" class="w-full bg-orange-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm">
-                    <span>▲ 接缝能量极小行: <span id="overlap-label-2">40pt</span> (气泡平滑无缝) ▼</span>
-                  </div>
-
-                  <!-- Slice 3: Bottom Chat & Input Box -->
-                  <div class="w-full bg-[#EDEDED] p-2.5 text-[11px] relative">
-                    <div class="space-y-2 pb-2">
-                      <div class="flex items-start gap-1.5">
-                        <div id="avatar-5" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
-                          <span>杜</span>
-                          <div id="avatar-mask-5" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
-                        </div>
-                        <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          端侧 Vision AI 一键脱敏和全文 OCR 提取也加上！
-                        </div>
-                      </div>
-                      <div class="flex items-start justify-end gap-1.5">
-                        <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
-                          已全量打通！Neural Engine 毫秒级离线运行，100% 隐私安全！
-                        </div>
-                        <div id="avatar-6" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
-                          <span>我</span>
-                          <div id="avatar-mask-6" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
-                        </div>
-                      </div>
-                    </div>
-                    <!-- WeChat Bottom Input Box -->
-                    <div class="w-full h-8 bg-white rounded-md border border-slate-300 flex items-center px-2 text-[10px] text-slate-400 mt-2">
-                      <span>按住 说话</span>
-                    </div>
-                  </div>
-
-                  <!-- INTERACTIVE ANNOTATION OVERLAYS -->
-                  <div id="anno-box" class="absolute top-10 left-4 right-4 h-14 border-2 border-red-500 rounded-md pointer-events-none hidden">
-                    <span class="absolute -top-3 left-2 bg-red-500 text-white text-[8px] font-bold px-1 rounded">红框批注</span>
-                  </div>
-                  <div id="anno-arrow" class="absolute top-28 left-6 pointer-events-none hidden text-red-500 flex items-center gap-1 font-bold text-xs">
-                    <svg class="w-8 h-8 -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    <span class="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow">核心重点</span>
-                  </div>
-                  <div id="anno-step" class="absolute top-44 left-3 pointer-events-none hidden flex flex-col gap-6">
-                    <span class="w-5 h-5 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-[10px] shadow">1</span>
-                    <span class="w-5 h-5 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-[10px] shadow">2</span>
-                  </div>
-                  <div id="anno-highlighter" class="absolute top-52 left-8 w-44 h-5 bg-yellow-300/60 rounded mix-blend-multiply pointer-events-none hidden"></div>
-                  <div id="anno-mosaic" class="absolute top-28 right-4 w-12 h-6 bg-slate-800/90 rounded border border-white/40 pointer-events-none hidden flex items-center justify-center text-[8px] text-white">
-                    打码
-                  </div>
-
-                </div>
-
+              <div class="flex items-center gap-1.5 text-slate-300">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zm-2.829 2.828a3 3 0 00-4.242 0 1 1 0 01-1.415-1.414 5 5 0 017.072 0 1 1 0 01-1.415 1.414zM9 16a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd"/></svg>
+                <span class="text-[10px] font-mono">100%</span>
               </div>
             </div>
 
-            <!-- Toast Notification -->
-            <div id="clipboard-toast" class="absolute top-14 left-1/2 -translate-x-1/2 liquid-pill px-4 py-1.5 text-xs text-white rounded-full hidden flex items-center gap-2 z-40 shadow-xl border-emerald-400/50">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span id="clipboard-toast-text">长截图已直接存入剪贴板，可前往微信粘贴！</span>
-            </div>
-
-            <!-- BOTTOM EXPANDABLE LIQUID GLASS TOOLBAR (4 SUB-MODES) -->
-            <div class="px-3 pb-3 z-30 flex flex-col gap-2">
+            <!-- SCREEN 1: HOME WORKBENCH (LIQUID GLASS + 3D GESTURE CARDS) -->
+            <div id="screen-home" class="screen-view flex-1 overflow-y-auto px-4 pb-12 space-y-4">
               
-              <!-- Sub-panel 1: Seam Fine-Tuner with Loupe Toggle -->
-              <div id="subpanel-seam" class="liquid-glass rounded-xl p-2.5 flex items-center justify-between">
-                <button onclick="adjustOverlap(-3)" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 font-bold">-</button>
-                <div class="text-center">
-                  <span class="text-[10px] text-slate-400 block">接缝微调 (触觉磁吸)</span>
-                  <div class="flex items-center justify-center gap-1">
-                    <span id="overlap-indicator" class="text-xs font-bold font-mono text-orange-400">44 pt</span>
-                    <span id="magnetic-spark" class="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded-full border border-amber-400/30">✨ 磁吸最佳</span>
-                  </div>
+              <!-- Header Title -->
+              <div class="pt-2 flex items-center justify-between">
+                <div>
+                  <h2 class="text-xl font-bold tracking-tight text-white">长截图工坊</h2>
+                  <p class="text-[11px] text-slate-400">端侧无损连续拼接 · 支持 15 Pro 硬件极速联动</p>
                 </div>
-                <button onclick="adjustOverlap(3)" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 font-bold">+</button>
-                
-                <div class="w-px h-6 bg-white/20"></div>
-
-                <!-- Loupe Button -->
-                <button onclick="toggleLoupe()" id="btn-loupe" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white/10 text-slate-300 hover:text-white flex items-center gap-1">
-                  <span>🔍 放大镜检视</span>
+                <button onclick="openPaywallModal()" class="liquid-pill px-2.5 py-1 text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  <span id="home-badge-text">今日 2/2</span>
                 </button>
               </div>
 
-              <!-- Sub-panel 2: Annotation Tools -->
-              <div id="subpanel-annotation" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
-                <div class="flex items-center justify-between gap-1.5 pb-1 border-b border-white/10">
-                  <button onclick="triggerVisionAutoRedaction()" id="btn-ai-redact" class="px-2.5 py-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 rounded-full border border-amber-400/30 flex items-center gap-1 hover:brightness-110">
-                    <span>✨ AI一键脱敏</span>
-                  </button>
-                  <button onclick="openOCRModal()" class="px-2.5 py-1 text-[11px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-400/30 flex items-center gap-1 hover:brightness-110">
-                    <span>📄 提取长图文字</span>
-                  </button>
-                  <button onclick="clearAllAnnotations()" class="text-[11px] text-slate-400 hover:text-white px-2">清空</button>
+              <!-- Active Broadcast Slices Detected -->
+              <div class="liquid-glass rounded-2xl p-3.5 flex items-center gap-3 relative overflow-hidden">
+                <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 border border-amber-400/30">
+                  <span class="w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
                 </div>
-
-                <div class="flex items-center justify-around pt-0.5">
-                  <button onclick="toggleAnno('box')" id="btn-anno-box" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">矩形框</button>
-                  <button onclick="toggleAnno('arrow')" id="btn-anno-arrow" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">箭头</button>
-                  <button onclick="toggleAnno('step')" id="btn-anno-step" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">①②③序号</button>
-                  <button onclick="toggleAnno('highlighter')" id="btn-anno-highlighter" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">荧光笔</button>
-                  <button onclick="toggleAnno('mosaic')" id="btn-anno-mosaic" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">打码</button>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-semibold text-amber-200">检测到录屏广播切片 (12 屏)</p>
+                  <p class="text-[10px] text-slate-400 truncate">微信聊天记录 · 0.25x 降采样防爆内存</p>
                 </div>
-              </div>
-
-              <!-- Sub-panel 3: Social 9-Grid Slicer with Interactive 3x3 Stage -->
-              <div id="subpanel-slicer" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-slate-300 font-bold">小红书 3:4 黄金切片连排</span>
-                  <div class="flex items-center gap-1">
-                    <button onclick="setGridCount(3)" id="grid-btn-3" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">3图</button>
-                    <button onclick="setGridCount(6)" id="grid-btn-6" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">6图</button>
-                    <button onclick="setGridCount(9)" id="grid-btn-9" class="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold">9宫格</button>
-                  </div>
-                </div>
-
-                <!-- 3x3 Interactive Grid Cards -->
-                <div class="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-xl">
-                  <div onclick="tapGridCard(1)" id="grid-card-1" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#1 封面</div>
-                  <div onclick="tapGridCard(2)" id="grid-card-2" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#2 正文</div>
-                  <div onclick="tapGridCard(3)" id="grid-card-3" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#3 亮点</div>
-                  <div onclick="tapGridCard(4)" id="grid-card-4" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#4 细节</div>
-                  <div onclick="tapGridCard(5)" id="grid-card-5" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#5 数据</div>
-                  <div onclick="tapGridCard(6)" id="grid-card-6" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#6 论述</div>
-                  <div onclick="tapGridCard(7)" id="grid-card-7" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#7 截图</div>
-                  <div onclick="tapGridCard(8)" id="grid-card-8" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#8 结论</div>
-                  <div onclick="tapGridCard(9)" id="grid-card-9" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#9 尾页</div>
-                </div>
-
-                <button onclick="sliceAndSaveToAlbum()" class="w-full py-1.5 text-xs font-bold bg-gradient-to-r from-pink-500 to-indigo-600 text-white rounded-xl shadow-sm hover:brightness-110 flex items-center justify-center gap-1">
-                  <span>避开文字断句并保存全部切片进相册</span>
+                <button onclick="switchScreen('editor')" class="px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 rounded-full hover:brightness-110 shadow-sm shrink-0">
+                  立即拼合
                 </button>
               </div>
 
-              <!-- Sub-panel 4: Canvas & Titanium Mockup Studio -->
-              <div id="subpanel-canvas" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-slate-400">3D 机型外壳</span>
-                  <div class="flex items-center gap-1">
-                    <button onclick="setFrameStyle('none')" id="frame-btn-none" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">纯图</button>
-                    <button onclick="setFrameStyle('natural')" id="frame-btn-natural" class="px-2 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 font-bold">原色钛</button>
-                    <button onclick="setFrameStyle('black')" id="frame-btn-black" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">深空黑</button>
-                    <button onclick="setFrameStyle('silver')" id="frame-btn-silver" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">银白钛</button>
-                  </div>
-                </div>
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-slate-400">画板背景</span>
-                  <div class="flex items-center gap-1">
-                    <button onclick="setBgStyle('blur')" id="bg-btn-blur" class="px-2 py-0.5 rounded bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 font-bold">磨砂玻璃</button>
-                    <button onclick="setBgStyle('gradient')" id="bg-btn-gradient" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">晨曦渐变</button>
-                    <button onclick="setBgStyle('dark')" id="bg-btn-dark" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">极夜黑</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Primary 4-Tab Liquid Glass Mode Switcher -->
-              <div class="liquid-glass rounded-2xl p-1.5 flex items-center justify-around border-white/20">
-                <button onclick="switchEditorMode('seam')" id="btn-mode-seam" class="editor-mode-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-indigo-400 bg-white/10">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
-                  <span class="text-[9px] font-bold">接缝对齐</span>
-                </button>
-                <button onclick="switchEditorMode('annotation')" id="btn-mode-annotation" class="editor-mode-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400 hover:text-white">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                  <span class="text-[9px] font-bold">全套标注</span>
-                </button>
-                <button onclick="switchEditorMode('slicer')" id="btn-mode-slicer" class="editor-mode-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400 hover:text-white">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                  <span class="text-[9px] font-bold">9宫格切片</span>
-                </button>
-                <button onclick="switchEditorMode('canvas')" id="btn-mode-canvas" class="editor-mode-btn flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-slate-400 hover:text-white">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                  <span class="text-[9px] font-bold">带壳画板</span>
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-
-          <!-- SCREEN 3: DYNAMIC ISLAND SIMULATION -->
-          <div id="screen-dynamic-island" class="screen-view flex-1 p-5 space-y-5 hidden overflow-y-auto">
-            <div class="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 class="text-base font-bold text-white">灵动岛实时拼合广播</h3>
-              <button onclick="switchScreen('home')" class="text-xs text-indigo-400">返回</button>
-            </div>
-            
-            <div class="space-y-4">
-              <div class="space-y-1">
-                <span class="text-[10px] text-slate-400">1. 常态紧凑药丸 (在微信录屏滚屏时)</span>
-                <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
-                  <div class="w-36 h-7 bg-black rounded-full flex items-center justify-between px-3 text-[10px]">
-                    <span class="flex items-center gap-1 text-red-400 font-bold">
-                      <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                      REC
+              <!-- Auto-detected Recent Continuous Screenshots -->
+              <div class="liquid-glass rounded-2xl p-3.5 space-y-2 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-indigo-400">
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 012.828 0L19.414 11A2 2 0 0120 12.414V16a2 2 0 01-2 2h-7.071A5.002 5.002 0 0110 14.243zM15 13a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                     </span>
-                    <span class="text-slate-300 font-mono">14 屏捕获</span>
+                    <span class="text-xs font-bold text-white">检测到 4 张最近连续截屏</span>
+                  </div>
+                  <button onclick="switchScreen('editor')" class="px-2.5 py-1 text-xs font-bold bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-colors shadow-sm">
+                    一键拼合
+                  </button>
+                </div>
+                <p class="text-[11px] text-slate-400">相册 5 分钟内连续截取，符合同机型宽高比，算法已就绪。</p>
+              </div>
+
+              <!-- Core 2-Column Action Tiles -->
+              <div class="grid grid-cols-2 gap-3">
+                <div onclick="switchScreen('editor')" class="liquid-glass rounded-2xl p-3.5 flex flex-col justify-between h-24 cursor-pointer hover:border-indigo-400/40 transition-all">
+                  <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-400/20">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-white">相册多图拼接</h4>
+                    <p class="text-[10px] text-slate-400">选择连续截图对齐</p>
+                  </div>
+                </div>
+
+                <div onclick="switchScreen('studio')" class="liquid-glass rounded-2xl p-3.5 flex flex-col justify-between h-24 cursor-pointer hover:border-teal-400/40 transition-all">
+                  <div class="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center border border-pink-400/20">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-white">3D 摄影棚制图</h4>
+                    <p class="text-[10px] text-slate-400">一键生成悬浮海报</p>
                   </div>
                 </div>
               </div>
 
-              <div class="space-y-1">
-                <span class="text-[10px] text-slate-400">2. 展开态 (停止录制瞬间后台 0.3s 拼合)</span>
-                <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
-                  <div class="w-72 h-16 bg-black rounded-3xl p-3 flex items-center justify-between">
-                    <div class="flex items-center gap-2.5">
-                      <div class="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                      </div>
-                      <div>
-                        <div class="text-xs font-bold text-white">正在执行 CoreGraphics 拼接</div>
-                        <div class="text-[10px] text-slate-400">过滤吸顶吸底 · 内存常态 26MB</div>
+              <!-- Hardware Action Button & Back Tap Card -->
+              <div onclick="switchScreen('action-button')" class="liquid-glass rounded-2xl p-3.5 flex items-center justify-between cursor-pointer hover:border-blue-400/40 transition-all">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-400/20">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-xs font-bold text-white">15 Pro 操作按钮 & 轻点背面</span>
+                      <span class="text-[9px] font-bold px-1.5 py-0.2 bg-blue-500 text-white rounded-full">0.3秒</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">连按截屏后，轻敲背面或按侧键，免开 App 秒拼入剪贴板</p>
+                  </div>
+                </div>
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+              </div>
+
+              <!-- 3D Cover Flow Stage with Interactive Swapping -->
+              <div class="space-y-2 pt-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-300">历史长截图展台 (点按切换 3D 卡片)</span>
+                  <span class="text-[10px] text-slate-500">空间透视流</span>
+                </div>
+                <div class="w-full h-36 bg-slate-900/60 rounded-2xl border border-white/10 flex items-center justify-center perspective-stage overflow-hidden relative">
+                  <!-- Left 3D Card -->
+                  <div onclick="swapCoverCard('left')" id="card-left" class="cover-card-left w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute left-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
+                    <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
+                    <div class="w-3/4 h-2 bg-slate-700 rounded mb-2"></div>
+                    <div class="flex-1 bg-slate-900 rounded"></div>
+                    <span class="text-[7px] text-slate-400 text-center mt-1">知乎长文</span>
+                  </div>
+                  <!-- Center Active 3D Card -->
+                  <div onclick="switchScreen('editor')" id="card-center" class="cover-card-center w-24 h-32 bg-slate-800 rounded-xl border-2 border-indigo-500 shadow-2xl z-10 flex flex-col p-1.5 relative cursor-pointer transition-all duration-300">
+                    <div class="w-full h-2.5 bg-indigo-500/40 rounded mb-1.5"></div>
+                    <div class="w-full space-y-1">
+                      <div class="w-12 h-2 bg-slate-700 rounded"></div>
+                      <div class="w-16 h-2 bg-indigo-900/60 rounded"></div>
+                      <div class="w-10 h-2 bg-slate-700 rounded"></div>
+                    </div>
+                    <span class="absolute bottom-1 right-1 text-[8px] bg-indigo-600 text-white px-1 rounded font-mono">3420px</span>
+                  </div>
+                  <!-- Right 3D Card -->
+                  <div onclick="swapCoverCard('right')" id="card-right" class="cover-card-right w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute right-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
+                    <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
+                    <div class="w-1/2 h-2 bg-slate-700 rounded mb-2"></div>
+                    <div class="flex-1 bg-slate-900 rounded"></div>
+                    <span class="text-[7px] text-slate-400 text-center mt-1">小红书图文</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- SCREEN 2: ALL-IN-ONE LIQUID GLASS EDITOR -->
+            <div id="screen-editor" class="screen-view flex-1 flex flex-col hidden relative overflow-hidden bg-slate-950">
+              
+              <!-- Editor Top Navigation Bar -->
+              <div class="px-3.5 py-2 flex items-center justify-between border-b border-white/10 z-20 bg-slate-950/80 backdrop-blur-md">
+                <button onclick="switchScreen('home')" class="text-xs text-slate-300 hover:text-white flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                  完成
+                </button>
+                
+                <!-- Preset Mode Dropdown -->
+                <div class="relative">
+                  <select id="preset-selector" onchange="onPresetChange(this.value)" class="bg-white/10 text-white text-[11px] font-semibold px-2 py-1 rounded-full border border-white/20 focus:outline-none cursor-pointer">
+                    <option value="chat" class="bg-slate-900 text-white">微信聊天模式 (去吸顶/底)</option>
+                    <option value="movie" class="bg-slate-900 text-white">电影台词模式 (字幕连排)</option>
+                    <option value="web" class="bg-slate-900 text-white">网页长文模式 (去导航栏)</option>
+                    <option value="feed" class="bg-slate-900 text-white">信息流模式 (全内容对齐)</option>
+                  </select>
+                </div>
+
+                <!-- Fast Export Actions -->
+                <div class="flex items-center gap-1.5">
+                  <button onclick="copyToClipboard()" title="复制长图到剪贴板" class="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-slate-300 hover:text-white">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                  </button>
+                  <button onclick="openExportModal()" class="px-2.5 py-1 text-xs font-bold bg-indigo-600 text-white rounded-full hover:bg-indigo-500 shadow-sm flex items-center gap-1">
+                    <span>导出</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- FLOATING TELEMETRY ISLAND (TOP CENTER HUD) -->
+              <div class="px-3 pt-2 z-20 flex flex-col items-center">
+                <button onclick="toggleTelemetryDetail()" class="liquid-pill px-3 py-1 rounded-full flex items-center gap-2 text-[10px] text-slate-300 hover:border-indigo-400/50 shadow-sm cursor-pointer transition-all">
+                  <span class="text-cyan-400 font-mono font-semibold">1170×14890</span>
+                  <span class="w-1 h-1 bg-white/30 rounded-full"></span>
+                  <span class="flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span class="font-mono text-emerald-300">34.2 MB</span>
+                  </span>
+                  <span class="w-1 h-1 bg-white/30 rounded-full"></span>
+                  <span class="text-yellow-400 font-bold flex items-center gap-0.5">
+                    <span>⚠️ 微信防糊</span>
+                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </span>
+                </button>
+
+                <!-- Expanded Telemetry Matrix Sheet -->
+                <div id="telemetry-sheet" class="w-full mt-1.5 liquid-glass rounded-xl p-2.5 space-y-2 hidden text-[11px] border-cyan-400/30">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-slate-400">离线渲染内存安全水位</span>
+                    <span class="text-emerald-400 font-mono">34.2 / 50.0 MB (安全)</span>
+                  </div>
+                  <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full w-[68%]"></div>
+                  </div>
+                  <div class="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-200 text-[10px] space-y-0.5">
+                    <div class="font-bold flex items-center gap-1">⚠️ 微信超长图压缩预警</div>
+                    <div class="text-slate-300">画幅超过 10,000px，微信原图将自动强行压糊！建议点击底部【9宫格切片】一键拆分无损发布。</div>
+                  </div>
+                  <div class="flex justify-around text-center pt-1 text-[10px]">
+                    <div><span class="text-slate-400 block">色彩空间</span><span class="font-mono text-slate-200">Display P3</span></div>
+                    <div><span class="text-slate-400 block">渲染分块</span><span class="font-mono text-slate-200">8 瓦片切片</span></div>
+                    <div><span class="text-slate-400 block">隐私算力</span><span class="font-mono text-emerald-400">100% Neural</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Virtual Long Canvas Scroll Stage -->
+              <div id="canvas-scroll-container" onscroll="syncMinimapScroll()" class="flex-1 overflow-y-auto p-4 flex flex-col items-center relative transition-all duration-300">
+                
+                <!-- FLOATING MINIMAP RADAR SCRUBBER (RIGHT EDGE) -->
+                <div id="minimap-track" class="absolute right-2 top-8 w-5 h-44 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex flex-col items-center p-1 z-30 shadow-lg cursor-pointer">
+                  <div class="w-1 h-1 bg-white/40 rounded-full mb-1"></div>
+                  <div id="minimap-thumb" class="w-3 h-8 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full border border-white/70 shadow-md transition-all"></div>
+                  <div class="w-1 h-1 bg-white/40 rounded-full mt-auto"></div>
+                </div>
+
+                <!-- FLOATING MAGNIFYING LOUPE (INSPECTION LENS) -->
+                <div id="loupe-lens" class="w-24 h-24 rounded-full border-[3px] border-amber-400/80 shadow-2xl absolute pointer-events-none hidden z-40 bg-[#EDEDED] overflow-hidden -translate-x-12 -translate-y-28">
+                  <!-- Loupe Crosshairs -->
+                  <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-full h-px bg-orange-500/60"></div>
+                    <div class="h-full w-px bg-orange-500/60 absolute"></div>
+                    <div class="w-4 h-4 rounded-full border border-orange-500/60 absolute"></div>
+                  </div>
+                  <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] bg-black/70 text-white px-1 rounded font-mono">2.5x</div>
+                </div>
+
+                <!-- Outer Device Mockup Container -->
+                <div id="mockup-bezel" class="w-[280px] bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl relative transition-all duration-300 overflow-hidden">
+                  
+                  <!-- STITCHED SLICES CONTAINER -->
+                  <div id="stitched-canvas-frame" onmousemove="handleLoupeMove(event)" class="w-full relative flex flex-col text-slate-900">
+                    
+                    <!-- Slice 1: Chat Title & Top Bubbles -->
+                    <div class="w-full bg-[#EDEDED] p-2.5 border-b border-slate-300 text-[11px] relative">
+                      <div class="font-bold text-center text-slate-700 pb-1.5 border-b border-slate-200">商业效率研发群 (4人)</div>
+                      <div class="space-y-2 pt-2">
+                        <div class="flex items-start gap-1.5 relative">
+                          <div id="avatar-1" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                            <span>杜</span>
+                            <div id="avatar-mask-1" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                          </div>
+                          <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
+                            今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！
+                          </div>
+                        </div>
+                        <div class="flex items-start justify-end gap-1.5 relative">
+                          <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
+                            我的手机是 <span id="phone-text" class="font-mono bg-black/10 px-1 rounded relative">13800138000<span id="phone-mask" class="absolute inset-0 bg-slate-900/90 rounded hidden text-[8px] text-white text-center">已脱敏</span></span>，测试款直接打我电话！
+                          </div>
+                          <div id="avatar-2" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                            <span>我</span>
+                            <div id="avatar-mask-2" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <span class="text-xs font-mono text-indigo-400 font-bold">92%</span>
+
+                    <!-- Seam Indicator Line 1 -->
+                    <div id="seam-line-1" class="w-full bg-emerald-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm">
+                      <span>▲ 最佳缝合能量行: <span id="overlap-label-1">44pt</span> (避开文字，无割裂) ▼</span>
+                    </div>
+
+                    <!-- Slice 2: Middle Chat Content -->
+                    <div id="middle-slice" class="w-full bg-[#EDEDED] p-2.5 text-[11px] relative">
+                      <div class="space-y-2">
+                        <div class="flex items-start gap-1.5">
+                          <div id="avatar-3" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                            <span>杜</span>
+                            <div id="avatar-mask-3" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                          </div>
+                          <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
+                            必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！
+                          </div>
+                        </div>
+                        <div class="flex items-start justify-end gap-1.5">
+                          <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
+                            断句算法自动避开文字正文行，切图不切字！
+                          </div>
+                          <div id="avatar-4" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                            <span>我</span>
+                            <div id="avatar-mask-4" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Seam Indicator Line 2 -->
+                    <div id="seam-line-2" class="w-full bg-emerald-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm">
+                      <span>▲ 最佳缝合能量行: <span id="overlap-label-2">40pt</span> (气泡平滑无缝) ▼</span>
+                    </div>
+
+                    <!-- Slice 3: Bottom Chat & Input Box -->
+                    <div class="w-full bg-[#EDEDED] p-2.5 text-[11px] relative">
+                      <div class="space-y-2 pb-2">
+                        <div class="flex items-start gap-1.5">
+                          <div id="avatar-5" class="avatar-box w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                            <span>杜</span>
+                            <div id="avatar-mask-5" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                          </div>
+                          <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
+                            端侧 Vision AI 一键脱敏和全文 OCR 提取也加上！
+                          </div>
+                        </div>
+                        <div class="flex items-start justify-end gap-1.5">
+                          <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-sm max-w-[70%]">
+                            已全量打通！Neural Engine 毫秒级离线运行，100% 隐私安全！
+                          </div>
+                          <div id="avatar-6" class="avatar-box w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] relative overflow-hidden">
+                            <span>我</span>
+                            <div id="avatar-mask-6" class="absolute inset-0 bg-slate-800/90 backdrop-blur-sm hidden flex items-center justify-center text-[7px] text-white">脱敏</div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- WeChat Bottom Input Box -->
+                      <div class="w-full h-8 bg-white rounded-md border border-slate-300 flex items-center px-2 text-[10px] text-slate-400 mt-2">
+                        <span>按住 说话</span>
+                      </div>
+                    </div>
+
+                    <!-- INTERACTIVE PRIVACY BRUSH SCRATCH CANVAS LAYER -->
+                    <canvas id="brush-canvas" width="280" height="420" class="absolute inset-0 z-20 pointer-events-none"></canvas>
+
+                    <!-- INTERACTIVE ANNOTATION OVERLAYS -->
+                    <div id="anno-box" class="absolute top-10 left-4 right-4 h-14 border-2 border-red-500 rounded-md pointer-events-none hidden">
+                      <span class="absolute -top-3 left-2 bg-red-500 text-white text-[8px] font-bold px-1 rounded">红框批注</span>
+                    </div>
+                    <div id="anno-arrow" class="absolute top-28 left-6 pointer-events-none hidden text-red-500 flex items-center gap-1 font-bold text-xs">
+                      <svg class="w-8 h-8 -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                      <span class="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow">核心重点</span>
+                    </div>
+                    <div id="anno-step" class="absolute top-44 left-3 pointer-events-none hidden flex flex-col gap-6">
+                      <span class="w-5 h-5 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-[10px] shadow">1</span>
+                      <span class="w-5 h-5 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-[10px] shadow">2</span>
+                    </div>
+                    <div id="anno-highlighter" class="absolute top-52 left-8 w-44 h-5 bg-yellow-300/60 rounded mix-blend-multiply pointer-events-none hidden"></div>
+                    <div id="anno-mosaic" class="absolute top-28 right-4 w-12 h-6 bg-slate-800/90 rounded border border-white/40 pointer-events-none hidden flex items-center justify-center text-[8px] text-white">
+                      打码
+                    </div>
+
                   </div>
+
                 </div>
               </div>
 
-              <div class="space-y-1">
-                <span class="text-[10px] text-slate-400">3. 拼合完成态 (直接存入剪贴板)</span>
-                <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
-                  <div class="w-72 h-14 bg-black rounded-3xl p-3 flex items-center justify-between border border-emerald-500/40">
+              <!-- Toast Notification -->
+              <div id="clipboard-toast" class="absolute top-14 left-1/2 -translate-x-1/2 liquid-pill px-4 py-1.5 text-xs text-white rounded-full hidden flex items-center gap-2 z-40 shadow-xl border-emerald-400/50">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="clipboard-toast-text">长截图已直接存入剪贴板，可前往微信粘贴！</span>
+              </div>
+
+              <!-- BOTTOM EXPANDABLE LIQUID GLASS TOOLBAR -->
+              <div class="px-3 pb-3 z-30 flex flex-col gap-2">
+                
+                <!-- Sub-panel 1: Tactile Seam Dial & Seam Energy Waveform -->
+                <div id="subpanel-seam" class="liquid-glass rounded-xl p-2.5 flex flex-col gap-2">
+                  <!-- Header: Energy readout -->
+                  <div class="flex items-center justify-between text-[11px]">
+                    <div class="flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                      <span class="font-bold text-slate-200">接缝对齐能量谱</span>
+                    </div>
+                    <div class="flex items-center gap-1 font-mono">
+                      <span id="overlap-indicator" class="font-bold text-emerald-400">44.0 pt</span>
+                      <span id="magnetic-spark" class="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded-full border border-emerald-400/30">✨ 磁吸最佳</span>
+                    </div>
+                  </div>
+
+                  <!-- Seam Energy Waveform Canvas -->
+                  <div class="w-full h-8 bg-black/40 rounded-lg overflow-hidden border border-white/10 relative">
+                    <canvas id="waveform-canvas" width="280" height="32" class="w-full h-full block"></canvas>
+                  </div>
+
+                  <!-- Knurled Mechanical Ruler Wheel (Interactive Drag) -->
+                  <div class="relative w-full h-9 bg-slate-900 rounded-lg border border-white/20 overflow-hidden flex items-center select-none cursor-ew-resize" id="dial-container">
+                    <div id="dial-ruler" class="knurled-track absolute left-0 top-0 h-full w-[600px] -translate-x-[150px] transition-transform duration-75"></div>
+                    <!-- Center Reticle Line -->
+                    <div class="absolute left-1/2 -translate-x-1/2 w-0.5 h-6 bg-emerald-400 shadow-[0_0_8px_#34C759] z-10 pointer-events-none"></div>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[10px] pt-0.5">
+                    <button onclick="snapToOptimal()" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold hover:brightness-110">
+                      🎯 吸附最佳接缝
+                    </button>
+                    <button onclick="toggleLoupe()" id="btn-loupe" class="px-2 py-0.5 rounded-full bg-white/10 text-slate-300 hover:text-white flex items-center gap-1">
+                      <span>🔍 2.5x 放大镜</span>
+                    </button>
+                    <button onclick="resetSeamDial()" class="text-slate-400 hover:text-white">重置归零</button>
+                  </div>
+                </div>
+
+                <!-- Sub-panel 2: Interactive Frost Scratch Privacy Brush -->
+                <div id="subpanel-privacy" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
+                  <div class="flex items-center justify-between text-xs pb-1 border-b border-white/10">
+                    <span class="font-bold text-slate-200">隐私刮刮乐涂抹笔刷</span>
                     <div class="flex items-center gap-2">
-                      <span class="w-5 h-5 rounded-full bg-emerald-500 text-black flex items-center justify-center font-bold text-xs">✓</span>
-                      <span class="text-xs font-bold text-white">长截图已复制到剪贴板！</span>
+                      <button onclick="undoBrushStroke()" class="text-slate-400 hover:text-white text-[10px]">撤销</button>
+                      <button onclick="clearBrushStrokes()" class="text-red-400 hover:text-red-300 text-[10px]">清空</button>
                     </div>
-                    <button onclick="switchScreen('editor')" class="px-2 py-1 text-[10px] bg-emerald-500 text-black font-bold rounded-full">查看</button>
+                  </div>
+
+                  <!-- Brush Types -->
+                  <div class="grid grid-cols-3 gap-1.5">
+                    <button onclick="setBrushType('frost')" id="brush-btn-frost" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-600 text-white shadow-sm flex items-center justify-center gap-1">
+                      <span>❄️ 极光毛玻璃</span>
+                    </button>
+                    <button onclick="setBrushType('mosaic')" id="brush-btn-mosaic" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/10 text-slate-300 hover:text-white flex items-center justify-center gap-1">
+                      <span>🔳 像素马赛克</span>
+                    </button>
+                    <button onclick="setBrushType('ink')" id="brush-btn-ink" class="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/10 text-slate-300 hover:text-white flex items-center justify-center gap-1">
+                      <span>✒️ 机密墨水笔</span>
+                    </button>
+                  </div>
+
+                  <!-- Brush Width -->
+                  <div class="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                    <span>笔触粗细:</span>
+                    <div class="flex items-center gap-2">
+                      <button onclick="setBrushSize(14)" id="brush-size-14" class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:text-white">细</button>
+                      <button onclick="setBrushSize(24)" id="brush-size-24" class="w-5 h-5 rounded-full bg-indigo-600 text-white font-bold">中</button>
+                      <button onclick="setBrushSize(36)" id="brush-size-36" class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:text-white">粗</button>
+                    </div>
+                    <span class="text-emerald-400">直接在屏幕上涂抹</span>
+                  </div>
+                </div>
+
+                <!-- Sub-panel 3: Annotation Tools -->
+                <div id="subpanel-annotation" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
+                  <div class="flex items-center justify-between gap-1.5 pb-1 border-b border-white/10">
+                    <button onclick="triggerVisionAutoRedaction()" id="btn-ai-redact" class="px-2.5 py-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 rounded-full border border-amber-400/30 flex items-center gap-1 hover:brightness-110">
+                      <span>✨ AI一键脱敏</span>
+                    </button>
+                    <button onclick="openOCRModal()" class="px-2.5 py-1 text-[11px] font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-400/30 flex items-center gap-1 hover:brightness-110">
+                      <span>📄 提取长图文字</span>
+                    </button>
+                    <button onclick="clearAllAnnotations()" class="text-[11px] text-slate-400 hover:text-white px-2">清空</button>
+                  </div>
+
+                  <div class="flex items-center justify-around pt-0.5">
+                    <button onclick="toggleAnno('box')" id="btn-anno-box" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">矩形框</button>
+                    <button onclick="toggleAnno('arrow')" id="btn-anno-arrow" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">箭头</button>
+                    <button onclick="toggleAnno('step')" id="btn-anno-step" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">①②③序号</button>
+                    <button onclick="toggleAnno('highlighter')" id="btn-anno-highlighter" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">荧光笔</button>
+                  </div>
+                </div>
+
+                <!-- Sub-panel 4: Social 9-Grid Slicer with Interactive 3x3 Stage -->
+                <div id="subpanel-slicer" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-300 font-bold">小红书 3:4 黄金切片连排</span>
+                    <div class="flex items-center gap-1">
+                      <button onclick="setGridCount(3)" id="grid-btn-3" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">3图</button>
+                      <button onclick="setGridCount(6)" id="grid-btn-6" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">6图</button>
+                      <button onclick="setGridCount(9)" id="grid-btn-9" class="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold">9宫格</button>
+                    </div>
+                  </div>
+
+                  <!-- 3x3 Interactive Grid Cards -->
+                  <div class="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-xl">
+                    <div onclick="tapGridCard(1)" id="grid-card-1" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#1 封面</div>
+                    <div onclick="tapGridCard(2)" id="grid-card-2" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#2 正文</div>
+                    <div onclick="tapGridCard(3)" id="grid-card-3" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#3 亮点</div>
+                    <div onclick="tapGridCard(4)" id="grid-card-4" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#4 细节</div>
+                    <div onclick="tapGridCard(5)" id="grid-card-5" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#5 数据</div>
+                    <div onclick="tapGridCard(6)" id="grid-card-6" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#6 论述</div>
+                    <div onclick="tapGridCard(7)" id="grid-card-7" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#7 截图</div>
+                    <div onclick="tapGridCard(8)" id="grid-card-8" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#8 结论</div>
+                    <div onclick="tapGridCard(9)" id="grid-card-9" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#9 尾页</div>
+                  </div>
+
+                  <button onclick="sliceAndSaveToAlbum()" class="w-full py-1.5 text-xs font-bold bg-gradient-to-r from-pink-500 to-indigo-600 text-white rounded-xl shadow-sm hover:brightness-110 flex items-center justify-center gap-1">
+                    <span>避开文字断句并保存全部切片进相册</span>
+                  </button>
+                </div>
+
+                <!-- Primary 4-Tab Liquid Glass Mode Switcher -->
+                <div class="liquid-glass rounded-2xl p-1.5 flex items-center justify-around border-white/20">
+                  <button onclick="switchEditorMode('seam')" id="btn-mode-seam" class="editor-mode-btn flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-indigo-400 bg-white/10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+                    <span class="text-[9px] font-bold">棘轮对齐</span>
+                  </button>
+                  <button onclick="switchEditorMode('privacy')" id="btn-mode-privacy" class="editor-mode-btn flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-slate-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    <span class="text-[9px] font-bold">隐私涂抹</span>
+                  </button>
+                  <button onclick="switchEditorMode('annotation')" id="btn-mode-annotation" class="editor-mode-btn flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-slate-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span class="text-[9px] font-bold">全套标注</span>
+                  </button>
+                  <button onclick="switchEditorMode('slicer')" id="btn-mode-slicer" class="editor-mode-btn flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-xl text-slate-400 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                    <span class="text-[9px] font-bold">9宫切片</span>
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- SCREEN 3: 3D STUDIO SHOWROOM (摄影棚展示与海报导出) -->
+            <div id="screen-studio" class="screen-view flex-1 flex flex-col hidden relative overflow-hidden bg-slate-950 p-4 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <div>
+                  <h3 class="text-sm font-bold text-white">3D 摄影棚制图</h3>
+                  <p class="text-[10px] text-slate-400">空间透视悬浮 · 拟真旗舰带壳 · 社交海报直出</p>
+                </div>
+                <button onclick="switchScreen('editor')" class="text-xs text-indigo-400">返回编辑器</button>
+              </div>
+
+              <!-- Interactive 3D Perspective Stage -->
+              <div id="studio-stage" class="flex-1 bg-gradient-to-tr from-indigo-950 via-slate-900 to-purple-900 rounded-2xl border border-white/20 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none" onmousedown="startStudioDrag(event)">
+                <!-- Ambient Spotlight Glow -->
+                <div class="absolute inset-0 bg-radial from-white/10 to-transparent pointer-events-none"></div>
+
+                <!-- 3D Phone Model Preview -->
+                <div id="studio-phone" class="w-48 h-84 bg-slate-900 rounded-[30px] border-[3px] border-amber-600/50 shadow-2xl p-1 relative flex flex-col overflow-hidden transition-transform duration-75" style="transform: rotateX(15deg) rotateY(-22deg) scale(0.9);">
+                  <div class="w-full h-4 bg-black rounded-t-[26px] flex items-center justify-center">
+                    <div class="w-12 h-2 bg-slate-800 rounded-full"></div>
+                  </div>
+                  <div class="flex-1 bg-[#EDEDED] p-2 text-[8px] space-y-1 overflow-hidden pointer-events-none text-slate-800">
+                    <div class="font-bold text-slate-600 border-b pb-0.5">商业效率研发群</div>
+                    <div class="bg-white p-1 rounded shadow-xs">今天我们要冲榜首！</div>
+                    <div class="bg-[#95EC69] p-1 rounded shadow-xs text-right">已支持苹果液态玻璃！</div>
+                    <div class="bg-white p-1 rounded shadow-xs">3D 摄影棚一键海报！</div>
+                  </div>
+                  <div class="w-full h-3 bg-black rounded-b-[26px] flex items-center justify-center">
+                    <div class="w-10 h-0.5 bg-white/40 rounded-full"></div>
+                  </div>
+                </div>
+
+                <div class="absolute bottom-2 left-2 text-[9px] text-slate-400 bg-black/60 px-2 py-0.5 rounded-full pointer-events-none">
+                  按住拖拽自由旋转 3D 视角
+                </div>
+              </div>
+
+              <!-- Studio Controls -->
+              <div class="liquid-glass rounded-xl p-3 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-slate-400">摄影棚氛围</span>
+                  <div class="flex items-center gap-1">
+                    <button onclick="setStudioTheme('sunset')" class="px-2 py-0.5 text-[10px] rounded bg-purple-600/40 text-purple-200 border border-purple-400/30">加州暖霞</button>
+                    <button onclick="setStudioTheme('aurora')" class="px-2 py-0.5 text-[10px] rounded bg-white/10 text-slate-300">极光青蓝</button>
+                    <button onclick="setStudioTheme('obsidian')" class="px-2 py-0.5 text-[10px] rounded bg-white/10 text-slate-300">极夜黑曜</button>
+                    <button onclick="setStudioTheme('clean')" class="px-2 py-0.5 text-[10px] rounded bg-white/10 text-slate-300">棚拍纯白</button>
+                  </div>
+                </div>
+
+                <button onclick="exportStudioPoster()" class="w-full py-2 bg-white text-black font-bold rounded-xl text-xs shadow-lg hover:bg-slate-200 flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  <span>一键导出 3D 悬浮展示海报</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- SCREEN 4: DYNAMIC ISLAND SIMULATION -->
+            <div id="screen-dynamic-island" class="screen-view flex-1 p-5 space-y-5 hidden overflow-y-auto">
+              <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-base font-bold text-white">灵动岛实时拼合广播</h3>
+                <button onclick="switchScreen('home')" class="text-xs text-indigo-400">返回</button>
+              </div>
+              
+              <div class="space-y-4">
+                <div class="space-y-1">
+                  <span class="text-[10px] text-slate-400">1. 常态紧凑药丸 (在微信录屏滚屏时)</span>
+                  <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
+                    <div class="w-36 h-7 bg-black rounded-full flex items-center justify-between px-3 text-[10px]">
+                      <span class="flex items-center gap-1 text-red-400 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                        REC
+                      </span>
+                      <span class="text-slate-300 font-mono">14 屏捕获</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <span class="text-[10px] text-slate-400">2. 展开态 (停止录制瞬间后台 0.3s 拼合)</span>
+                  <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
+                    <div class="w-72 h-16 bg-black rounded-3xl p-3 flex items-center justify-between">
+                      <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                          <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </div>
+                        <div>
+                          <div class="text-xs font-bold text-white">正在执行 CoreGraphics 拼接</div>
+                          <div class="text-[10px] text-slate-400">过滤吸顶吸底 · 内存常态 26MB</div>
+                        </div>
+                      </div>
+                      <span class="text-xs font-mono text-indigo-400 font-bold">92%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <span class="text-[10px] text-slate-400">3. 拼合完成态 (直接存入剪贴板)</span>
+                  <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
+                    <div class="w-72 h-14 bg-black rounded-3xl p-3 flex items-center justify-between border border-emerald-500/40">
+                      <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500 text-black flex items-center justify-center font-bold text-xs">✓</span>
+                        <span class="text-xs font-bold text-white">长截图已复制到剪贴板！</span>
+                      </div>
+                      <button onclick="switchScreen('editor')" class="px-2 py-1 text-[10px] bg-emerald-500 text-black font-bold rounded-full">查看</button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- SCREEN 4: HARDWARE ACTION BUTTON & BACK TAP -->
-          <div id="screen-action-button" class="screen-view flex-1 p-5 space-y-4 hidden overflow-y-auto">
-            <div class="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 class="text-base font-bold text-white">15 Pro 硬件极速联动</h3>
-              <button onclick="switchScreen('home')" class="text-xs text-indigo-400">返回</button>
-            </div>
+            <!-- SCREEN 5: HARDWARE ACTION BUTTON & BACK TAP -->
+            <div id="screen-action-button" class="screen-view flex-1 p-5 space-y-4 hidden overflow-y-auto">
+              <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-base font-bold text-white">15 Pro 硬件极速联动</h3>
+                <button onclick="switchScreen('home')" class="text-xs text-indigo-400">返回</button>
+              </div>
 
-            <div class="liquid-glass rounded-2xl p-4 space-y-3">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">
-                  ⚡️
+              <div class="liquid-glass rounded-2xl p-4 space-y-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">
+                    ⚡️
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-white">操作按钮 (Action Button)</h4>
+                    <p class="text-[10px] text-slate-400">按住 15 Pro 侧边操作按钮，立即唤醒 AppIntent 后台拼合</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 class="text-xs font-bold text-white">0.3 秒后台无感拼图</h4>
-                  <p class="text-[10px] text-slate-400">不打扰当前聊天，不跳转打开 App</p>
+                <div class="p-3 bg-black/40 rounded-xl border border-white/10 text-[11px] text-slate-300">
+                  用户连截 3-4 张图后，单手长按操作按钮，系统无感执行，触觉振动提示，直接完成！
                 </div>
-              </div>
-              <p class="text-[11px] text-slate-300 leading-relaxed">
-                在微信、小红书截取 2~4 张图后，长按 15 Pro 侧边操作按钮或轻敲手机背面两下，系统在后台 0.3 秒提取相册截屏、对齐接缝并写入剪贴板，手机发出一记轻微触觉振动！
-              </p>
-              <button onclick="simulateActionTrigger()" class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:brightness-110 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-500/20 transition-all">
-                点此测试硬件触发模拟
-              </button>
-            </div>
-
-            <div class="space-y-2 text-xs">
-              <h5 class="font-bold text-slate-300">系统配置路径：</h5>
-              <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
-                <div class="text-blue-400 font-semibold">途径一：15 Pro / 16 Pro 操作按钮</div>
-                <p class="text-slate-400 text-[10px]">打开系统【设置】->【操作按钮】-> 选择【快捷指令】-> 找到并选中【ScrollSnap: 一键拼合长截图】。</p>
-              </div>
-              <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
-                <div class="text-indigo-400 font-semibold">途径二：所有 iPhone【轻点背面】</div>
-                <p class="text-slate-400 text-[10px]">打开系统【设置】->【辅助功能】->【触控】->【轻点背面】->【轻点两下】绑定该快捷指令。</p>
+                <button onclick="simulateActionTrigger()" class="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-500">
+                  模拟按住 Action Button
+                </button>
               </div>
             </div>
-          </div>
 
-          <!-- Bottom Home Bar -->
-          <div class="w-full h-5 flex justify-center items-center z-30 bg-slate-950">
-            <div class="w-32 h-1 bg-white/40 rounded-full"></div>
           </div>
-
         </div>
       </div>
     </section>
 
-    <!-- Right: High-End UI Features & Interaction Innovations -->
+    <!-- Right: Feature Highlights & Commercial Architecture -->
     <section class="lg:col-span-6 space-y-4">
       
-      <!-- Interactive Polish Innovations Card -->
-      <div class="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden border-indigo-500/40">
-        <div class="flex items-center gap-2.5">
-          <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm shadow-md">✨</span>
+      <!-- High-End Value Prop Card -->
+      <div class="liquid-glass rounded-2xl p-5 space-y-4 relative overflow-hidden">
+        <div class="absolute inset-0 liquid-specular pointer-events-none"></div>
+
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
           <div>
-            <h3 class="text-sm font-bold text-white">Apple 设计奖级交互与视觉打磨</h3>
-            <p class="text-[10px] text-slate-400">高级质感、趣味触觉与丝滑操控的结合</p>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              🏆 效率榜顶流破局策略
+            </h3>
+            <p class="text-xs text-slate-400">纯粹效率工具 · 拒绝虚假臃肿 · 极致打磨用户痛点</p>
+          </div>
+          <span class="text-xs font-bold text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-400/30">
+            ¥1.00 永久买断
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+            <span class="text-indigo-400 font-bold flex items-center gap-1">
+              <span>🎯</span> 微米级机械棘轮微调
+            </span>
+            <p class="text-slate-300 text-[11px]">内置 NCC 互相关图像能量图谱与物理齿轮声效，滑动旋钮触觉磁吸最佳接缝，毫厘不差。</p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+            <span class="text-pink-400 font-bold flex items-center gap-1">
+              <span>❄️</span> 极光毛玻璃刮刮乐
+            </span>
+            <p class="text-slate-300 text-[11px]">告别传统丑陋马赛克！支持指尖自由涂抹苹果级极光毛玻璃与像素遮罩，保护隐私又极具质感。</p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+            <span class="text-emerald-400 font-bold flex items-center gap-1">
+              <span>🛡️</span> 微信防糊监控哨兵
+            </span>
+            <p class="text-slate-300 text-[11px]">顶置灵动胶囊实时监控画幅与内存，画幅超万像素智能预警，一键 9 宫格切片防微信压缩。</p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
+            <span class="text-cyan-400 font-bold flex items-center gap-1">
+              <span>📐</span> 3D 摄影棚悬浮海报
+            </span>
+            <p class="text-slate-300 text-[11px]">长图一键套入 iPhone 15 Pro 钛金属机身，支持空间视角拖拽与多款光影，小红书发帖神器。</p>
           </div>
         </div>
 
-        <div class="space-y-2.5 text-xs pt-1">
-          <!-- Innovation 1 -->
-          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
-            <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>1. 右侧微缩雷达导轨 (Minimap Radar HUD)</span>
-              <span class="text-indigo-400">极致好用</span>
-            </div>
-            <p class="text-[11px] text-slate-300 leading-relaxed">
-              面对上万像素的长图，普通滚动容易迷失。我们在画板右侧嵌入了液态玻璃微缩雷达导轨，拖拽发光滑块即可极速穿梭定位，随滚动自适应映射当前视口。
-            </p>
-          </div>
-
-          <!-- Innovation 2 -->
-          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
-            <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>2. 2.5x 放大镜细节检视器 (Interactive Loupe)</span>
-              <span class="text-amber-400">好玩且精准</span>
-            </div>
-            <p class="text-[11px] text-slate-300 leading-relaxed">
-              在【接缝对齐】中开启【🔍 放大镜检视】，手指移动之处即浮起带钛金镜圈和十字准星的 2.5x 悬浮透镜，接缝字符对齐与文字避障纤毫毕现！
-            </p>
-          </div>
-
-          <!-- Innovation 3 -->
-          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
-            <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>3. 触觉磁吸接缝 (Magnetic Seam Haptics)</span>
-              <span class="text-emerald-400">机械钟表手感</span>
-            </div>
-            <p class="text-[11px] text-slate-300 leading-relaxed">
-              步进调整接缝时，当重叠距离靠近 44pt 最小能量点，手机发出清脆的瞬态磁吸振动（`triggerSnap`），让拼图具备类似机械发条拧紧的扎实质感。
-            </p>
-          </div>
-
-          <!-- Innovation 4 -->
-          <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
-            <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>4. 3D Cover Flow 动态手势推拉展台</span>
-              <span class="text-pink-400">空间视差</span>
-            </div>
-            <p class="text-[11px] text-slate-300 leading-relaxed">
-              主屏历史长图采用 -34° 空间偏转矩阵，支持手势横向拨动切换，伴随拟真地表镜面倒影与侧边书脊曲面高光。
-            </p>
-          </div>
+        <!-- Privacy & Legal Protocol Links -->
+        <div class="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+          <span>合规声明：100% 纯本地离线计算，无网络追踪</span>
+          <a href="https://github.com/939243423/protocol__ScrollSnap" target="_blank" class="text-indigo-400 hover:text-indigo-300 underline flex items-center gap-1">
+            <span>隐私协议 & 服务条款</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          </a>
         </div>
-      </div>
-
-      <!-- Pricing Strategy Card -->
-      <div class="liquid-glass rounded-2xl p-4 flex items-center justify-between">
-        <div>
-          <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
-            <span class="text-amber-400">¥1.00 永久买断</span> · 每日免费 2 次
-          </h4>
-          <p class="text-[10px] text-slate-400 mt-0.5">无按月续费套路 · 已备案官方隐私与服务协议</p>
-        </div>
-        <button onclick="openPaywallModal()" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs rounded-full shadow-sm hover:brightness-110">
-          特权概览
-        </button>
       </div>
 
     </section>
 
   </main>
 
-  <!-- POPUP MODAL: FULL TEXT OCR EXTRACTION SHEET -->
-  <div id="ocr-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-    <div class="w-full max-w-md liquid-glass rounded-3xl p-6 border border-white/20 shadow-2xl relative space-y-4">
-      <button onclick="closeOCRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
-      
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-          📄
+  <!-- MODAL: OCR EXTRACTED TEXT VIEWER -->
+  <div id="ocr-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="liquid-glass w-full max-w-md rounded-3xl p-5 space-y-4 border-indigo-400/30">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">📄</span>
+          <h3 class="text-sm font-bold text-white">长图 OCR 全文提取 (时序排序)</h3>
         </div>
-        <div>
-          <h3 class="text-base font-bold text-white">长图全文提取 (Vision OCR)</h3>
-          <p class="text-[10px] text-slate-400">已按时序解析整张长图文字，支持一键复制纯文本</p>
-        </div>
+        <button onclick="closeOCRModal()" class="text-slate-400 hover:text-white text-xs">关闭</button>
       </div>
 
-      <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-white/10 max-h-60 overflow-y-auto text-xs text-slate-300 space-y-2 font-mono">
-        <p>[09:41] 杜: 今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！</p>
-        <p>[09:41] 我: 我的手机是 13800138000，测试款直接打我电话！</p>
-        <p>[09:42] 杜: 必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！</p>
-        <p>[09:42] 我: 断句算法自动避开文字正文行，切图不切字！</p>
-        <p>[09:43] 杜: 端侧 Vision AI 一键脱敏和全文 OCR 提取也加上！</p>
-        <p>[09:43] 我: 已全量打通！Neural Engine 毫秒级离线运行，100% 隐私安全！</p>
+      <div class="space-y-2 text-xs font-mono bg-black/50 p-3 rounded-xl border border-white/10 max-h-56 overflow-y-auto text-slate-300">
+        <p>1. [群名] 商业效率研发群 (4人)</p>
+        <p>2. [杜若] 今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！</p>
+        <p>3. [开发者] 我的手机是 13800138000，测试款直接打我电话！</p>
+        <p>4. [杜若] 必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！</p>
+        <p>5. [开发者] 断句算法自动避开文字正文行，切图不切字！</p>
+        <p>6. [杜若] 端侧 Vision AI 一键脱敏和全文 OCR 提取也加上！</p>
+        <p>7. [开发者] 已全量打通！Neural Engine 毫秒级离线运行，100% 隐私安全！</p>
       </div>
 
-      <button onclick="copyExtractedText()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-500/25 transition-all">
-        复制全部纯文本到剪贴板
+      <button onclick="copyExtractedText()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-md">
+        一键复制全文到剪贴板
       </button>
     </div>
   </div>
 
-  <!-- POPUP MODAL: ¥1.00 LIFETIME PURCHASE SHEET -->
-  <div id="paywall-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-    <div class="w-full max-w-md liquid-glass rounded-3xl p-6 border border-white/20 shadow-2xl relative space-y-4">
-      <button onclick="closePaywallModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
-      
-      <div class="text-center space-y-2 pt-2">
+  <!-- MODAL: 1-YUAN PERMANENT PAYWALL -->
+  <div id="paywall-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="liquid-glass w-full max-w-sm rounded-3xl p-6 space-y-4 border-amber-400/40 relative overflow-hidden shadow-2xl">
+      <button onclick="closePaywallModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+
+      <div class="text-center space-y-1">
         <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 mx-auto flex items-center justify-center text-2xl shadow-lg shadow-orange-500/30">
           ⚡️
         </div>
         <h3 class="text-lg font-bold text-white">纯粹效率 · 1元永久买断</h3>
-        <p class="text-xs text-slate-400 px-4">每天免费提供 2 次完整长截图。仅需 ¥1.00，永久解锁全套高阶效率特权，无月费无订阅。</p>
+        <p class="text-xs text-slate-400 px-2">每天免费提供 2 次完整长截图。仅需 ¥1.00，永久解锁全套高阶效率特权，无月费无订阅。</p>
       </div>
 
       <div class="space-y-2 text-xs bg-slate-950/60 p-3.5 rounded-2xl border border-white/10">
@@ -759,19 +863,16 @@
           <span class="text-amber-400">✓</span> <span>无限长截图拼接（不再受每日 2 次限制）</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
-          <span class="text-amber-400">✓</span> <span>端侧 Vision AI 一键脱敏（自动马赛克头像与手机号）</span>
+          <span class="text-amber-400">✓</span> <span>微米级机械棘轮旋钮 + 接缝能量图谱</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
-          <span class="text-amber-400">✓</span> <span>全文 OCR 提取与全局关键字检索</span>
+          <span class="text-amber-400">✓</span> <span>极光毛玻璃涂抹笔刷 & 隐私刮刮乐</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
-          <span class="text-amber-400">✓</span> <span>微缩雷达导轨 + 细节检视放大镜</span>
+          <span class="text-amber-400">✓</span> <span>3D 摄影棚悬浮展示海报直出</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
           <span class="text-amber-400">✓</span> <span>小红书 9 宫格智能断句切片拆分</span>
-        </div>
-        <div class="flex items-center gap-2 text-slate-200">
-          <span class="text-amber-400">✓</span> <span>3D 钛金属带壳 + 自适应磨砂玻璃画板</span>
         </div>
       </div>
 
@@ -779,15 +880,78 @@
         <span>支付 ¥1.00 永久买断</span>
       </button>
 
-      <div class="text-center text-[11px] text-slate-500">
+      <div class="text-center text-[10px] text-slate-500">
         App Store 一次性非消耗型购买 · 支持随 Apple ID 终身恢复
       </div>
     </div>
   </div>
 
   <script>
+    // Web Audio Synthesizer for Mechanical Haptic Feedback
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioCtx;
+    }
+
+    function playMechanicalClick() {
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1400, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.015);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.015);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.015);
+      } catch (e) {}
+    }
+
+    function playMagneticLockTone() {
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.35, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } catch (e) {}
+    }
+
+    // Global Mouse Parallax Specular
+    function handleGlobalMouseMove(e) {
+      const xRatio = (e.clientX / window.innerWidth) - 0.5;
+      const yRatio = (e.clientY / window.innerHeight) - 0.5;
+      const deg = Math.round(135 + xRatio * 60);
+      document.documentElement.style.setProperty('--specular-deg', deg + 'deg');
+
+      // Subtle 3D tilt of phone shell on mouse move
+      const device = document.getElementById('device-shell');
+      if (device && currentScreen !== 'studio') {
+        const tiltX = -yRatio * 12;
+        const tiltY = xRatio * 12;
+        device.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+      }
+    }
+
     // Screen Switcher
+    let currentScreen = 'home';
     function switchScreen(screenId) {
+      currentScreen = screenId;
       document.querySelectorAll('.screen-view').forEach(el => el.classList.add('hidden'));
       document.getElementById('screen-' + screenId).classList.remove('hidden');
 
@@ -801,11 +965,16 @@
         activeTab.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
         activeTab.classList.remove('text-slate-400');
       }
+
+      if (screenId === 'editor') {
+        drawWaveformCanvas();
+        initBrushCanvas();
+      }
     }
 
     // Editor Sub-mode Switcher
     function switchEditorMode(modeId) {
-      ['seam', 'annotation', 'slicer', 'canvas'].forEach(m => {
+      ['seam', 'privacy', 'annotation', 'slicer'].forEach(m => {
         const subpanel = document.getElementById('subpanel-' + m);
         const btn = document.getElementById('btn-mode-' + m);
         if (subpanel) subpanel.classList.add('hidden');
@@ -822,23 +991,286 @@
         activeBtn.classList.add('text-indigo-400', 'bg-white/10');
         activeBtn.classList.remove('text-slate-400');
       }
+
+      const brushCanvas = document.getElementById('brush-canvas');
+      if (brushCanvas) {
+        if (modeId === 'privacy') {
+          brushCanvas.classList.remove('pointer-events-none');
+          brushCanvas.classList.add('cursor-crosshair');
+        } else {
+          brushCanvas.classList.add('pointer-events-none');
+          brushCanvas.classList.remove('cursor-crosshair');
+        }
+      }
     }
 
-    // Seam overlap adjustment with Magnetic Haptics
+    // Telemetry Capsule Sheet Toggle
+    function toggleTelemetryDetail() {
+      const sheet = document.getElementById('telemetry-sheet');
+      sheet.classList.toggle('hidden');
+    }
+
+    // Seam Energy Waveform Canvas Drawing
     let currentOverlap = 44;
-    function adjustOverlap(delta) {
-      currentOverlap = Math.max(10, Math.min(100, currentOverlap + delta));
-      document.getElementById('overlap-indicator').innerText = currentOverlap + ' pt';
+    function drawWaveformCanvas() {
+      const canvas = document.getElementById('waveform-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw gridlines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h);
+      ctx.stroke();
+
+      // Draw Inverted Gaussian Waveform Curve
+      ctx.beginPath();
+      const optimalOffset = 44;
+      const isLocked = Math.abs(currentOverlap - optimalOffset) < 1;
+      ctx.strokeStyle = isLocked ? '#34C759' : '#F97316';
+      ctx.lineWidth = 2.2;
+
+      for (let x = 0; x <= w; x += 3) {
+        const relX = (x - w / 2) / (w * 0.4);
+        const shift = (currentOverlap - optimalOffset) / 20.0;
+        const err = 1.0 - Math.exp(-Math.pow(relX - shift, 2) * 4.0);
+        const y = h * 0.2 + (h * 0.65) * err;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Draw Optimal Dot Pin
+      const pinX = w / 2 - (currentOverlap - optimalOffset) * (w * 0.4 / 20.0);
+      if (pinX >= 0 && pinX <= w) {
+        ctx.fillStyle = isLocked ? '#34C759' : '#F97316';
+        ctx.beginPath();
+        ctx.arc(pinX, h * 0.2, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Knurled Dial Dragging
+    const dialContainer = document.getElementById('dial-container');
+    let isDraggingDial = false;
+    let dialStartX = 0;
+    let initialOverlap = 44;
+
+    if (dialContainer) {
+      dialContainer.addEventListener('mousedown', (e) => {
+        isDraggingDial = true;
+        dialStartX = e.clientX;
+        initialOverlap = currentOverlap;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDraggingDial) return;
+        const deltaX = e.clientX - dialStartX;
+        const deltaPt = Math.round(deltaX * 0.3);
+        const newOverlap = Math.max(10, Math.min(80, initialOverlap + deltaPt));
+        if (newOverlap !== currentOverlap) {
+          currentOverlap = newOverlap;
+          playMechanicalClick();
+          updateOverlapDisplay();
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDraggingDial) isDraggingDial = false;
+      });
+    }
+
+    function updateOverlapDisplay() {
+      document.getElementById('overlap-indicator').innerText = currentOverlap.toFixed(1) + ' pt';
       document.getElementById('overlap-label-1').innerText = currentOverlap + 'pt';
 
+      const ruler = document.getElementById('dial-ruler');
+      const offsetPos = -150 + (currentOverlap - 44) * 8;
+      ruler.style.transform = `translateX(${offsetPos}px)`;
+
       const spark = document.getElementById('magnetic-spark');
-      if (currentOverlap === 44) {
+      if (Math.abs(currentOverlap - 44) < 1) {
         spark.classList.remove('hidden');
-        spark.innerText = '✨ 磁吸最佳对齐';
-        spark.className = 'text-[9px] bg-amber-500/30 text-amber-300 px-1.5 py-0.2 rounded-full border border-amber-400/50 animate-bounce';
+        spark.innerText = '✨ 磁吸最佳';
+        playMagneticLockTone();
       } else {
         spark.classList.add('hidden');
       }
+      drawWaveformCanvas();
+    }
+
+    function snapToOptimal() {
+      currentOverlap = 44;
+      playMagneticLockTone();
+      updateOverlapDisplay();
+      showToast('🎯 已磁吸对齐至接缝能量极小点 (44.0 pt)');
+    }
+
+    function resetSeamDial() {
+      currentOverlap = 30;
+      updateOverlapDisplay();
+    }
+
+    // Interactive Privacy Brush Scratch Canvas
+    let brushType = 'frost';
+    let brushSize = 24;
+    let isDrawingBrush = false;
+    let brushHistory = [];
+
+    function initBrushCanvas() {
+      const canvas = document.getElementById('brush-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      canvas.onmousedown = (e) => {
+        isDrawingBrush = true;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        paintBrushPoint(ctx, x, y);
+      };
+
+      canvas.onmousemove = (e) => {
+        if (!isDrawingBrush) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        paintBrushPoint(ctx, x, y);
+      };
+
+      window.onmouseup = () => {
+        if (isDrawingBrush) {
+          isDrawingBrush = false;
+          brushHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        }
+      };
+    }
+
+    function paintBrushPoint(ctx, x, y) {
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (brushType === 'frost') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+        ctx.shadowBlur = 10;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      } else if (brushType === 'mosaic') {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#475569';
+        const s = brushSize;
+        ctx.fillRect(Math.floor(x / s) * s, Math.floor(y / s) * s, s, s);
+      } else if (brushType === 'ink') {
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+    }
+
+    function setBrushType(type) {
+      brushType = type;
+      ['frost', 'mosaic', 'ink'].forEach(t => {
+        const btn = document.getElementById('brush-btn-' + t);
+        if (btn) {
+          btn.className = (t === type)
+            ? 'px-2 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-600 text-white shadow-sm flex items-center justify-center gap-1'
+            : 'px-2 py-1.5 rounded-lg text-[10px] font-bold bg-white/10 text-slate-300 hover:text-white flex items-center justify-center gap-1';
+        }
+      });
+      showToast(`已切换至【${type === 'frost' ? '极光毛玻璃' : (type === 'mosaic' ? '像素马赛克' : '机密墨水笔')}】笔刷`);
+    }
+
+    function setBrushSize(size) {
+      brushSize = size;
+      [14, 24, 36].forEach(s => {
+        const b = document.getElementById('brush-size-' + s);
+        if (b) {
+          b.className = (s === size)
+            ? 'w-5 h-5 rounded-full bg-indigo-600 text-white font-bold'
+            : 'w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:text-white';
+        }
+      });
+    }
+
+    function undoBrushStroke() {
+      const canvas = document.getElementById('brush-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      brushHistory.pop();
+      if (brushHistory.length > 0) {
+        ctx.putImageData(brushHistory[brushHistory.length - 1], 0, 0);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      showToast('已撤销一步涂抹');
+    }
+
+    function clearBrushStrokes() {
+      const canvas = document.getElementById('brush-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      brushHistory = [];
+      showToast('已清除全部隐私涂抹层');
+    }
+
+    // 3D Studio Showroom Stage
+    let isStudioDragging = false;
+    let studioStartX = 0;
+    let studioStartY = 0;
+    let studioRotX = 15;
+    let studioRotY = -22;
+
+    function startStudioDrag(e) {
+      isStudioDragging = true;
+      studioStartX = e.clientX;
+      studioStartY = e.clientY;
+
+      const handleMove = (ev) => {
+        if (!isStudioDragging) return;
+        const dx = ev.clientX - studioStartX;
+        const dy = ev.clientY - studioStartY;
+        const newY = studioRotY + dx * 0.4;
+        const newX = studioRotX - dy * 0.4;
+        const phone = document.getElementById('studio-phone');
+        phone.style.transform = `rotateX(${newX}deg) rotateY(${newY}deg) scale(0.9)`;
+      };
+
+      const handleUp = () => {
+        isStudioDragging = false;
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleUp);
+      };
+
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleUp);
+    }
+
+    function setStudioTheme(theme) {
+      const stage = document.getElementById('studio-stage');
+      if (theme === 'sunset') {
+        stage.className = 'flex-1 bg-gradient-to-tr from-indigo-950 via-purple-900 to-rose-900 rounded-2xl border border-white/20 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none';
+      } else if (theme === 'aurora') {
+        stage.className = 'flex-1 bg-gradient-to-tr from-slate-950 via-cyan-950 to-emerald-950 rounded-2xl border border-white/20 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none';
+      } else if (theme === 'obsidian') {
+        stage.className = 'flex-1 bg-gradient-to-tr from-black via-slate-950 to-neutral-900 rounded-2xl border border-white/20 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none';
+      } else if (theme === 'clean') {
+        stage.className = 'flex-1 bg-gradient-to-tr from-slate-100 via-slate-200 to-white text-black rounded-2xl border border-black/10 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none';
+      }
+      showToast(`已切换摄影棚氛围为【${theme}】`);
+    }
+
+    function exportStudioPoster() {
+      showToast('✨ 3D 悬浮展示海报已生成并保存到相册！可直接发朋友圈与小红书');
     }
 
     // Loupe Magnifier
@@ -850,7 +1282,7 @@
       if (isLoupeActive) {
         lens.classList.remove('hidden');
         btn.classList.add('bg-amber-500', 'text-slate-950');
-        showToast('放大镜已开启：在长图上移动鼠标/手指可检视接缝细节');
+        showToast('2.5x 放大镜已开启：在长图上滑动即可检视微米接缝细节');
       } else {
         lens.classList.add('hidden');
         btn.classList.remove('bg-amber-500', 'text-slate-950');
@@ -892,7 +1324,7 @@
       showToast(`已检视切片 #${idx} · 符合小红书 3:4 黄金画幅无损切分`);
     }
 
-    // Preset mode selection (including Movie Subtitles)
+    // Preset mode selection
     function onPresetChange(val) {
       if (val === 'movie') {
         alert('已切入【电影台词模式】：首图保留全画幅画面，后续图片仅裁取底部 18% 字幕栏自动纵向堆叠拼接！');
@@ -920,7 +1352,7 @@
     }
 
     function clearAllAnnotations() {
-      ['box', 'arrow', 'step', 'highlighter', 'mosaic'].forEach(k => {
+      ['box', 'arrow', 'step', 'highlighter'].forEach(k => {
         const el = document.getElementById('anno-' + k);
         const btn = document.getElementById('btn-anno-' + k);
         if (el) el.classList.add('hidden');
@@ -997,31 +1429,6 @@
       showToast(`已智能避开文字正文行，成功切分并批量保存 ${currentGridCount} 张高清切片到相册！`);
     }
 
-    // Frame and Canvas Background
-    function setFrameStyle(style) {
-      const bezel = document.getElementById('mockup-bezel');
-      if (style === 'none') {
-        bezel.className = 'w-[280px] bg-slate-900 rounded-none border-none shadow-md relative transition-all duration-300';
-      } else if (style === 'natural') {
-        bezel.className = 'w-[280px] bg-slate-900 rounded-[34px] border-[4px] border-amber-600/40 shadow-2xl relative transition-all duration-300 p-1 ring-1 ring-amber-500/30';
-      } else if (style === 'black') {
-        bezel.className = 'w-[280px] bg-slate-900 rounded-[34px] border-[4px] border-slate-700 shadow-2xl relative transition-all duration-300 p-1 ring-1 ring-white/10';
-      } else if (style === 'silver') {
-        bezel.className = 'w-[280px] bg-slate-900 rounded-[34px] border-[4px] border-slate-300 shadow-2xl relative transition-all duration-300 p-1 ring-1 ring-white/40';
-      }
-    }
-
-    function setBgStyle(style) {
-      const stage = document.getElementById('canvas-scroll-container');
-      if (style === 'blur') {
-        stage.style.background = 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(15,23,42,1) 100%)';
-      } else if (style === 'gradient') {
-        stage.style.background = 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)';
-      } else if (style === 'dark') {
-        stage.style.background = '#090d16';
-      }
-    }
-
     // Toast
     function showToast(msg) {
       const toast = document.getElementById('clipboard-toast');
@@ -1055,7 +1462,7 @@
       document.getElementById('home-badge-text').innerText = '永久会员';
       const btn = document.getElementById('quota-pill-btn');
       btn.className = 'liquid-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold text-emerald-300 border-emerald-400/50';
-      alert('【购买成功】\n已激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 端侧 Vision AI 一键智能脱敏\n• 全图 OCR 文本提取\n• 微缩雷达导轨与放大镜细节检视\n• 9 宫格智能断句切片\n• 3D 钛金属外壳与自适应磨砂画板\n• 多页 PDF 导出与 EXIF 隐私清除！');
+      alert('【购买成功】\n已激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 端侧 Vision AI 一键智能脱敏\n• 全图 OCR 文本提取\n• 微米级棘轮对齐与能量图谱\n• 极光毛玻璃刮刮乐涂抹\n• 3D 摄影棚悬浮海报直出！');
       closePaywallModal();
     }
 
