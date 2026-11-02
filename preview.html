@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScrollSnap iOS 长截图原型预览</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2s infinite ease-in-out;
+    }
+    .perspective-stage {
+      perspective: 900px;
+    }
+    .cover-card-left {
+      transform: rotateY(34deg) scale(0.85);
+    }
+    .cover-card-center {
+      transform: rotateY(0deg) scale(1);
+    }
+    .cover-card-right {
+      transform: rotateY(-34deg) scale(0.85);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 flex flex-col items-center justify-start font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Controller Bar -->
+  <header class="w-full max-w-5xl mb-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-slate-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          ScrollSnap 滚动画布
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">iOS 17+ 原型预览</span>
+        </h1>
+        <p class="text-xs text-slate-400">长截图智能拼合、ReplayKit 滚动录屏与 15 Pro 操作按钮全栈架构</p>
+      </div>
+    </div>
+
+    <!-- Screen Switcher Tabs -->
+    <nav class="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
+      <button onclick="switchScreen('home')" id="tab-home" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition-all bg-indigo-600 text-white shadow-sm">
+        主屏工作台
+      </button>
+      <button onclick="switchScreen('editor')" id="tab-editor" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">
+        接缝微调编辑器
+      </button>
+      <button onclick="switchScreen('dynamic-island')" id="tab-island" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">
+        灵动岛与实时活动
+      </button>
+      <button onclick="switchScreen('action-button')" id="tab-action" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">
+        操作按钮 & 快捷指令
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Simulator Container -->
+  <main class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-start justify-center">
+
+    <!-- Left: iPhone 15 Pro Device Shell Frame -->
+    <section class="lg:col-span-6 flex justify-center">
+      <div class="relative w-[370px] h-[760px] bg-black rounded-[52px] p-3 shadow-2xl shadow-indigo-950/40 border-[5px] border-slate-700/80 ring-1 ring-white/20 select-none overflow-hidden">
+        
+        <!-- Titanium Outer Bezel Reflection -->
+        <div class="absolute inset-0 rounded-[48px] pointer-events-none border border-white/10"></div>
+        
+        <!-- iPhone Screen Interior -->
+        <div class="w-full h-full bg-slate-900 rounded-[42px] overflow-hidden flex flex-col relative text-slate-100">
+
+          <!-- iOS Status Bar & Dynamic Island -->
+          <div class="w-full pt-2.5 pb-2 px-6 flex items-center justify-between z-30 bg-slate-900/90 backdrop-blur-md">
+            <span class="text-xs font-semibold text-slate-300 font-mono">9:41</span>
+            
+            <!-- Dynamic Island Pill -->
+            <div id="dynamic-island-pill" class="w-24 h-6 bg-black rounded-full flex items-center justify-between px-2.5 shadow-inner transition-all duration-300 cursor-pointer hover:w-28" onclick="switchScreen('dynamic-island')">
+              <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              <span class="text-[10px] text-slate-400 font-mono">4屏</span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 text-slate-300">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zm-2.829 2.828a3 3 0 00-4.242 0 1 1 0 01-1.415-1.414 5 5 0 017.072 0 1 1 0 01-1.415 1.414zM9 16a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd"/></svg>
+              <span class="text-[10px] font-mono">100%</span>
+            </div>
+          </div>
+
+          <!-- SCREEN 1: HOME WORKBENCH -->
+          <div id="screen-home" class="screen-view flex-1 overflow-y-auto px-4 pb-12 space-y-4">
+            
+            <!-- Header Title -->
+            <div class="pt-2 flex items-center justify-between">
+              <div>
+                <h2 class="text-xl font-bold tracking-tight text-white">长截图工坊</h2>
+                <p class="text-xs text-slate-400">端侧无损连续拼接与屏幕录制长截屏</p>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">PRO VIP</span>
+            </div>
+
+            <!-- Alert: Active Broadcast Slices Detected -->
+            <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                <span class="w-3 h-3 rounded-full bg-amber-400 animate-ping"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold text-amber-200">检测到刚刚滚屏录制的 12 屏切片</p>
+                <p class="text-[10px] text-amber-300/70 truncate">微信聊天记录 · 来自 ReplayKit 广播流</p>
+              </div>
+              <button onclick="switchScreen('editor')" class="px-2.5 py-1 text-xs font-bold bg-amber-500 text-slate-950 rounded-full hover:bg-amber-400 transition-colors shrink-0">
+                立即拼合
+              </button>
+            </div>
+
+            <!-- Auto-detected Recent Continuous Screenshots -->
+            <div class="p-3.5 bg-slate-800/60 border border-white/10 rounded-2xl space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-indigo-400" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/></svg>
+                  检测到 3 张连续截屏 (5分钟内)
+                </span>
+                <button onclick="switchScreen('editor')" class="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-full">一键拼合</button>
+              </div>
+              <div class="flex gap-2">
+                <div class="w-16 h-20 bg-slate-700/80 rounded-lg border border-white/10 flex flex-col p-1 justify-between text-[8px] text-slate-400">
+                  <span class="bg-emerald-500/20 text-emerald-400 px-1 rounded">气泡首屏</span>
+                  <div class="h-1 bg-slate-600 rounded"></div>
+                  <div class="h-1 w-3/4 bg-slate-600 rounded"></div>
+                </div>
+                <div class="w-16 h-20 bg-slate-700/80 rounded-lg border border-white/10 flex flex-col p-1 justify-between text-[8px] text-slate-400">
+                  <span class="bg-indigo-500/20 text-indigo-400 px-1 rounded">中间内容</span>
+                  <div class="h-1 bg-slate-600 rounded"></div>
+                  <div class="h-1 w-2/3 bg-slate-600 rounded"></div>
+                </div>
+                <div class="w-16 h-20 bg-slate-700/80 rounded-lg border border-white/10 flex flex-col p-1 justify-between text-[8px] text-slate-400">
+                  <span class="bg-indigo-500/20 text-indigo-400 px-1 rounded">底部对话</span>
+                  <div class="h-1 bg-slate-600 rounded"></div>
+                  <div class="h-1 w-1/2 bg-slate-600 rounded"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Core Actions Grid -->
+            <div class="grid grid-cols-2 gap-2.5">
+              <button onclick="switchScreen('editor')" class="p-3 bg-slate-800/80 border border-white/10 rounded-2xl text-left hover:bg-slate-800 transition-colors flex flex-col justify-between h-24">
+                <div class="w-8 h-8 rounded-full bg-slate-700/60 flex items-center justify-center text-indigo-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                  <h3 class="text-xs font-semibold text-white">相册多图拼接</h3>
+                  <p class="text-[10px] text-slate-400">自选任意连续图片</p>
+                </div>
+              </button>
+
+              <button onclick="switchScreen('action-button')" class="p-3 bg-slate-800/80 border border-white/10 rounded-2xl text-left hover:bg-slate-800 transition-colors flex flex-col justify-between h-24">
+                <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                  <h3 class="text-xs font-semibold text-white">操作按钮 / 敲击</h3>
+                  <p class="text-[10px] text-slate-400">免开 App 一键拼存</p>
+                </div>
+              </button>
+            </div>
+
+            <!-- ReplayKit Broadcast Trigger Card -->
+            <div class="p-3 bg-slate-800/80 border border-white/10 rounded-2xl flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-red-500/10 flex items-center justify-center text-red-400">
+                  <span class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse"></span>
+                </div>
+                <div>
+                  <h3 class="text-xs font-semibold text-white">跨应用滚动截屏</h3>
+                  <p class="text-[10px] text-slate-400">录屏广播 · 50MB 内存安全</p>
+                </div>
+              </div>
+              <button onclick="alert('系统广播录制弹窗已弹出！请在系统弹窗中点击【开始直播】，然后切入微信匀速慢滑。')" class="text-xs font-bold px-3 py-1.5 bg-red-500 hover:bg-red-400 text-white rounded-full transition-colors">
+                启动录制
+              </button>
+            </div>
+
+            <!-- Recent Stitches 3D Cover Flow Stage -->
+            <div class="space-y-2 pt-1">
+              <span class="text-xs font-bold text-slate-400">历史长截图展台 (3D 拟物视角)</span>
+              <div class="perspective-stage h-44 flex items-center justify-center gap-0 overflow-hidden relative">
+                <!-- Left 3D Card -->
+                <div class="cover-card-left w-24 h-36 bg-slate-800 rounded-xl border border-white/15 p-1 shadow-lg shrink-0 flex flex-col justify-between transition-transform duration-300">
+                  <div class="h-2 bg-slate-700 rounded w-1/2"></div>
+                  <div class="space-y-1">
+                    <div class="h-1 bg-slate-600 rounded"></div>
+                    <div class="h-1 bg-slate-600 rounded w-2/3"></div>
+                  </div>
+                  <span class="text-[8px] text-slate-500 font-mono">2,410 px</span>
+                </div>
+
+                <!-- Center Selected 3D Card -->
+                <div class="cover-card-center w-28 h-40 bg-slate-700 rounded-xl border-2 border-indigo-400/80 p-2 shadow-2xl shrink-0 flex flex-col justify-between z-10 transition-transform duration-300">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[8px] font-bold text-indigo-300 bg-indigo-900/60 px-1 rounded">微信长对话</span>
+                    <span class="text-[8px] text-slate-400 font-mono">11:20</span>
+                  </div>
+                  <div class="space-y-1.5 my-auto">
+                    <div class="h-1.5 bg-emerald-500/40 rounded w-3/4"></div>
+                    <div class="h-1.5 bg-slate-600 rounded w-1/2"></div>
+                    <div class="h-1.5 bg-emerald-500/40 rounded w-2/3"></div>
+                  </div>
+                  <div class="flex justify-between items-center text-[8px] text-slate-300 font-mono">
+                    <span>12 屏切片</span>
+                    <span class="text-indigo-300">6,820 px</span>
+                  </div>
+                </div>
+
+                <!-- Right 3D Card -->
+                <div class="cover-card-right w-24 h-36 bg-slate-800 rounded-xl border border-white/15 p-1 shadow-lg shrink-0 flex flex-col justify-between transition-transform duration-300">
+                  <div class="h-2 bg-slate-700 rounded w-1/2"></div>
+                  <div class="space-y-1">
+                    <div class="h-1 bg-slate-600 rounded"></div>
+                    <div class="h-1 bg-slate-600 rounded w-3/4"></div>
+                  </div>
+                  <span class="text-[8px] text-slate-500 font-mono">3,120 px</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- SCREEN 2: STITCH EDITOR & SEAM TUNER -->
+          <div id="screen-editor" class="screen-view flex-1 overflow-y-auto px-3 pb-14 space-y-3 hidden">
+            
+            <!-- Editor Top Navigation -->
+            <div class="pt-2 flex items-center justify-between border-b border-slate-800 pb-2">
+              <button onclick="switchScreen('home')" class="text-xs text-indigo-400 font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                返回
+              </button>
+              
+              <!-- Preset Mode Picker -->
+              <select id="preset-mode-select" onchange="onPresetChange(this.value)" class="text-xs font-semibold bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2 py-1 outline-none">
+                <option value="chat">聊天对话模式 (剔除吸顶/吸底)</option>
+                <option value="web">网页长文模式 (剔除网址条)</option>
+                <option value="feed">信息流模式 (无裁切)</option>
+              </select>
+
+              <button onclick="alert('已无损流式渲染导出至系统相册！')" class="text-xs font-bold px-2.5 py-1 bg-indigo-600 text-white rounded-full">
+                导出
+              </button>
+            </div>
+
+            <!-- Floating Seam Adjuster & Tool Strip -->
+            <div class="bg-slate-800/90 border border-white/10 rounded-xl p-2.5 flex items-center justify-between text-xs backdrop-blur-md">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">接缝重叠:</span>
+                <button onclick="adjustOverlap(-4)" class="w-6 h-6 rounded bg-slate-700 flex items-center justify-center font-bold text-white hover:bg-slate-600">-</button>
+                <span id="overlap-label" class="font-mono font-bold text-indigo-300 w-12 text-center">44 pt</span>
+                <button onclick="adjustOverlap(+4)" class="w-6 h-6 rounded bg-slate-700 flex items-center justify-center font-bold text-white hover:bg-slate-600">+</button>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button onclick="addMosaicBox()" class="px-2 py-1 bg-slate-700 rounded font-medium text-slate-300 hover:text-white flex items-center gap-1">
+                  <span>打码</span>
+                </button>
+                <button onclick="toggleMockupFrame()" id="frame-toggle-btn" class="px-2 py-1 bg-slate-700 rounded font-medium text-slate-300 hover:text-white">
+                  3D带壳
+                </button>
+              </div>
+            </div>
+
+            <!-- Virtualized Canvas Container -->
+            <div id="stitched-canvas-frame" class="w-full bg-slate-950 rounded-xl border border-white/15 p-2 space-y-0 relative overflow-hidden transition-all duration-300">
+              
+              <!-- Slice 1 (Top: WeChat Header + First Bubbles) -->
+              <div class="bg-slate-800 rounded-t-lg p-2.5 space-y-2 border-b border-dashed border-indigo-500/50 relative">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-1 text-[9px] text-slate-400">
+                  <span class="font-bold text-white">产品架构讨论群 (18)</span>
+                  <span class="text-[8px] bg-slate-700 px-1 rounded">首屏保留标题</span>
+                </div>
+                <div class="flex items-start gap-2">
+                  <div class="w-5 h-5 rounded-full bg-indigo-500 shrink-0"></div>
+                  <div class="bg-slate-700 p-1.5 rounded-lg text-[10px] text-slate-200 max-w-[80%]">
+                    长截图的 ReplayKit 50MB 内存边界测下来稳定吗？
+                  </div>
+                </div>
+                <div class="flex items-start justify-end gap-2">
+                  <div class="bg-emerald-600/90 p-1.5 rounded-lg text-[10px] text-white max-w-[80%]">
+                    用 0.25x 灰度采样和单个 CIContext 复用，常驻稳定在 28MB。
+                  </div>
+                  <div class="w-5 h-5 rounded-full bg-emerald-500 shrink-0"></div>
+                </div>
+              </div>
+
+              <!-- Overlap Seam Line Indicator -->
+              <div class="w-full bg-orange-500/90 py-0.5 text-center text-[8px] font-mono font-bold text-white tracking-wider flex items-center justify-center gap-1">
+                <span>▲ 接缝对齐线: 44pt (最小能量行，文字无割裂) ▼</span>
+              </div>
+
+              <!-- Slice 2 (Middle: Repeating Header automatically stripped!) -->
+              <div id="middle-slice" class="bg-slate-800 p-2.5 space-y-2 border-b border-dashed border-indigo-500/50 relative">
+                <div class="flex items-start gap-2">
+                  <div class="w-5 h-5 rounded-full bg-indigo-500 shrink-0"></div>
+                  <div class="bg-slate-700 p-1.5 rounded-lg text-[10px] text-slate-200 max-w-[80%]">
+                    太棒了！那微信聊天记录截长图，吸底的输入框被去掉了吗？
+                  </div>
+                </div>
+                <!-- Interactive Mosaic Layer Placement Box -->
+                <div id="mosaic-layer" class="hidden absolute top-2 right-4 w-28 h-6 bg-slate-600/90 border border-white/30 rounded backdrop-blur-md flex items-center justify-center text-[9px] font-mono text-white/80">
+                  [ 隐私已脱敏打码 ]
+                </div>
+                <div class="flex items-start justify-end gap-2">
+                  <div class="bg-emerald-600/90 p-1.5 rounded-lg text-[10px] text-white max-w-[80%]">
+                    中间切片的吸顶标题和吸底键盘框已经通过行梯度自动剥离！
+                  </div>
+                  <div class="w-5 h-5 rounded-full bg-emerald-500 shrink-0"></div>
+                </div>
+              </div>
+
+              <!-- Slice 3 (Bottom: Keeps Input Box) -->
+              <div class="bg-slate-800 rounded-b-lg p-2.5 space-y-2 relative">
+                <div class="flex items-start gap-2">
+                  <div class="w-5 h-5 rounded-full bg-purple-500 shrink-0"></div>
+                  <div class="bg-slate-700 p-1.5 rounded-lg text-[10px] text-slate-200 max-w-[80%]">
+                    连截几张图后，敲击手机背面两下就能直接自动拼好进剪切板。
+                  </div>
+                </div>
+                <div class="border-t border-slate-700 pt-1 flex items-center justify-between text-[9px] text-slate-400">
+                  <span class="bg-slate-900 px-2 py-0.5 rounded text-slate-500">发送新消息...</span>
+                  <span class="text-[8px] bg-slate-700 px-1 rounded">尾屏保留输入框</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- SCREEN 3: DYNAMIC ISLAND & WIDGETS -->
+          <div id="screen-dynamic-island" class="screen-view flex-1 overflow-y-auto px-4 pb-14 space-y-4 hidden">
+            <div class="pt-2 flex items-center justify-between border-b border-slate-800 pb-2">
+              <button onclick="switchScreen('home')" class="text-xs text-indigo-400 font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                返回
+              </button>
+              <span class="text-xs font-bold text-white">灵动岛 4 态与锁屏实时活动</span>
+              <span class="w-8"></span>
+            </div>
+
+            <!-- Dynamic Island State 1: Compact Leading & Trailing -->
+            <div class="space-y-1.5">
+              <span class="text-xs font-bold text-slate-400">1. 灵动岛紧凑态 (Compact)</span>
+              <div class="bg-black border border-white/20 rounded-full h-9 flex items-center justify-between px-3">
+                <div class="flex items-center gap-1.5 text-xs text-indigo-400 font-semibold">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                  <span>滚屏录制中</span>
+                </div>
+                <span class="text-xs font-mono font-bold text-white">12 屏</span>
+              </div>
+            </div>
+
+            <!-- Dynamic Island State 2: Expanded View -->
+            <div class="space-y-1.5">
+              <span class="text-xs font-bold text-slate-400">2. 灵动岛长按展开态 (Expanded Bubble)</span>
+              <div class="bg-black border border-white/20 rounded-[28px] p-3.5 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2H4zm0 2h12v8H4V7z" clip-rule="evenodd"/></svg>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">微信长图实时截取</h4>
+                      <p class="text-[10px] text-slate-400">后台采样率 10 FPS · 内存 28MB</p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-base font-bold font-mono text-white">12</span>
+                    <span class="text-[10px] text-slate-400">屏</span>
+                    <p class="text-[10px] font-mono text-indigo-300">6,820 px</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1 border-t border-white/10 text-xs">
+                  <button onclick="alert('已放弃当前录屏草稿')" class="px-3 py-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded-full font-medium">
+                    放弃
+                  </button>
+                  <span class="text-[10px] text-slate-400">停止录屏后自动无缝拼合</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lock Screen Live Activity Banner -->
+            <div class="space-y-1.5">
+              <span class="text-xs font-bold text-slate-400">3. 锁屏实时活动横幅 (Lock Screen)</span>
+              <div class="bg-slate-900/90 border border-white/20 rounded-2xl p-3 flex items-center justify-between backdrop-blur-md">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-400">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/></svg>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-white">ScrollSnap 滚动截屏中</h4>
+                    <p class="text-[10px] text-slate-400">轻触顶部红点停止，自动拼入剪贴板</p>
+                  </div>
+                </div>
+                <div class="text-right font-mono">
+                  <span class="text-sm font-bold text-white">12 屏</span>
+                  <p class="text-[10px] text-indigo-400">已对齐 98%</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive Desktop Widget Preview -->
+            <div class="space-y-1.5">
+              <span class="text-xs font-bold text-slate-400">4. iOS 17+ 桌面快捷小组件 (Interactive Widget)</span>
+              <div class="w-40 h-40 bg-slate-800/90 border border-white/10 rounded-3xl p-3 flex flex-col justify-between shadow-xl">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                  <span class="font-bold text-white text-[11px]">最新长截图</span>
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                </div>
+                <div class="h-16 bg-slate-950 rounded-lg border border-white/10 flex items-center justify-center text-[9px] text-slate-400 overflow-hidden">
+                  <span class="font-mono text-indigo-300">6,820 × 1,179 px</span>
+                </div>
+                <button onclick="alert('免启动 App 原地生效：最新长截图已直接复制至剪贴板！')" class="w-full py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1">
+                  <span>原地一键复制</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- SCREEN 4: ACTION BUTTON & BACK TAP -->
+          <div id="screen-action-button" class="screen-view flex-1 overflow-y-auto px-4 pb-14 space-y-4 hidden">
+            <div class="pt-2 flex items-center justify-between border-b border-slate-800 pb-2">
+              <button onclick="switchScreen('home')" class="text-xs text-indigo-400 font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                返回
+              </button>
+              <span class="text-xs font-bold text-white">硬件按键与敲击配置</span>
+              <span class="w-8"></span>
+            </div>
+
+            <div class="p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold text-blue-200">免打开 App 极速长截图</h3>
+                <p class="text-[10px] text-blue-300/80">连截几张图后，按一下操作按钮或轻敲背面两下，长截图即刻拼好并存入剪切板！</p>
+              </div>
+            </div>
+
+            <!-- Setup Method A: Action Button -->
+            <div class="p-3.5 bg-slate-800/80 border border-white/10 rounded-2xl space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">A</span>
+                <h4 class="text-xs font-bold text-white">iPhone 15 Pro / 16 Pro 操作按钮</h4>
+              </div>
+              <ol class="text-[11px] text-slate-300 space-y-1 list-decimal list-inside">
+                <li>打开系统「设置」-> 点击「操作按钮」</li>
+                <li>滑动选择「快捷指令」</li>
+                <li>勾选「ScrollSnap：一键拼合长截图」</li>
+              </ol>
+              <button onclick="simulateActionTrigger()" class="w-full mt-2 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-colors">
+                模拟按下 Action Button
+              </button>
+            </div>
+
+            <!-- Setup Method B: Back Tap -->
+            <div class="p-3.5 bg-slate-800/80 border border-white/10 rounded-2xl space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">B</span>
+                <h4 class="text-xs font-bold text-white">轻点背面两下 (所有刘海/灵动岛机型)</h4>
+              </div>
+              <ol class="text-[11px] text-slate-300 space-y-1 list-decimal list-inside">
+                <li>系统「设置」->「辅助功能」->「触控」</li>
+                <li>滑到底部点击「轻点背面」->「轻点两下」</li>
+                <li>在快捷指令中选择「ScrollSnap：一键拼合长截图」</li>
+              </ol>
+              <button onclick="simulateActionTrigger()" class="w-full mt-2 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors">
+                模拟轻敲背面两下 (Double Tap)
+              </button>
+            </div>
+
+          </div>
+
+          <!-- iOS Bottom Home Indicator Bar -->
+          <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/40 rounded-full pointer-events-none z-30"></div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Architecture Inspection & Feedback Panel -->
+    <section class="lg:col-span-6 space-y-4">
+      
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              当前架构特性检查清单
+              <span class="text-xs font-normal text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">全部已就绪</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">请参照左侧运行效果，在此基础上提出你的新需求：</p>
+          </div>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between text-slate-200 font-semibold">
+              <span>1. 智能去重：吸顶/吸底固定栏过滤</span>
+              <span class="text-emerald-400 font-mono">OK</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              微信群聊、Safari 网址栏每屏都会重复出现。算法通过行灰度差分自动在中间切片裁去顶栏与底栏，使聊天气泡和文章文字自然连贯。可在编辑器下拉菜单切换【聊天模式】与【信息流模式】对比。
+            </p>
+          </div>
+
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between text-slate-200 font-semibold">
+              <span>2. 硬件按键联动：Action Button & 轻点背面</span>
+              <span class="text-emerald-400 font-mono">OK</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              通过系统级 <code class="text-indigo-300">AppShortcutsProvider</code> 暴露「一键拼合长截图」服务。用户截取 2~5 张图后，不用打开 App，长按 15 Pro 侧边按钮或双击手机背面，后台 0.3 秒自动拼合并直接复制到剪贴板！
+            </p>
+          </div>
+
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between text-slate-200 font-semibold">
+              <span>3. ReplayKit 滚动录屏 50MB 内存防爆</span>
+              <span class="text-emerald-400 font-mono">OK</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              采用 0.25x 单色灰度投影粗筛，复用单例 CIContext，关键帧即时 JPEG 压缩流式写入 App Group，扩展驻留内存常态压制在 28MB 以下，杜绝被 iOS 系统 Jetsam 强杀。
+            </p>
+          </div>
+
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
+            <div class="flex items-center justify-between text-slate-200 font-semibold">
+              <span>4. 接缝雕刻与 30,000px 超长画布防崩</span>
+              <span class="text-emerald-400 font-mono">OK</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              沿水平扫描线搜索梯度能量极小值点切开，绝不在中文字符或气泡正中横断。超长图片在编辑器中使用虚拟化切片装配，导出阶段使用 CoreGraphics 流式写盘，杜绝 GPU 8192px 纹理超限白屏。
+            </p>
+          </div>
+        </div>
+
+        <!-- Requirement Suggestion Box -->
+        <div class="p-4 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2">
+          <h4 class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+            如何向我提接下来的需求？
+          </h4>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            你可以审查上面模拟器中的真实效果。比如你想要：
+            <br>• <strong>新增标注工具</strong>：如红框、箭头、文字批注、画笔标记；
+            <br>• <strong>新增机型外壳</strong>：除了目前的钛金属边框外，增加浅色陶瓷、纯黑经典或 iPad 壳；
+            <br>• <strong>分享输出增强</strong>：支持导出为可翻页 PDF、高清分段切片（专供小红书 9 宫格拆图）等。
+          </p>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // Screen Switcher
+    function switchScreen(screenId) {
+      document.querySelectorAll('.screen-view').forEach(el => el.classList.add('hidden'));
+      document.getElementById('screen-' + screenId).classList.remove('hidden');
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+        btn.classList.add('text-slate-400');
+      });
+
+      const activeTab = document.getElementById('tab-' + (screenId === 'dynamic-island' ? 'island' : (screenId === 'action-button' ? 'action' : screenId)));
+      if (activeTab) {
+        activeTab.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+        activeTab.classList.remove('text-slate-400');
+      }
+    }
+
+    // Seam overlap adjustment
+    let currentOverlap = 44;
+    function adjustOverlap(delta) {
+      currentOverlap = Math.max(0, Math.min(120, currentOverlap + delta));
+      document.getElementById('overlap-label').innerText = currentOverlap + ' pt';
+      const seamLine = document.querySelector('#stitched-canvas-frame div.bg-orange-500\\/90 span');
+      if (seamLine) {
+        seamLine.innerText = `▲ 接缝对齐线: ${currentOverlap}pt (最小能量行，文字无割裂) ▼`;
+      }
+    }
+
+    // Preset mode selection
+    function onPresetChange(val) {
+      const middleSlice = document.getElementById('middle-slice');
+      if (val === 'feed') {
+        alert('已切入【信息流模式】：不对中间图进行吸顶导航栏与吸底栏裁切，保留全屏原始重叠。');
+      } else if (val === 'web') {
+        alert('已切入【网页长文模式】：过滤 Safari 网址栏与吸底工具条。');
+      } else {
+        alert('已切入【聊天对话模式】：首图保留标题，中间图剥离吸顶与吸底输入框，尾图保留输入框。气泡流畅拼接！');
+      }
+    }
+
+    // Toggle Mosaic Box
+    function addMosaicBox() {
+      const mosaic = document.getElementById('mosaic-layer');
+      if (mosaic.classList.contains('hidden')) {
+        mosaic.classList.remove('hidden');
+        alert('已在聊天敏感位置添加【非破坏性马赛克打码】，导出时将自动叠加！再次点击可隐藏。');
+      } else {
+        mosaic.classList.add('hidden');
+      }
+    }
+
+    // Toggle Titanium Mockup Frame
+    let hasMockupFrame = false;
+    function toggleMockupFrame() {
+      const canvas = document.getElementById('stitched-canvas-frame');
+      const btn = document.getElementById('frame-toggle-btn');
+      hasMockupFrame = !hasMockupFrame;
+      if (hasMockupFrame) {
+        canvas.classList.add('ring-4', 'ring-slate-400', 'shadow-2xl');
+        btn.classList.add('bg-indigo-600', 'text-white');
+        btn.classList.remove('bg-slate-700', 'text-slate-300');
+      } else {
+        canvas.classList.remove('ring-4', 'ring-slate-400', 'shadow-2xl');
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-slate-700', 'text-slate-300');
+      }
+    }
+
+    // Simulate Action Button or Back Tap
+    function simulateActionTrigger() {
+      alert('【模拟触发成功】\n1. 系统在后台扫描到了 5 分钟内的 3 张微信截屏；\n2. 0.3 秒内完成 CoreGraphics 投影对齐与固定栏剥离；\n3. 手机发出一次触觉清脆轻振；\n4. 最终长截图已直接存入剪贴板！现在去微信聊天框可以直接【粘贴】！');
+    }
+  </script>
+</body>
+</html>
