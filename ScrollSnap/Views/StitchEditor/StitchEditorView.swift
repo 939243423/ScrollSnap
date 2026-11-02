@@ -15,6 +15,7 @@ public struct StitchEditorView: View {
     @State private var exportedFileURL: URL?
     @State private var isExporting = false
     @State private var showDeviceFrame = false
+    @State private var isShowingModePicker = false
     
     public init(session: StitchSession) {
         self._session = State(initialValue: session)
@@ -30,12 +31,39 @@ public struct StitchEditorView: View {
                 bottomFloatingToolbar
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("长截图调优与导出")
+            .navigationTitle(session.presetMode.title + "长截图")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("关闭") {
                         dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .principal) {
+                    Menu {
+                        ForEach(StitchPresetMode.allCases) { mode in
+                            Button {
+                                changePresetMode(mode)
+                            } label: {
+                                if session.presetMode == mode {
+                                    Label(mode.title, systemImage: "checkmark")
+                                } else {
+                                    Text(mode.title)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(session.presetMode.title)
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            Image(systemName: "chevron.down.circle.fill")
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(uiColor: .tertiarySystemFill))
+                        .clipShape(Capsule())
                     }
                 }
                 
@@ -87,14 +115,20 @@ public struct StitchEditorView: View {
                     if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                        let image = UIImage(contentsOfFile: fileURL.path) {
                         
-                        let displayHeight = slice.originalHeight / 3.0 // Scaled down for retina display preview
+                        let displayVisibleHeight = slice.visibleHeight / 3.0
+                        let displayOriginalHeight = slice.originalHeight / 3.0
                         let displayWidth = slice.originalWidth / 3.0
+                        let displayTopCrop = slice.topCropInset / 3.0
                         
                         ZStack(alignment: .topLeading) {
+                            // Slice image clipped to visible bounds without repeating top bar
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: displayWidth, height: displayHeight)
+                                .frame(width: displayWidth, height: displayOriginalHeight)
+                                .offset(y: -displayTopCrop)
+                                .frame(width: displayWidth, height: displayVisibleHeight, alignment: .top)
+                                .clipped()
                             
                             // Render Redaction Overlays
                             ForEach(slice.redactions) { redaction in
@@ -102,11 +136,11 @@ public struct StitchEditorView: View {
                                     .fill(redaction.style == .blackout ? Color.black : Color.gray.opacity(0.85))
                                     .frame(
                                         width: redaction.relativeRect.width * displayWidth,
-                                        height: redaction.relativeRect.height * displayHeight
+                                        height: redaction.relativeRect.height * displayVisibleHeight
                                     )
                                     .offset(
                                         x: redaction.relativeRect.minX * displayWidth,
-                                        y: redaction.relativeRect.minY * displayHeight
+                                        y: redaction.relativeRect.minY * displayVisibleHeight
                                     )
                             }
                             
@@ -116,7 +150,7 @@ public struct StitchEditorView: View {
                                     .fill(Color.orange)
                                     .frame(height: 2)
                                     .overlay(
-                                        Text("接缝对齐线: \(Int(slice.effectiveOverlap))pt")
+                                        Text("接缝对齐: \(Int(slice.effectiveOverlap))pt")
                                             .font(.caption2.monospacedDigit())
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 2)
@@ -130,7 +164,7 @@ public struct StitchEditorView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { location in
                             if isAddingRedaction {
-                                addRedactionAt(index: index, location: location, containerSize: CGSize(width: displayWidth, height: displayHeight))
+                                addRedactionAt(index: index, location: location, containerSize: CGSize(width: displayWidth, height: displayVisibleHeight))
                             } else {
                                 selectedSliceIndex = index
                                 HapticFeedbackManager.shared.triggerSelection()
@@ -238,6 +272,24 @@ public struct StitchEditorView: View {
     }
     
     // MARK: - Actions
+    
+    private func changePresetMode(_ mode: StitchPresetMode) {
+        HapticFeedbackManager.shared.triggerSelection()
+        session.presetMode = mode
+        
+        let paths = session.slices.map { $0.relativeFilePath }
+        Task {
+            if let updated = try? await StitchEngine.shared.stitchSlices(
+                fileRelativePaths: paths,
+                source: session.source,
+                presetMode: mode
+            ) {
+                await MainActor.run {
+                    self.session = updated
+                }
+            }
+        }
+    }
     
     private func adjustSelectedSliceOverlap(_ delta: CGFloat) {
         guard selectedSliceIndex < session.slices.count else { return }

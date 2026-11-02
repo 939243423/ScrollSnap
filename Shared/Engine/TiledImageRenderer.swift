@@ -2,7 +2,6 @@ import Foundation
 import CoreGraphics
 #if canImport(UIKit)
 import UIKit
-import UniformTypeIdentifiers
 #endif
 
 public final class TiledImageRenderer {
@@ -31,6 +30,7 @@ public final class TiledImageRenderer {
         )
         
         let renderedData = renderer.jpegData(withCompressionQuality: quality) { context in
+            let cgContext = context.cgContext
             var currentY: CGFloat = 0
             
             for (index, slice) in session.slices.enumerated() {
@@ -39,12 +39,22 @@ public final class TiledImageRenderer {
                     continue
                 }
                 
-                let drawHeight = slice.originalHeight
-                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: drawHeight)
+                let visibleHeight = slice.visibleHeight
+                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: visibleHeight)
                 
-                image.draw(in: drawRect)
+                cgContext.saveGState()
+                cgContext.clip(to: drawRect)
                 
-                // Draw non-destructive redactions
+                // Draw image shifted by topCropInset so cropped top region is clipped away
+                let imageDrawRect = CGRect(
+                    x: 0,
+                    y: currentY - slice.topCropInset,
+                    width: canvasWidth,
+                    height: slice.originalHeight
+                )
+                image.draw(in: imageDrawRect)
+                
+                // Draw non-destructive redactions relative to visible rect
                 for redaction in slice.redactions {
                     let rX = drawRect.minX + redaction.relativeRect.minX * drawRect.width
                     let rY = drawRect.minY + redaction.relativeRect.minY * drawRect.height
@@ -52,17 +62,19 @@ public final class TiledImageRenderer {
                     let rH = redaction.relativeRect.height * drawRect.height
                     let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
                     
-                    applyRedaction(in: context.cgContext, rect: redactionRect, style: redaction.style)
+                    applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
                 }
                 
-                // Advance Y by visible height
+                cgContext.restoreGState()
+                
+                // Advance Y by visible height minus overlap with next slice
                 let nextOverlap: CGFloat
                 if index + 1 < session.slices.count {
                     nextOverlap = session.slices[index + 1].effectiveOverlap
                 } else {
                     nextOverlap = 0
                 }
-                currentY += (drawHeight - nextOverlap)
+                currentY += (visibleHeight - nextOverlap)
             }
         }
         
@@ -80,7 +92,6 @@ public final class TiledImageRenderer {
         case .pixelatedMosaic:
             context.setFillColor(UIColor.darkGray.withAlphaComponent(0.85).cgColor)
             context.fill(rect)
-            // Draw grid lines to simulate pixel blocks
             context.setStrokeColor(UIColor.white.withAlphaComponent(0.2).cgColor)
             context.setLineWidth(1)
             let blockSize: CGFloat = 12

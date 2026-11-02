@@ -7,16 +7,69 @@ public struct OverlapMatchResult {
     public let optimalSeamY: CGFloat
 }
 
+public struct StaticChromeDetectionResult {
+    public let topBarHeight: CGFloat
+    public let bottomBarHeight: CGFloat
+}
+
 public final class ImageOverlapDetector {
+    
+    /// Detects repeating static top navigation bars and bottom bars (e.g. WeChat title bar, input box)
+    public static func detectStaticChromeRegions(
+        topImage: CGImage,
+        bottomImage: CGImage
+    ) -> StaticChromeDetectionResult {
+        let width = min(topImage.width, bottomImage.width)
+        let height = min(topImage.height, bottomImage.height)
+        guard width > 0, height > 400 else {
+            return StaticChromeDetectionResult(topBarHeight: 0, bottomBarHeight: 0)
+        }
+        
+        let profileTopA = calculateVerticalLuminanceProfile(cgImage: topImage)
+        let profileTopB = calculateVerticalLuminanceProfile(cgImage: bottomImage)
+        
+        // Scan top region (typically status bar + nav bar = 120 ~ 280 px on 3x retina)
+        var detectedTop: Int = 0
+        let maxTopScan = min(320, height / 4)
+        for y in 0..<maxTopScan {
+            if abs(profileTopA[y] - profileTopB[y]) < 0.025 {
+                detectedTop = y
+            } else if y > 80 {
+                // Once variance appears after initial safe area, terminate top scan
+                break
+            }
+        }
+        
+        // Scan bottom region (typically home indicator + tab/input bar = 100 ~ 260 px)
+        var detectedBottom: Int = 0
+        let maxBottomScan = min(280, height / 4)
+        for i in 0..<maxBottomScan {
+            let yA = topImage.height - 1 - i
+            let yB = bottomImage.height - 1 - i
+            guard yA >= 0, yB >= 0 else { break }
+            if abs(profileTopA[yA] - profileTopB[yB]) < 0.025 {
+                detectedBottom = i
+            } else if i > 60 {
+                break
+            }
+        }
+        
+        return StaticChromeDetectionResult(
+            topBarHeight: CGFloat(detectedTop > 50 ? detectedTop : 0),
+            bottomBarHeight: CGFloat(detectedBottom > 40 ? detectedBottom : 0)
+        )
+    }
     
     /// Calculates optimal vertical overlap between topSlice and bottomSlice
     /// Returns offset in points and correlation confidence [0.0 ... 1.0]
     public static func findOverlap(
         topSlice: CGImage,
         bottomSlice: CGImage,
+        topCropInset: CGFloat = 0,
+        bottomCropInset: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.15,
-        maxOverlapRatio: CGFloat = 0.85
+        minOverlapRatio: CGFloat = 0.10,
+        maxOverlapRatio: CGFloat = 0.90
     ) -> OverlapMatchResult {
         let width = topSlice.width
         let topHeight = topSlice.height
@@ -30,8 +83,14 @@ public final class ImageOverlapDetector {
         let topLuminance = calculateVerticalLuminanceProfile(cgImage: topSlice)
         let bottomLuminance = calculateVerticalLuminanceProfile(cgImage: bottomSlice)
         
-        let minOffset = Int(CGFloat(topHeight) * minOverlapRatio)
-        let maxOffset = min(Int(CGFloat(topHeight) * maxOverlapRatio), topHeight - Int(templateHeightPt))
+        let validTopStart = Int(topCropInset)
+        let validTopEnd = topHeight - Int(bottomCropInset)
+        guard validTopEnd > validTopStart + 100 else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        let minOffset = validTopStart + Int(CGFloat(validTopEnd - validTopStart) * minOverlapRatio)
+        let maxOffset = min(validTopEnd - Int(templateHeightPt), validTopStart + Int(CGFloat(validTopEnd - validTopStart) * maxOverlapRatio))
         
         guard minOffset < maxOffset else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
@@ -39,10 +98,14 @@ public final class ImageOverlapDetector {
         
         var bestOffset = minOffset
         var maxCorrelation: Double = -1.0
-        let templateLen = min(Int(templateHeightPt), bottomHeight)
+        let templateLen = min(Int(templateHeightPt), bottomHeight - Int(topCropInset))
+        guard templateLen > 20 else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
         
-        // Template extracted from the very top of bottomSlice
-        let template = Array(bottomLuminance.prefix(templateLen))
+        // Extract template from bottomSlice immediately below its top crop inset
+        let templateStart = Int(topCropInset)
+        let template = Array(bottomLuminance[templateStart..<(templateStart + templateLen)])
         let meanT = template.reduce(0.0, +) / Double(templateLen)
         var varT: Double = 0.0
         for val in template {
@@ -50,9 +113,9 @@ public final class ImageOverlapDetector {
             varT += diff * diff
         }
         
-        // Slide template along search window at the bottom of topSlice
+        // Slide template along search window of topSlice
         for offset in stride(from: minOffset, through: maxOffset, by: 2) {
-            guard offset + templateLen <= topHeight else { break }
+            guard offset + templateLen <= validTopEnd else { break }
             let sub = Array(topLuminance[offset..<(offset + templateLen)])
             let meanS = sub.reduce(0.0, +) / Double(templateLen)
             
@@ -75,12 +138,11 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // Calculate seam line with minimal gradient in overlap region
-        let overlapHeight = topHeight - bestOffset
+        let overlapHeight = validTopEnd - bestOffset
         let optimalSeam = findMinimalEnergySeam(
             luminanceProfile: topLuminance,
             startRow: bestOffset,
-            endRow: min(topHeight, bestOffset + overlapHeight)
+            endRow: min(validTopEnd, bestOffset + overlapHeight)
         )
         
         let normalizedConfidence = max(0.0, min(1.0, maxCorrelation))
@@ -117,7 +179,7 @@ public final class ImageOverlapDetector {
         
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         
-        let stepX = max(1, width / 64) // 64 sample columns for performance
+        let stepX = max(1, width / 64)
         let samplesPerRow = width / stepX
         
         for y in 0..<height {
@@ -131,7 +193,7 @@ public final class ImageOverlapDetector {
                 // ITU-R BT.601
                 sumLuminance += (0.299 * r + 0.587 * g + 0.114 * b)
             }
-            profile[y] = sumLuminance / Double(samplesPerRow)
+            profile[y] = sumLuminance / Double(samplesPerRow * 255.0)
         }
         return profile
     }
