@@ -27,10 +27,10 @@ public struct SettingsView: View {
                             }
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(storeKit.isProUser ? "已开通 Pro VIP 会员" : "升级至 ScrollSnap Pro")
+                                Text(storeKit.isProUser ? "✨ 已激活 ¥1 永久特权" : "纯粹效率 · 1元永久买断")
                                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                                     .foregroundStyle(.primary)
-                                Text(storeKit.isProUser ? "享受全部高级特性" : "解锁无损长篇拼接与 3D 带壳套版")
+                                Text(storeKit.isProUser ? "享有无限制拼图、AI脱敏与9宫格切片" : "每日免费 2 次 · ¥1.00 永久买断")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -86,8 +86,30 @@ public struct SettingsView: View {
                     }
                 }
                 
-                // About Section
-                Section("关于") {
+                // Legal & About Section
+                Section("法律协议与关于") {
+                    Link(destination: URL(string: "https://github.com/939243423/protocol__ScrollSnap/blob/main/PRIVACY_POLICY.md")!) {
+                        HStack {
+                            Text("隐私政策")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Link(destination: URL(string: "https://github.com/939243423/protocol__ScrollSnap/blob/main/TERMS_OF_SERVICE.md")!) {
+                        HStack {
+                            Text("用户服务协议")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
                     HStack {
                         Text("版本")
                         Spacer()
