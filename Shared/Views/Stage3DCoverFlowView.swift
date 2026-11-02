@@ -1,11 +1,13 @@
 import SwiftUI
 
 /// 通用 3D 拟物立体展台组件 (HIG 3D Cover Flow Stage)
-/// 具备 3D 矩阵偏转、侧边书脊曲面高光、地表镜面倒影与触觉反馈
+/// 具备 3D 矩阵偏转、侧边书脊曲面高光、地表镜面倒影与顺滑手势拖拽触觉反馈
 public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
     public let items: [Item]
     @Binding public var selectedIndex: Int
     @ViewBuilder public let content: (Item, Bool) -> Content
+    
+    @GestureState private var dragTranslation: CGFloat = 0
 
     public init(
         items: [Item],
@@ -21,31 +23,30 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             let cardWidth: CGFloat = min(width * 0.64, 240)
-            let cardHeight: CGFloat = cardWidth * 1.55 // Long screenshot aspect ratio
+            let cardHeight: CGFloat = cardWidth * 1.55
             
             HStack(spacing: -cardWidth * 0.42) {
                 ForEach(items.indices, id: \.self) { idx in
                     let item = items[idx]
                     let isSelected = (idx == selectedIndex)
-                    let offsetRatio = CGFloat(idx - selectedIndex)
+                    let offsetRatio = CGFloat(idx - selectedIndex) - (dragTranslation / cardWidth)
                     
                     VStack(spacing: 0) {
                         // 1. 核心 3D 卡片主体
                         content(item, isSelected)
                             .frame(width: cardWidth, height: cardHeight)
                             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            // 侧边装订线/边缘曲面高光
                             .overlay(alignment: .leading) {
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.28), Color.clear, Color.black.opacity(0.18)],
+                                    colors: [Color.white.opacity(0.35), Color.clear, Color.black.opacity(0.18)],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
-                                .frame(width: 12)
+                                .frame(width: 14)
                             }
-                            // 3D 偏转视差：左侧向内偏转，右侧向外偏转
+                            // 3D 矩阵偏转视差
                             .rotation3DEffect(
-                                .degrees(Double(offsetRatio) * -38.0),
+                                .degrees(Double(offsetRatio) * -34.0),
                                 axis: (x: 0, y: 1, z: 0),
                                 anchor: .center,
                                 perspective: 0.55
@@ -53,10 +54,10 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
                             .scaleEffect(isSelected ? 1.0 : 0.82)
                             .zIndex(isSelected ? 100 : Double(50 - abs(idx - selectedIndex)))
                             .shadow(
-                                color: .black.opacity(isSelected ? 0.28 : 0.12),
-                                radius: isSelected ? 18 : 8,
+                                color: .black.opacity(isSelected ? 0.32 : 0.12),
+                                radius: isSelected ? 20 : 8,
                                 x: 0,
-                                y: isSelected ? 10 : 4
+                                y: isSelected ? 12 : 4
                             )
                         
                         // 2. 拟真地表镜面倒影
@@ -67,7 +68,7 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
                                 .blur(radius: 1.5)
                                 .mask(
                                     LinearGradient(
-                                        colors: [Color.black.opacity(0.22), Color.clear],
+                                        colors: [Color.black.opacity(0.25), Color.clear],
                                         startPoint: .top,
                                         endPoint: .bottom
                                     )
@@ -77,13 +78,34 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                        withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
                             selectedIndex = idx
                         }
                         HapticFeedbackManager.shared.triggerSelection()
                     }
                 }
             }
+            .offset(x: dragTranslation)
+            .gesture(
+                DragGesture()
+                    .updating($dragTranslation) { value, state, _ in
+                        state = value.translation.width
+                    }
+                    .onEnded { value in
+                        let threshold: CGFloat = 40
+                        if value.translation.width < -threshold && selectedIndex < items.count - 1 {
+                            withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                                selectedIndex += 1
+                            }
+                            HapticFeedbackManager.shared.triggerSelection()
+                        } else if value.translation.width > threshold && selectedIndex > 0 {
+                            withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                                selectedIndex -= 1
+                            }
+                            HapticFeedbackManager.shared.triggerSelection()
+                        }
+                    }
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }

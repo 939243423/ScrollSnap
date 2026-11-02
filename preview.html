@@ -61,7 +61,7 @@
           ScrollSnap 滚动画布
           <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">苹果液态玻璃 · 效率榜破局级</span>
         </h1>
-        <p class="text-xs text-slate-400">每日免费 2 次 · ¥1.00 永久买断 · 端侧 Vision AI 一键脱敏 · 全文 OCR 提取 · 9宫格切片</p>
+        <p class="text-xs text-slate-400">微缩雷达导轨 · 放大镜细节检视 · 3D 拟物展台 · 每日免费 2 次 · ¥1.00 永久买断</p>
       </div>
     </div>
 
@@ -121,7 +121,7 @@
             </div>
           </div>
 
-          <!-- SCREEN 1: HOME WORKBENCH (LIQUID GLASS REDESIGN) -->
+          <!-- SCREEN 1: HOME WORKBENCH (LIQUID GLASS REDESIGN + 3D GESTURE CARDS) -->
           <div id="screen-home" class="screen-view flex-1 overflow-y-auto px-4 pb-12 space-y-4">
             
             <!-- Header Title -->
@@ -206,21 +206,22 @@
               <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </div>
 
-            <!-- 3D Cover Flow Stage -->
+            <!-- 3D Cover Flow Stage with Interactive Swapping -->
             <div class="space-y-2 pt-1">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-300">历史长截图展台 (3D 拟物流)</span>
-                <span class="text-[10px] text-slate-500">滑动查看</span>
+                <span class="text-xs font-bold text-slate-300">历史长截图展台 (点按切换 3D 卡片)</span>
+                <span class="text-[10px] text-slate-500">空间透视流</span>
               </div>
               <div class="w-full h-36 bg-slate-900/60 rounded-2xl border border-white/10 flex items-center justify-center perspective-stage overflow-hidden relative">
                 <!-- Left 3D Card -->
-                <div class="cover-card-left w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute left-4 flex flex-col p-1">
+                <div onclick="swapCoverCard('left')" id="card-left" class="cover-card-left w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute left-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
                   <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
                   <div class="w-3/4 h-2 bg-slate-700 rounded mb-2"></div>
                   <div class="flex-1 bg-slate-900 rounded"></div>
+                  <span class="text-[7px] text-slate-400 text-center mt-1">知乎长文</span>
                 </div>
                 <!-- Center Active 3D Card -->
-                <div class="cover-card-center w-24 h-32 bg-slate-800 rounded-xl border-2 border-indigo-500 shadow-2xl z-10 flex flex-col p-1.5 relative cursor-pointer" onclick="switchScreen('editor')">
+                <div onclick="switchScreen('editor')" id="card-center" class="cover-card-center w-24 h-32 bg-slate-800 rounded-xl border-2 border-indigo-500 shadow-2xl z-10 flex flex-col p-1.5 relative cursor-pointer transition-all duration-300">
                   <div class="w-full h-2.5 bg-indigo-500/40 rounded mb-1.5"></div>
                   <div class="w-full space-y-1">
                     <div class="w-12 h-2 bg-slate-700 rounded"></div>
@@ -230,17 +231,18 @@
                   <span class="absolute bottom-1 right-1 text-[8px] bg-indigo-600 text-white px-1 rounded font-mono">3420px</span>
                 </div>
                 <!-- Right 3D Card -->
-                <div class="cover-card-right w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute right-4 flex flex-col p-1">
+                <div onclick="swapCoverCard('right')" id="card-right" class="cover-card-right w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute right-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
                   <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
                   <div class="w-1/2 h-2 bg-slate-700 rounded mb-2"></div>
                   <div class="flex-1 bg-slate-900 rounded"></div>
+                  <span class="text-[7px] text-slate-400 text-center mt-1">小红书图文</span>
                 </div>
               </div>
             </div>
 
           </div>
 
-          <!-- SCREEN 2: ALL-IN-ONE LIQUID GLASS EDITOR (WITH 4 EXPANDABLE MODES + VISION AI) -->
+          <!-- SCREEN 2: ALL-IN-ONE LIQUID GLASS EDITOR (WITH RADAR MINIMAP & LOUPE) -->
           <div id="screen-editor" class="screen-view flex-1 flex flex-col hidden relative overflow-hidden bg-slate-950">
             
             <!-- Editor Top Navigation Bar -->
@@ -272,13 +274,31 @@
             </div>
 
             <!-- Virtual Long Canvas Scroll Stage -->
-            <div id="canvas-scroll-container" class="flex-1 overflow-y-auto p-4 flex flex-col items-center relative transition-all duration-300">
+            <div id="canvas-scroll-container" onscroll="syncMinimapScroll()" class="flex-1 overflow-y-auto p-4 flex flex-col items-center relative transition-all duration-300">
               
+              <!-- FLOATING MINIMAP RADAR SCRUBBER (RIGHT EDGE) -->
+              <div id="minimap-track" class="absolute right-2 top-16 w-5 h-44 bg-white/10 backdrop-blur-md rounded-full border border-white/20 flex flex-col items-center p-1 z-30 shadow-lg cursor-pointer">
+                <div class="w-1 h-1 bg-white/40 rounded-full mb-1"></div>
+                <div id="minimap-thumb" class="w-3 h-8 bg-gradient-to-b from-indigo-500 to-indigo-600 rounded-full border border-white/70 shadow-md transition-all"></div>
+                <div class="w-1 h-1 bg-white/40 rounded-full mt-auto"></div>
+              </div>
+
+              <!-- FLOATING MAGNIFYING LOUPE (INSPECTION LENS) -->
+              <div id="loupe-lens" class="w-24 h-24 rounded-full border-[3px] border-amber-400/80 shadow-2xl absolute pointer-events-none hidden z-40 bg-[#EDEDED] overflow-hidden -translate-x-12 -translate-y-28">
+                <!-- Loupe Crosshairs -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="w-full h-px bg-orange-500/60"></div>
+                  <div class="h-full w-px bg-orange-500/60 absolute"></div>
+                  <div class="w-4 h-4 rounded-full border border-orange-500/60 absolute"></div>
+                </div>
+                <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] bg-black/70 text-white px-1 rounded font-mono">2.5x</div>
+              </div>
+
               <!-- Outer Device Mockup Container -->
               <div id="mockup-bezel" class="w-[280px] bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl relative transition-all duration-300 overflow-hidden">
                 
                 <!-- STITCHED SLICES CONTAINER -->
-                <div id="stitched-canvas-frame" class="w-full relative flex flex-col text-slate-900">
+                <div id="stitched-canvas-frame" onmousemove="handleLoupeMove(event)" class="w-full relative flex flex-col text-slate-900">
                   
                   <!-- Slice 1: Chat Title & Top Bubbles -->
                   <div class="w-full bg-[#EDEDED] p-2.5 border-b border-slate-300 text-[11px] relative">
@@ -368,23 +388,18 @@
                   </div>
 
                   <!-- INTERACTIVE ANNOTATION OVERLAYS -->
-                  <!-- 1. Red Box -->
                   <div id="anno-box" class="absolute top-10 left-4 right-4 h-14 border-2 border-red-500 rounded-md pointer-events-none hidden">
                     <span class="absolute -top-3 left-2 bg-red-500 text-white text-[8px] font-bold px-1 rounded">红框批注</span>
                   </div>
-                  <!-- 2. Vector Arrow -->
                   <div id="anno-arrow" class="absolute top-28 left-6 pointer-events-none hidden text-red-500 flex items-center gap-1 font-bold text-xs">
                     <svg class="w-8 h-8 -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                     <span class="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded shadow">核心重点</span>
                   </div>
-                  <!-- 3. Step Number Badges ① ② ③ -->
                   <div id="anno-step" class="absolute top-44 left-3 pointer-events-none hidden flex flex-col gap-6">
                     <span class="w-5 h-5 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-[10px] shadow">1</span>
                     <span class="w-5 h-5 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-[10px] shadow">2</span>
                   </div>
-                  <!-- 4. Highlighter Strips -->
                   <div id="anno-highlighter" class="absolute top-52 left-8 w-44 h-5 bg-yellow-300/60 rounded mix-blend-multiply pointer-events-none hidden"></div>
-                  <!-- 5. Manual Mosaic -->
                   <div id="anno-mosaic" class="absolute top-28 right-4 w-12 h-6 bg-slate-800/90 rounded border border-white/40 pointer-events-none hidden flex items-center justify-center text-[8px] text-white">
                     打码
                   </div>
@@ -403,19 +418,28 @@
             <!-- BOTTOM EXPANDABLE LIQUID GLASS TOOLBAR (4 SUB-MODES) -->
             <div class="px-3 pb-3 z-30 flex flex-col gap-2">
               
-              <!-- Sub-panel 1: Seam Fine-Tuner -->
+              <!-- Sub-panel 1: Seam Fine-Tuner with Loupe Toggle -->
               <div id="subpanel-seam" class="liquid-glass rounded-xl p-2.5 flex items-center justify-between">
                 <button onclick="adjustOverlap(-3)" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 font-bold">-</button>
                 <div class="text-center">
-                  <span class="text-[10px] text-slate-400 block">接缝微调步进</span>
-                  <span id="overlap-indicator" class="text-xs font-bold font-mono text-orange-400">44 pt</span>
+                  <span class="text-[10px] text-slate-400 block">接缝微调 (触觉磁吸)</span>
+                  <div class="flex items-center justify-center gap-1">
+                    <span id="overlap-indicator" class="text-xs font-bold font-mono text-orange-400">44 pt</span>
+                    <span id="magnetic-spark" class="text-[9px] bg-amber-500/20 text-amber-300 px-1 rounded-full border border-amber-400/30">✨ 磁吸最佳</span>
+                  </div>
                 </div>
                 <button onclick="adjustOverlap(3)" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 font-bold">+</button>
+                
+                <div class="w-px h-6 bg-white/20"></div>
+
+                <!-- Loupe Button -->
+                <button onclick="toggleLoupe()" id="btn-loupe" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white/10 text-slate-300 hover:text-white flex items-center gap-1">
+                  <span>🔍 放大镜检视</span>
+                </button>
               </div>
 
-              <!-- Sub-panel 2: Annotation Tools (Now with AI Privacy & OCR Buttons) -->
+              <!-- Sub-panel 2: Annotation Tools -->
               <div id="subpanel-annotation" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
-                <!-- AI Smart Action Strip -->
                 <div class="flex items-center justify-between gap-1.5 pb-1 border-b border-white/10">
                   <button onclick="triggerVisionAutoRedaction()" id="btn-ai-redact" class="px-2.5 py-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 rounded-full border border-amber-400/30 flex items-center gap-1 hover:brightness-110">
                     <span>✨ AI一键脱敏</span>
@@ -426,7 +450,6 @@
                   <button onclick="clearAllAnnotations()" class="text-[11px] text-slate-400 hover:text-white px-2">清空</button>
                 </div>
 
-                <!-- Regular Markup Tool Buttons -->
                 <div class="flex items-center justify-around pt-0.5">
                   <button onclick="toggleAnno('box')" id="btn-anno-box" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">矩形框</button>
                   <button onclick="toggleAnno('arrow')" id="btn-anno-arrow" class="px-2 py-1 text-xs rounded-lg text-slate-300 hover:text-white hover:bg-white/10">箭头</button>
@@ -436,15 +459,32 @@
                 </div>
               </div>
 
-              <!-- Sub-panel 3: Social 9-Grid Slicer -->
-              <div id="subpanel-slicer" class="liquid-glass rounded-xl p-2.5 hidden flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1 text-xs">
-                  <button onclick="setGridCount(3)" id="grid-btn-3" class="px-2 py-1 rounded bg-white/10 text-slate-300">3图</button>
-                  <button onclick="setGridCount(6)" id="grid-btn-6" class="px-2 py-1 rounded bg-white/10 text-slate-300">6图</button>
-                  <button onclick="setGridCount(9)" id="grid-btn-9" class="px-2 py-1 rounded bg-indigo-600 text-white font-bold">9宫格</button>
+              <!-- Sub-panel 3: Social 9-Grid Slicer with Interactive 3x3 Stage -->
+              <div id="subpanel-slicer" class="liquid-glass rounded-xl p-2.5 hidden flex flex-col gap-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-slate-300 font-bold">小红书 3:4 黄金切片连排</span>
+                  <div class="flex items-center gap-1">
+                    <button onclick="setGridCount(3)" id="grid-btn-3" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">3图</button>
+                    <button onclick="setGridCount(6)" id="grid-btn-6" class="px-2 py-0.5 rounded bg-white/10 text-slate-300">6图</button>
+                    <button onclick="setGridCount(9)" id="grid-btn-9" class="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold">9宫格</button>
+                  </div>
                 </div>
-                <button onclick="sliceAndSaveToAlbum()" class="px-3 py-1 text-xs font-bold bg-gradient-to-r from-pink-500 to-indigo-600 text-white rounded-full hover:brightness-110 shadow-sm flex items-center gap-1">
-                  <span>智能断句切片进相册</span>
+
+                <!-- 3x3 Interactive Grid Cards -->
+                <div class="grid grid-cols-3 gap-1.5 p-1 bg-black/40 rounded-xl">
+                  <div onclick="tapGridCard(1)" id="grid-card-1" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#1 封面</div>
+                  <div onclick="tapGridCard(2)" id="grid-card-2" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#2 正文</div>
+                  <div onclick="tapGridCard(3)" id="grid-card-3" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#3 亮点</div>
+                  <div onclick="tapGridCard(4)" id="grid-card-4" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#4 细节</div>
+                  <div onclick="tapGridCard(5)" id="grid-card-5" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#5 数据</div>
+                  <div onclick="tapGridCard(6)" id="grid-card-6" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#6 论述</div>
+                  <div onclick="tapGridCard(7)" id="grid-card-7" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#7 截图</div>
+                  <div onclick="tapGridCard(8)" id="grid-card-8" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#8 结论</div>
+                  <div onclick="tapGridCard(9)" id="grid-card-9" class="h-10 bg-slate-800 rounded border border-white/20 flex items-center justify-center text-[9px] font-bold text-slate-300 hover:border-pink-500 cursor-pointer">#9 尾页</div>
+                </div>
+
+                <button onclick="sliceAndSaveToAlbum()" class="w-full py-1.5 text-xs font-bold bg-gradient-to-r from-pink-500 to-indigo-600 text-white rounded-xl shadow-sm hover:brightness-110 flex items-center justify-center gap-1">
+                  <span>避开文字断句并保存全部切片进相册</span>
                 </button>
               </div>
 
@@ -501,7 +541,6 @@
             </div>
             
             <div class="space-y-4">
-              <!-- Compact Pill -->
               <div class="space-y-1">
                 <span class="text-[10px] text-slate-400">1. 常态紧凑药丸 (在微信录屏滚屏时)</span>
                 <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
@@ -515,7 +554,6 @@
                 </div>
               </div>
 
-              <!-- Expanded Island -->
               <div class="space-y-1">
                 <span class="text-[10px] text-slate-400">2. 展开态 (停止录制瞬间后台 0.3s 拼合)</span>
                 <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
@@ -534,7 +572,6 @@
                 </div>
               </div>
 
-              <!-- Finished Island -->
               <div class="space-y-1">
                 <span class="text-[10px] text-slate-400">3. 拼合完成态 (直接存入剪贴板)</span>
                 <div class="w-full bg-slate-900 p-4 rounded-2xl flex justify-center">
@@ -575,7 +612,6 @@
               </button>
             </div>
 
-            <!-- Configuration Steps -->
             <div class="space-y-2 text-xs">
               <h5 class="font-bold text-slate-300">系统配置路径：</h5>
               <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-1">
@@ -598,61 +634,61 @@
       </div>
     </section>
 
-    <!-- Right: Product Differentiators & Breakthrough Highlights -->
+    <!-- Right: High-End UI Features & Interaction Innovations -->
     <section class="lg:col-span-6 space-y-4">
       
-      <!-- Killer Differentiators Card -->
+      <!-- Interactive Polish Innovations Card -->
       <div class="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden border-indigo-500/40">
         <div class="flex items-center gap-2.5">
-          <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm shadow-md">🔥</span>
+          <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm shadow-md">✨</span>
           <div>
-            <h3 class="text-sm font-bold text-white">长截图核心痛点与脱颖而出之道</h3>
-            <p class="text-[10px] text-slate-400">为什么用户会放弃 Picsew / Tailor 转投我们？</p>
+            <h3 class="text-sm font-bold text-white">Apple 设计奖级交互与视觉打磨</h3>
+            <p class="text-[10px] text-slate-400">高级质感、趣味触觉与丝滑操控的结合</p>
           </div>
         </div>
 
         <div class="space-y-2.5 text-xs pt-1">
-          <!-- Pain Point 1 -->
+          <!-- Innovation 1 -->
           <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
             <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>痛点一：社交发长图隐私泄露，手动打码累死人</span>
-              <span class="text-amber-400">Vision AI 破局</span>
+              <span>1. 右侧微缩雷达导轨 (Minimap Radar HUD)</span>
+              <span class="text-indigo-400">极致好用</span>
             </div>
             <p class="text-[11px] text-slate-300 leading-relaxed">
-              <strong>我们的解法</strong>：内置 Apple Neural Engine 驱动的端侧人脸与正则检测，点击【✨ AI一键脱敏】，0.1秒自动给微信所有聊天头像、11位手机号打上高斯磨砂码！零云端上传，彻底杜绝隐私泄露！
+              面对上万像素的长图，普通滚动容易迷失。我们在画板右侧嵌入了液态玻璃微缩雷达导轨，拖拽发光滑块即可极速穿梭定位，随滚动自适应映射当前视口。
             </p>
           </div>
 
-          <!-- Pain Point 2 -->
+          <!-- Innovation 2 -->
           <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
             <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>痛点二：两万像素长图看不完、拷不出、搜不到</span>
-              <span class="text-indigo-400">全文 OCR 破局</span>
+              <span>2. 2.5x 放大镜细节检视器 (Interactive Loupe)</span>
+              <span class="text-amber-400">好玩且精准</span>
             </div>
             <p class="text-[11px] text-slate-300 leading-relaxed">
-              <strong>我们的解法</strong>：长图不只是死图片！点击【📄 提取长图文字】，按阅读时序提取所有聊天/网页文字，一键复制纯文本；同时支持长图关键字高亮检索与导出带文本图层的可搜索 PDF！
+              在【接缝对齐】中开启【🔍 放大镜检视】，手指移动之处即浮起带钛金镜圈和十字准星的 2.5x 悬浮透镜，接缝字符对齐与文字避障纤毫毕现！
             </p>
           </div>
 
-          <!-- Pain Point 3 -->
+          <!-- Innovation 3 -->
           <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
             <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>痛点三：发小红书/朋友圈被平台强行压缩变糊</span>
-              <span class="text-pink-400">智能断句 9 宫格</span>
+              <span>3. 触觉磁吸接缝 (Magnetic Seam Haptics)</span>
+              <span class="text-emerald-400">机械钟表手感</span>
             </div>
             <p class="text-[11px] text-slate-300 leading-relaxed">
-              <strong>我们的解法</strong>：独家研发垂直避障断句算法，在拆分点上下 36pt 窗口内搜寻背景间隙，一键拆分为 9 宫格高清图，<strong>绝不横断汉字</strong>，小红书图文浏览体验满分！
+              步进调整接缝时，当重叠距离靠近 44pt 最小能量点，手机发出清脆的瞬态磁吸振动（`triggerSnap`），让拼图具备类似机械发条拧紧的扎实质感。
             </p>
           </div>
 
-          <!-- Pain Point 4 -->
+          <!-- Innovation 4 -->
           <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/30 space-y-1">
             <div class="flex items-center justify-between text-indigo-300 font-bold">
-              <span>痛点四：知乎/微信“回到顶部”悬浮球反复重影</span>
-              <span class="text-emerald-400">静止悬浮抹除</span>
+              <span>4. 3D Cover Flow 动态手势推拉展台</span>
+              <span class="text-pink-400">空间视差</span>
             </div>
             <p class="text-[11px] text-slate-300 leading-relaxed">
-              <strong>我们的解法</strong>：传统拼图软件最怕悬浮球。算法自动对比滚动位移，识别在屏幕坐标静止的悬浮按钮，在中间切片自动抹除（Inpainting），只在底端保留一个！
+              主屏历史长图采用 -34° 空间偏转矩阵，支持手势横向拨动切换，伴随拟真地表镜面倒影与侧边书脊曲面高光。
             </p>
           </div>
         </div>
@@ -664,7 +700,7 @@
           <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
             <span class="text-amber-400">¥1.00 永久买断</span> · 每日免费 2 次
           </h4>
-          <p class="text-[10px] text-slate-400 mt-0.5">无恶心按月连续订阅，极高转化率与 App Store 口碑爆棚</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">无按月续费套路 · 已备案官方隐私与服务协议</p>
         </div>
         <button onclick="openPaywallModal()" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-bold text-xs rounded-full shadow-sm hover:brightness-110">
           特权概览
@@ -729,6 +765,9 @@
           <span class="text-amber-400">✓</span> <span>全文 OCR 提取与全局关键字检索</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
+          <span class="text-amber-400">✓</span> <span>微缩雷达导轨 + 细节检视放大镜</span>
+        </div>
+        <div class="flex items-center gap-2 text-slate-200">
           <span class="text-amber-400">✓</span> <span>小红书 9 宫格智能断句切片拆分</span>
         </div>
         <div class="flex items-center gap-2 text-slate-200">
@@ -785,17 +824,76 @@
       }
     }
 
-    // Seam overlap adjustment
+    // Seam overlap adjustment with Magnetic Haptics
     let currentOverlap = 44;
     function adjustOverlap(delta) {
       currentOverlap = Math.max(10, Math.min(100, currentOverlap + delta));
       document.getElementById('overlap-indicator').innerText = currentOverlap + ' pt';
       document.getElementById('overlap-label-1').innerText = currentOverlap + 'pt';
+
+      const spark = document.getElementById('magnetic-spark');
+      if (currentOverlap === 44) {
+        spark.classList.remove('hidden');
+        spark.innerText = '✨ 磁吸最佳对齐';
+        spark.className = 'text-[9px] bg-amber-500/30 text-amber-300 px-1.5 py-0.2 rounded-full border border-amber-400/50 animate-bounce';
+      } else {
+        spark.classList.add('hidden');
+      }
+    }
+
+    // Loupe Magnifier
+    let isLoupeActive = false;
+    function toggleLoupe() {
+      isLoupeActive = !isLoupeActive;
+      const lens = document.getElementById('loupe-lens');
+      const btn = document.getElementById('btn-loupe');
+      if (isLoupeActive) {
+        lens.classList.remove('hidden');
+        btn.classList.add('bg-amber-500', 'text-slate-950');
+        showToast('放大镜已开启：在长图上移动鼠标/手指可检视接缝细节');
+      } else {
+        lens.classList.add('hidden');
+        btn.classList.remove('bg-amber-500', 'text-slate-950');
+      }
+    }
+
+    function handleLoupeMove(e) {
+      if (!isLoupeActive) return;
+      const rect = document.getElementById('canvas-scroll-container').getBoundingClientRect();
+      const lens = document.getElementById('loupe-lens');
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      lens.style.left = x + 'px';
+      lens.style.top = y + 'px';
+    }
+
+    // Minimap Sync
+    function syncMinimapScroll() {
+      const container = document.getElementById('canvas-scroll-container');
+      const maxScroll = container.scrollHeight - container.clientHeight;
+      if (maxScroll <= 0) return;
+      const ratio = container.scrollTop / maxScroll;
+      const thumb = document.getElementById('minimap-thumb');
+      thumb.style.transform = `translateY(${ratio * 120}px)`;
+    }
+
+    // 3D Cover Flow Card Swap
+    function swapCoverCard(direction) {
+      const cardCenter = document.getElementById('card-center');
+      cardCenter.classList.add('scale-105');
+      setTimeout(() => {
+        cardCenter.classList.remove('scale-105');
+      }, 200);
+      showToast(`已切换至【${direction === 'left' ? '知乎长文' : '小红书图文'}】长截图`);
+    }
+
+    // 9-Grid Card Tap
+    function tapGridCard(idx) {
+      showToast(`已检视切片 #${idx} · 符合小红书 3:4 黄金画幅无损切分`);
     }
 
     // Preset mode selection (including Movie Subtitles)
     function onPresetChange(val) {
-      const middle = document.getElementById('middle-slice');
       if (val === 'movie') {
         alert('已切入【电影台词模式】：首图保留全画幅画面，后续图片仅裁取底部 18% 字幕栏自动纵向堆叠拼接！');
       } else if (val === 'feed') {
@@ -828,7 +926,6 @@
         if (el) el.classList.add('hidden');
         if (btn) btn.classList.remove('bg-indigo-600', 'text-white');
       });
-      // also clear auto-masks
       for (let i = 1; i <= 6; i++) {
         const m = document.getElementById('avatar-mask-' + i);
         if (m) m.classList.add('hidden');
@@ -958,7 +1055,7 @@
       document.getElementById('home-badge-text').innerText = '永久会员';
       const btn = document.getElementById('quota-pill-btn');
       btn.className = 'liquid-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold text-emerald-300 border-emerald-400/50';
-      alert('【购买成功】\n已激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 端侧 Vision AI 一键智能脱敏\n• 全图 OCR 文本提取\n• 9 宫格智能断句切片\n• 3D 钛金属外壳与自适应磨砂画板\n• 多页 PDF 导出与 EXIF 隐私清除！');
+      alert('【购买成功】\n已激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 端侧 Vision AI 一键智能脱敏\n• 全图 OCR 文本提取\n• 微缩雷达导轨与放大镜细节检视\n• 9 宫格智能断句切片\n• 3D 钛金属外壳与自适应磨砂画板\n• 多页 PDF 导出与 EXIF 隐私清除！');
       closePaywallModal();
     }
 

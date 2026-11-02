@@ -43,11 +43,16 @@ public struct StitchEditorView: View {
     @State private var isShowingTextAlert: Bool = false
     @State private var pendingTextLocation: CGPoint = .zero
     
+    // Interactive Loupe (Magnifying Glass) State
+    @State private var isShowingLoupe: Bool = false
+    @State private var loupePosition: CGPoint = .zero
+    
     // Canvas & Mockup State
     @State private var showDeviceFrame: Bool = false
     @State private var frameFinish: DeviceFrameFinish = .naturalTitanium
     @State private var canvasBackground: CanvasBackgroundStyle = .adaptiveBlur
     @State private var canvasPadding: CGFloat = 20.0
+    @State private var currentScrollOffset: CGFloat = 0.0
     
     // Social Slicer State
     @State private var selectedSlicePreset: ImageSlicer.SlicePreset = .nine
@@ -78,8 +83,34 @@ public struct StitchEditorView: View {
                 // Main Interactive Canvas
                 canvasScrollView
                 
+                // Floating Minimap Radar Scrubbing HUD (Docked on Right Edge)
+                VStack {
+                    Spacer().frame(height: 70)
+                    HStack {
+                        Spacer()
+                        CanvasMinimapView(
+                            totalHeight: session.totalEstimatedHeight / 3.0,
+                            visibleViewportHeight: 520,
+                            currentScrollOffset: $currentScrollOffset,
+                            onScrubToNormalizedY: { normalized in
+                                currentScrollOffset = normalized * (session.totalEstimatedHeight / 3.0 - 520)
+                            }
+                        )
+                        .padding(.trailing, 10)
+                    }
+                    Spacer()
+                }
+                .allowsHitTesting(activeToolMode != .annotation)
+                
                 // Bottom Liquid Glass Floating Modular Control Bar
                 bottomLiquidControlBar
+                
+                // Magnifying Loupe Overlay when inspecting fine details
+                if isShowingLoupe {
+                    InteractiveLoupeView(touchPosition: loupePosition) {
+                        annotatedCanvasStack
+                    }
+                }
                 
                 // Copied to Clipboard Notification Toast
                 if isCopiedToClipboardToast {
@@ -258,14 +289,17 @@ public struct StitchEditorView: View {
                             .fill(selectedSliceIndex == index ? Color.orange : Color.orange.opacity(0.5))
                             .frame(height: selectedSliceIndex == index ? 2.5 : 1)
                             .overlay(
-                                Text("接缝 #\(index): \(Int(slice.effectiveOverlap))pt")
-                                    .font(.caption2.bold().monospacedDigit())
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.orange)
-                                    .foregroundStyle(.white)
-                                    .clipShape(Capsule())
-                                    .offset(y: -14)
+                                HStack(spacing: 4) {
+                                    Image(systemName: "sparkles")
+                                    Text("接缝 #\(index): \(Int(slice.effectiveOverlap))pt (触觉磁吸)")
+                                }
+                                .font(.caption2.bold().monospacedDigit())
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.orange)
+                                .foregroundStyle(.white)
+                                .clipShape(Capsule())
+                                .offset(y: -14)
                             )
                     }
                 }
@@ -479,7 +513,7 @@ public struct StitchEditorView: View {
         .padding(.bottom, 16)
     }
     
-    // Sub-panel: Seam Tuner
+    // Sub-panel: Seam Tuner with Magnetic Tactile Clicks
     private var seamTunerPanel: some View {
         HStack(spacing: 16) {
             Button {
@@ -491,7 +525,7 @@ public struct StitchEditorView: View {
             }
             
             VStack(spacing: 2) {
-                Text("接缝 #\(selectedSliceIndex) 重叠调整")
+                Text("接缝 #\(selectedSliceIndex) 磁吸微调")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 if selectedSliceIndex < session.slices.count {
@@ -506,6 +540,20 @@ public struct StitchEditorView: View {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
                     .foregroundStyle(.secondary)
+            }
+            
+            Divider().frame(height: 20)
+            
+            // Loupe Toggle
+            Button {
+                withAnimation {
+                    isShowingLoupe.toggle()
+                }
+                HapticFeedbackManager.shared.triggerSelection()
+            } label: {
+                Image(systemName: isShowingLoupe ? "magnifyingglass.circle.fill" : "magnifyingglass.circle")
+                    .font(.title3)
+                    .foregroundStyle(isShowingLoupe ? Color.accentColor : Color.secondary)
             }
         }
         .padding(.horizontal, 16)
@@ -611,45 +659,51 @@ public struct StitchEditorView: View {
         }
     }
     
-    // Sub-panel: Social Slicer (九宫格切片)
+    // Sub-panel: Social Slicer (Interactive 3x3 Stage)
     private var socialSlicerPanel: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 12) {
-                ForEach(ImageSlicer.SlicePreset.allCases) { preset in
-                    Button {
-                        selectedSlicePreset = preset
-                        HapticFeedbackManager.shared.triggerSelection()
-                    } label: {
-                        Text(preset.title)
-                            .font(.system(size: 11, weight: selectedSlicePreset == preset ? .bold : .regular))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(selectedSlicePreset == preset ? Color.accentColor : Color.secondary.opacity(0.15))
-                            .foregroundStyle(selectedSlicePreset == preset ? Color.white : Color.primary)
-                            .clipShape(Capsule())
+            if !generatedSlices.isEmpty {
+                SocialGridStageView(slices: generatedSlices, onSaveToAlbum: {
+                    saveGeneratedSlicesToAlbum()
+                }, isSaving: isSlicing)
+            } else {
+                HStack(spacing: 12) {
+                    ForEach(ImageSlicer.SlicePreset.allCases) { preset in
+                        Button {
+                            selectedSlicePreset = preset
+                            HapticFeedbackManager.shared.triggerSelection()
+                        } label: {
+                            Text(preset.title)
+                                .font(.system(size: 11, weight: selectedSlicePreset == preset ? .bold : .regular))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(selectedSlicePreset == preset ? Color.accentColor : Color.secondary.opacity(0.15))
+                                .foregroundStyle(selectedSlicePreset == preset ? Color.white : Color.primary)
+                                .clipShape(Capsule())
+                        }
                     }
                 }
-            }
-            
-            Button {
-                triggerSliceAndSave()
-            } label: {
-                HStack(spacing: 6) {
-                    if isSlicing {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "square.and.arrow.down.on.square.fill")
+                
+                Button {
+                    triggerSlicePreview()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSlicing {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "square.grid.3x3.fill")
+                        }
+                        Text("智能断句拆解为 \(selectedSlicePreset.rawValue) 宫格连拍")
+                            .font(.caption.bold())
                     }
-                    Text("智能断句并批量保存 \(selectedSlicePreset.rawValue) 张切片到相册")
-                        .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor)
+                    .clipShape(Capsule())
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 7)
-                .background(Color.accentColor)
-                .clipShape(Capsule())
+                .disabled(isSlicing)
             }
-            .disabled(isSlicing)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -758,8 +812,16 @@ public struct StitchEditorView: View {
     
     private func adjustSliceOverlap(sliceIndex: Int, delta: CGFloat) {
         guard sliceIndex > 0 && sliceIndex < session.slices.count else { return }
+        let current = session.slices[sliceIndex].effectiveOverlap
         session.slices[sliceIndex].manualOverlapAdjustment += delta
-        HapticFeedbackManager.shared.triggerSelection()
+        
+        // Tactile Magnetic Haptics on 44pt / 88pt sweet spot
+        let newOverlap = session.slices[sliceIndex].effectiveOverlap
+        if abs(newOverlap - 44) < 2 || abs(newOverlap - 88) < 2 {
+            HapticFeedbackManager.shared.triggerSnap()
+        } else {
+            HapticFeedbackManager.shared.triggerSelection()
+        }
     }
     
     // AI Vision Auto Sanitization
@@ -806,7 +868,7 @@ public struct StitchEditorView: View {
         }
     }
     
-    private func triggerSliceAndSave() {
+    private func triggerSlicePreview() {
         guard !session.slices.isEmpty else { return }
         isSlicing = true
         
@@ -821,15 +883,26 @@ public struct StitchEditorView: View {
             
             if let image = UIImage(contentsOfFile: tempOutput.path) {
                 let slices = ImageSlicer.shared.sliceImage(image: image, count: selectedSlicePreset.rawValue)
-                try? await ImageSlicer.shared.saveSlicesToAlbum(slices: slices)
                 await MainActor.run {
                     self.generatedSlices = slices
                     self.isSlicing = false
-                    self.isShowingSlicesSavedAlert = true
                     HapticFeedbackManager.shared.triggerSnap()
                 }
             } else {
                 await MainActor.run { self.isSlicing = false }
+            }
+        }
+    }
+    
+    private func saveGeneratedSlicesToAlbum() {
+        guard !generatedSlices.isEmpty else { return }
+        isSlicing = true
+        Task {
+            try? await ImageSlicer.shared.saveSlicesToAlbum(slices: generatedSlices)
+            await MainActor.run {
+                self.isSlicing = false
+                self.isShowingSlicesSavedAlert = true
+                HapticFeedbackManager.shared.triggerSnap()
             }
         }
     }
