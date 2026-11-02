@@ -75,39 +75,73 @@ public struct TactileSeamDialView: View {
                         .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.8)
                 )
             
-            // Knurled Mechanical Dial Wheel
-            mechanicalDialView
-                .frame(height: 52)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(white: 0.12))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.25), Color.clear, Color.black.opacity(0.6)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
+            // Knurled Mechanical Dial Wheel with Stepper Buttons
+            HStack(spacing: 8) {
+                Button {
+                    let step: CGFloat = isFineGrained ? 0.5 : 1.0
+                    offset = max(range.lowerBound, offset - step)
+                    HapticFeedbackManager.shared.triggerDialDetent()
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 48)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
                         )
-                )
-                .overlay(
-                    // Center Reticle Needle Indicator
-                    VStack(spacing: 0) {
-                        Image(systemName: "arrowtriangle.down.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
-                        Rectangle()
-                            .fill(isLockedToOptimal ? Color.green : Color.orange)
-                            .frame(width: 2, height: 26)
-                        Image(systemName: "arrowtriangle.up.fill")
-                            .font(.system(size: 8))
-                            .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
-                    }
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                
+                mechanicalDialView
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(white: 0.12))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.25), Color.clear, Color.black.opacity(0.6)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .overlay(
+                        // Center Reticle Needle Indicator
+                        VStack(spacing: 0) {
+                            Image(systemName: "arrowtriangle.down.fill")
+                                .font(.system(size: 8))
+                                .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
+                            Rectangle()
+                                .fill(isLockedToOptimal ? Color.green : Color.orange)
+                                .frame(width: 2, height: 26)
+                            Image(systemName: "arrowtriangle.up.fill")
+                                .font(.system(size: 8))
+                                .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
+                        }
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                
+                Button {
+                    let step: CGFloat = isFineGrained ? 0.5 : 1.0
+                    offset = min(range.upperBound, offset + step)
+                    HapticFeedbackManager.shared.triggerDialDetent()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 48)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
             
             // Controls Footer
             HStack(spacing: 12) {

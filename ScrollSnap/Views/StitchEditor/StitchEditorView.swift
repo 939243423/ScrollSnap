@@ -62,6 +62,7 @@ public struct StitchEditorView: View {
     @State private var canvasPadding: CGFloat = 20.0
     @State private var currentScrollOffset: CGFloat = 0.0
     @State private var isShowingStudioShowroomSheet: Bool = false
+    @State private var isShowingComparisonSheet: Bool = false
     
     // Social Slicer State
     @State private var selectedSlicePreset: ImageSlicer.SlicePreset = .nine
@@ -162,6 +163,14 @@ public struct StitchEditorView: View {
                         }
                         
                         Menu {
+                            Section("视觉体验") {
+                                Button {
+                                    isShowingComparisonSheet = true
+                                    HapticFeedbackManager.shared.triggerSelection()
+                                } label: {
+                                    Label("无缝对比双目帘幕", systemImage: "rectangle.split.2x1")
+                                }
+                            }
                             Section("3D 摄影棚") {
                                 Button {
                                     isShowingStudioShowroomSheet = true
@@ -191,6 +200,9 @@ public struct StitchEditorView: View {
                         .disabled(isExporting)
                     }
                 }
+            }
+            .sheet(isPresented: $isShowingComparisonSheet) {
+                BeforeAfterComparisonView()
             }
             .sheet(isPresented: $isShowingStudioShowroomSheet) {
                 StudioShowroomView(

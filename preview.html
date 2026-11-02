@@ -218,26 +218,66 @@
                   <span class="text-[10px] text-slate-500">空间透视流</span>
                 </div>
                 <div class="w-full h-36 bg-slate-900/60 rounded-2xl border border-white/10 flex items-center justify-center perspective-stage overflow-hidden relative">
-                  <!-- Left 3D Card -->
-                  <div onclick="swapCoverCard('left')" id="card-left" class="cover-card-left w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute left-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
-                    <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
-                    <div class="w-3/4 h-2 bg-slate-700 rounded mb-2"></div>
-                    <div class="flex-1 bg-slate-900 rounded"></div>
-                    <span class="text-[7px] text-slate-400 text-center mt-1">知乎长文</span>
-                  </div>
-                  <!-- Center Active 3D Card -->
-                  <div onclick="switchScreen('editor')" id="card-center" class="cover-card-center w-24 h-32 bg-slate-800 rounded-xl border-2 border-indigo-500 shadow-2xl z-10 flex flex-col p-1.5 relative cursor-pointer transition-all duration-300">
-                    <div class="w-full h-2.5 bg-indigo-500/40 rounded mb-1.5"></div>
-                    <div class="w-full space-y-1">
-                      <div class="w-12 h-2 bg-slate-700 rounded"></div>
-                      <div class="w-16 h-2 bg-indigo-900/60 rounded"></div>
-                      <div class="w-10 h-2 bg-slate-700 rounded"></div>
+                  <!-- Left 3D Card: Safari Long Article -->
+                  <div onclick="swapCoverCard('left')" id="card-left" class="cover-card-left w-22 h-32 bg-slate-900 rounded-xl border border-sky-500/40 shadow-xl opacity-65 absolute left-3 flex flex-col p-1.5 cursor-pointer transition-all duration-300 hover:opacity-90 overflow-hidden select-none">
+                    <div class="w-full bg-sky-950/80 rounded px-1 py-0.5 text-[6.5px] text-sky-300 flex items-center justify-between mb-1">
+                      <span>safari.apple.com</span>
+                      <span>🔒</span>
                     </div>
-                    <span class="absolute bottom-1 right-1 text-[8px] bg-indigo-600 text-white px-1 rounded font-mono">3420px</span>
+                    <div class="text-[7.5px] font-bold text-slate-200 line-clamp-1 leading-tight">Vision Pro 空间设计</div>
+                    <div class="flex-1 space-y-1 mt-1 opacity-70">
+                      <div class="w-full h-1.5 bg-slate-700 rounded-xs"></div>
+                      <div class="w-4/5 h-1.5 bg-slate-700 rounded-xs"></div>
+                      <div class="w-full h-8 bg-sky-900/40 rounded-xs"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-1 pt-0.5 border-t border-white/10">
+                      <span class="text-[6.5px] text-sky-400 font-semibold">网页长文</span>
+                      <span class="text-[7px] bg-sky-600/60 text-white px-1 rounded font-mono">14.8k</span>
+                    </div>
                   </div>
-                  <!-- Right 3D Card -->
-                  <div onclick="swapCoverCard('right')" id="card-right" class="cover-card-right w-20 h-28 bg-slate-800 rounded-lg border border-slate-600 shadow-xl opacity-60 absolute right-4 flex flex-col p-1 cursor-pointer transition-all duration-300 hover:opacity-90">
-                    <div class="w-full h-2 bg-slate-700 rounded mb-1"></div>
+
+                  <!-- Center Active 3D Card: WeChat Chat Record -->
+                  <div onclick="switchScreen('editor')" id="card-center" class="cover-card-center w-26 h-36 bg-slate-900 rounded-2xl border-2 border-emerald-500 shadow-[0_10px_30px_rgba(52,199,89,0.25)] z-20 flex flex-col p-2 relative cursor-pointer transition-all duration-300 overflow-hidden select-none group">
+                    <div class="w-full bg-[#EDEDED] rounded-t-lg p-1 text-[7.5px] font-bold text-center text-slate-700 mb-1 border-b border-slate-300">
+                      商业效率研发群
+                    </div>
+                    <div class="flex-1 bg-[#EDEDED] p-1 space-y-1.5 rounded-b-lg text-[6.5px]">
+                      <div class="flex items-start gap-1">
+                        <div class="w-3.5 h-3.5 rounded bg-indigo-600 text-white flex items-center justify-center text-[5.5px]">杜</div>
+                        <div class="bg-white p-1 rounded text-slate-800 shadow-xs max-w-[70%]">已完全支持液态玻璃！</div>
+                      </div>
+                      <div class="flex items-start justify-end gap-1">
+                        <div class="bg-[#95EC69] p-1 rounded text-slate-800 shadow-xs max-w-[70%]">冲刺 App Store 榜首</div>
+                        <div class="w-3.5 h-3.5 rounded bg-emerald-600 text-white flex items-center justify-center text-[5.5px]">我</div>
+                      </div>
+                    </div>
+                    <div class="absolute bottom-1.5 right-1.5 flex items-center gap-1">
+                      <span class="text-[7px] bg-emerald-600 text-white font-mono font-bold px-1.5 py-0.2 rounded-full shadow">3,420 px</span>
+                    </div>
+                  </div>
+
+                  <!-- Right 3D Card: Xiaohongshu 9-Grid Slices -->
+                  <div onclick="swapCoverCard('right')" id="card-right" class="cover-card-right w-22 h-32 bg-slate-900 rounded-xl border border-rose-500/40 shadow-xl opacity-65 absolute right-3 flex flex-col p-1.5 cursor-pointer transition-all duration-300 hover:opacity-90 overflow-hidden select-none">
+                    <div class="w-full bg-rose-950/80 rounded px-1 py-0.5 text-[6.5px] text-rose-300 font-bold mb-1">
+                      小红书精选清单
+                    </div>
+                    <!-- 9-grid preview -->
+                    <div class="flex-1 grid grid-cols-3 gap-0.5 p-0.5 bg-slate-800 rounded">
+                      <div class="bg-rose-900/60 rounded-xs"></div>
+                      <div class="bg-rose-800/60 rounded-xs"></div>
+                      <div class="bg-rose-900/60 rounded-xs"></div>
+                      <div class="bg-rose-700/60 rounded-xs"></div>
+                      <div class="bg-rose-900/60 rounded-xs"></div>
+                      <div class="bg-rose-800/60 rounded-xs"></div>
+                      <div class="bg-rose-900/60 rounded-xs"></div>
+                      <div class="bg-rose-700/60 rounded-xs"></div>
+                      <div class="bg-rose-800/60 rounded-xs"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-1 pt-0.5 border-t border-white/10">
+                      <span class="text-[6.5px] text-rose-400 font-semibold">9宫格切片</span>
+                      <span class="text-[7px] bg-rose-600/60 text-white px-1 rounded font-mono">4.8k</span>
+                    </div>
+                  </div>
                     <div class="w-1/2 h-2 bg-slate-700 rounded mb-2"></div>
                     <div class="flex-1 bg-slate-900 rounded"></div>
                     <span class="text-[7px] text-slate-400 text-center mt-1">小红书图文</span>
@@ -269,6 +309,9 @@
 
                 <!-- Fast Export Actions -->
                 <div class="flex items-center gap-1.5">
+                  <button onclick="toggleCompareCurtain()" id="btn-compare-curtain" title="双目无缝对比帘幕" class="px-2 py-1 rounded-full bg-white/10 border border-white/20 text-[10px] font-semibold text-slate-300 hover:text-white flex items-center gap-1">
+                    <span>↔️ 对比</span>
+                  </button>
                   <button onclick="copyToClipboard()" title="复制长图到剪贴板" class="w-7 h-7 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-slate-300 hover:text-white">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                   </button>
@@ -326,14 +369,23 @@
                 </div>
 
                 <!-- FLOATING MAGNIFYING LOUPE (INSPECTION LENS) -->
-                <div id="loupe-lens" class="w-24 h-24 rounded-full border-[3px] border-amber-400/80 shadow-2xl absolute pointer-events-none hidden z-40 bg-[#EDEDED] overflow-hidden -translate-x-12 -translate-y-28">
-                  <!-- Loupe Crosshairs -->
-                  <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="w-full h-px bg-orange-500/60"></div>
-                    <div class="h-full w-px bg-orange-500/60 absolute"></div>
-                    <div class="w-4 h-4 rounded-full border border-orange-500/60 absolute"></div>
+                <div id="loupe-lens" class="w-28 h-28 rounded-full border-[3px] border-amber-400/90 shadow-[0_12px_36px_rgba(0,0,0,0.6)] absolute pointer-events-none hidden z-40 bg-[#EDEDED] overflow-hidden -translate-x-14 -translate-y-32">
+                  <!-- Dynamic Canvas Mirror (Scaled 2.2x) -->
+                  <div id="loupe-canvas-mirror" class="absolute w-[280px] pointer-events-none origin-top-left"></div>
+
+                  <!-- Optical Precision Crosshairs Reticle -->
+                  <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <div class="w-full h-px bg-amber-500/70"></div>
+                    <div class="h-full w-px bg-amber-500/70 absolute"></div>
+                    <div class="w-5 h-5 rounded-full border border-amber-500/70 absolute"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-amber-500/80 absolute"></div>
                   </div>
-                  <div class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] bg-black/70 text-white px-1 rounded font-mono">2.5x</div>
+                  
+                  <!-- Loupe HUD Specular Ring & Badge -->
+                  <div class="absolute inset-0 rounded-full border border-white/40 pointer-events-none z-20"></div>
+                  <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[7.5px] bg-black/80 text-amber-300 px-1.5 py-0.2 rounded-full font-mono font-bold tracking-tight z-30 shadow">
+                    2.5× RETINA
+                  </div>
                 </div>
 
                 <!-- Outer Device Mockup Container -->
@@ -429,6 +481,68 @@
                       </div>
                     </div>
 
+                    <!-- INTERACTIVE BEFORE/AFTER SPLIT CURTAIN LAYER -->
+                    <div id="split-curtain-container" class="absolute inset-0 z-25 pointer-events-none hidden overflow-hidden select-none">
+                      <!-- Left Layer: Authentic Raw Unstitched Screenshots with Duplicates & Overlap Zone -->
+                      <div id="curtain-left" class="absolute left-0 top-0 bottom-0 w-1/2 bg-[#EDEDED] border-r-2 border-white shadow-[0_0_15px_rgba(255,255,255,0.7)] overflow-hidden pointer-events-none">
+                        <!-- Top Floating Amber Tag -->
+                        <div class="absolute top-2 left-2 z-30 bg-amber-600/95 backdrop-blur-md text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow flex items-center gap-1 border border-white/20">
+                          <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                          <span>拼合前: 原始散图 (含重复顶栏)</span>
+                        </div>
+                        
+                        <!-- Raw Unstitched Content Replica -->
+                        <div class="w-[280px] p-2.5 text-[11px] text-slate-900 select-none">
+                          <div class="font-bold text-center text-slate-700 pb-1.5 border-b border-slate-200">商业效率研发群 (4人)</div>
+                          <div class="space-y-2 pt-2">
+                            <div class="flex items-start gap-1.5">
+                              <div class="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">杜</div>
+                              <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-xs max-w-[75%] leading-tight">
+                                今天我们要把长截图做到完全支持苹果液态玻璃，而且要冲榜首！
+                              </div>
+                            </div>
+                            <div class="flex items-start justify-end gap-1.5">
+                              <div class="bg-[#95EC69] p-1.5 rounded-lg text-slate-800 shadow-xs max-w-[75%] leading-tight text-right">
+                                我的手机是 13800138000，测试款直接打我电话！
+                              </div>
+                              <div class="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">我</div>
+                            </div>
+                          </div>
+
+                          <!-- Redundant Duplicate Zone in Raw Screenshot -->
+                          <div class="mt-2.5 border-2 border-dashed border-amber-500/80 bg-amber-500/15 rounded-lg p-2 text-center shadow-xs">
+                            <div class="text-[8px] font-bold text-amber-800 bg-amber-200/90 px-1.5 py-0.5 rounded inline-block">⚠️ 第2屏重复吸顶栏与重叠气泡 (未去重)</div>
+                            <div class="text-[7.5px] text-amber-900 mt-1 font-mono">重叠冗余: 78pt · ScrollSnap 算法将自动无缝消除</div>
+                          </div>
+
+                          <!-- Duplicate header and repeated bubble below seam -->
+                          <div class="mt-2 pt-1 border-t border-slate-300 opacity-60">
+                            <div class="font-bold text-center text-slate-600 text-[10px] pb-1">商业效率研发群 (重复标题栏)</div>
+                            <div class="flex items-start gap-1.5 pt-1">
+                              <div class="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">杜</div>
+                              <div class="bg-white p-1.5 rounded-lg text-slate-800 shadow-xs max-w-[75%] leading-tight">
+                                必须支持小红书 9 宫格切片，长图一键拆成 9 张高清图发小红书！
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Right Floating Emerald Tag on pristine stitched canvas -->
+                      <div class="absolute top-2 right-2 z-30 bg-emerald-600/95 backdrop-blur-md text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow flex items-center gap-1 border border-white/20">
+                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                        <span>ScrollSnap 亚像素对齐 (100% 无缝)</span>
+                      </div>
+
+                      <!-- Center Laser Saber Divider & Pill Handle -->
+                      <div id="curtain-handle" class="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-8 pointer-events-auto cursor-ew-resize flex items-center justify-center z-35">
+                        <div class="w-0.5 h-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)]"></div>
+                        <div class="absolute w-7 h-7 rounded-full bg-white shadow-2xl border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-900 hover:scale-115 transition-transform">
+                          ↔
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- INTERACTIVE PRIVACY BRUSH SCRATCH CANVAS LAYER -->
                     <canvas id="brush-canvas" width="280" height="420" class="absolute inset-0 z-20 pointer-events-none"></canvas>
 
@@ -482,11 +596,21 @@
                     <canvas id="waveform-canvas" width="280" height="32" class="w-full h-full block"></canvas>
                   </div>
 
-                  <!-- Knurled Mechanical Ruler Wheel (Interactive Drag) -->
-                  <div class="relative w-full h-9 bg-slate-900 rounded-lg border border-white/20 overflow-hidden flex items-center select-none cursor-ew-resize" id="dial-container">
-                    <div id="dial-ruler" class="knurled-track absolute left-0 top-0 h-full w-[600px] -translate-x-[150px] transition-transform duration-75"></div>
-                    <!-- Center Reticle Line -->
-                    <div class="absolute left-1/2 -translate-x-1/2 w-0.5 h-6 bg-emerald-400 shadow-[0_0_8px_#34C759] z-10 pointer-events-none"></div>
+                  <!-- Knurled Mechanical Ruler Wheel (Interactive Drag with Steppers) -->
+                  <div class="flex items-center gap-1.5">
+                    <button onclick="stepSeamOffset(-1)" title="微调 -1px" class="w-7 h-9 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-slate-300 font-bold text-xs flex items-center justify-center border border-white/10">
+                      -1
+                    </button>
+                    
+                    <div class="relative flex-1 h-9 bg-slate-900 rounded-lg border border-white/20 overflow-hidden flex items-center select-none cursor-ew-resize" id="dial-container">
+                      <div id="dial-ruler" class="knurled-track absolute left-0 top-0 h-full w-[600px] -translate-x-[150px] transition-transform duration-75"></div>
+                      <!-- Center Reticle Line -->
+                      <div id="dial-center-needle" class="absolute left-1/2 -translate-x-1/2 w-0.5 h-6 bg-emerald-400 shadow-[0_0_8px_#34C759] z-10 pointer-events-none transition-colors"></div>
+                    </div>
+
+                    <button onclick="stepSeamOffset(1)" title="微调 +1px" class="w-7 h-9 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-slate-300 font-bold text-xs flex items-center justify-center border border-white/10">
+                      +1
+                    </button>
                   </div>
 
                   <div class="flex items-center justify-between text-[10px] pt-0.5">
@@ -645,20 +769,45 @@
               </div>
 
               <!-- Studio Controls -->
-              <div class="liquid-glass rounded-xl p-3 space-y-2">
+              <div class="liquid-glass rounded-xl p-3 space-y-2.5">
+                <!-- 1. Apple Flagship Titanium Bezel Finish -->
                 <div class="flex items-center justify-between text-xs">
-                  <span class="text-slate-400">摄影棚氛围</span>
+                  <span class="text-slate-400 font-medium">旗舰边框</span>
                   <div class="flex items-center gap-1">
-                    <button onclick="setStudioTheme('sunset')" class="px-2 py-0.5 text-[10px] rounded bg-purple-600/40 text-purple-200 border border-purple-400/30">加州暖霞</button>
-                    <button onclick="setStudioTheme('aurora')" class="px-2 py-0.5 text-[10px] rounded bg-white/10 text-slate-300">极光青蓝</button>
-                    <button onclick="setStudioTheme('obsidian')" class="px-2 py-0.5 text-[10px] rounded bg-white/10 text-slate-300">极夜黑曜</button>
-                    <button onclick="setStudioTheme('clean')" class="px-2 py-0.5 text-[10px] rounded bg-white/10 text-slate-300">棚拍纯白</button>
+                    <button onclick="setDeviceFinish('desert')" id="finish-btn-desert" class="px-2 py-0.5 text-[10px] rounded-full bg-amber-600/30 text-amber-200 border border-amber-400/40 font-semibold flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full bg-[#C5A880] inline-block shadow-xs"></span>
+                      <span>沙漠钛</span>
+                    </button>
+                    <button onclick="setDeviceFinish('natural')" id="finish-btn-natural" class="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300 font-medium flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full bg-[#8E8B82] inline-block shadow-xs"></span>
+                      <span>原色钛</span>
+                    </button>
+                    <button onclick="setDeviceFinish('black')" id="finish-btn-black" class="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300 font-medium flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full bg-[#2C2C2E] inline-block shadow-xs"></span>
+                      <span>深空黑</span>
+                    </button>
+                    <button onclick="setDeviceFinish('silver')" id="finish-btn-silver" class="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300 font-medium flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full bg-[#E5E5EA] inline-block shadow-xs"></span>
+                      <span>银白钛</span>
+                    </button>
                   </div>
                 </div>
 
-                <button onclick="exportStudioPoster()" class="w-full py-2 bg-white text-black font-bold rounded-xl text-xs shadow-lg hover:bg-slate-200 flex items-center justify-center gap-1.5">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                  <span>一键导出 3D 悬浮展示海报</span>
+                <!-- 2. Studio Lighting Atmosphere -->
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-slate-400 font-medium">棚拍光效</span>
+                  <div class="flex items-center gap-1">
+                    <button onclick="setStudioTheme('sunset')" id="theme-btn-sunset" class="px-2 py-0.5 text-[10px] rounded-full bg-purple-600/40 text-purple-200 border border-purple-400/30">加州暖霞</button>
+                    <button onclick="setStudioTheme('aurora')" id="theme-btn-aurora" class="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300">极光青蓝</button>
+                    <button onclick="setStudioTheme('obsidian')" id="theme-btn-obsidian" class="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300">极夜黑曜</button>
+                    <button onclick="setStudioTheme('clean')" id="theme-btn-clean" class="px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300">棚拍素泥</button>
+                  </div>
+                </div>
+
+                <!-- 3. Export Action Button -->
+                <button onclick="exportStudioPoster()" class="w-full py-2 bg-white text-black font-bold rounded-xl text-xs shadow-lg hover:bg-slate-100 active:scale-98 transition-all flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  <span>一键导出 3D 悬浮展示海报 (4K 超清)</span>
                 </button>
               </div>
             </div>
@@ -886,10 +1035,8 @@
     <div class="liquid-glass w-full max-w-sm rounded-3xl p-6 space-y-4 border-amber-400/40 relative overflow-hidden shadow-2xl">
       <button onclick="closePaywallModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
 
-      <div class="text-center space-y-1">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 mx-auto flex items-center justify-center text-2xl shadow-lg shadow-orange-500/30">
-          ⚡️
-        </div>
+      <div class="text-center space-y-2">
+        <img src="AppIcon.png" class="w-16 h-16 rounded-2xl mx-auto shadow-xl shadow-indigo-500/30 object-cover ring-2 ring-white/20" alt="AppIcon">
         <h3 class="text-lg font-bold text-white">纯粹效率 · 1元永久买断</h3>
         <p class="text-xs text-slate-400 px-2">每天免费提供 2 次完整长截图。仅需 ¥1.00，永久解锁全套高阶效率特权，无月费无订阅。</p>
       </div>
@@ -915,6 +1062,13 @@
       <button onclick="simulatePurchaseSuccess()" id="modal-buy-btn" class="w-full py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 text-slate-950 font-bold rounded-2xl text-sm shadow-xl shadow-orange-500/25 hover:brightness-110 transition-all flex items-center justify-center gap-2">
         <span>支付 ¥1.00 永久买断</span>
       </button>
+
+      <!-- Legal Links inside Paywall -->
+      <div class="flex items-center justify-center gap-3 text-[10px] text-slate-400 pt-0.5">
+        <a href="https://939243423.github.io/protocol__ScrollSnap/privacy.html" target="_blank" class="hover:text-white underline">隐私政策</a>
+        <span>·</span>
+        <a href="https://939243423.github.io/protocol__ScrollSnap/terms.html" target="_blank" class="hover:text-white underline">服务条款与 EULA</a>
+      </div>
 
       <div class="text-center text-[10px] text-slate-500">
         App Store 一次性非消耗型购买 · 支持随 Apple ID 终身恢复
@@ -1120,21 +1274,61 @@
       });
     }
 
+    function stepSeamOffset(delta) {
+      currentOverlap = Math.max(10, Math.min(80, currentOverlap + delta));
+      playMechanicalClick();
+      updateOverlapDisplay();
+    }
+
     function updateOverlapDisplay() {
-      document.getElementById('overlap-indicator').innerText = currentOverlap.toFixed(1) + ' pt';
-      document.getElementById('overlap-label-1').innerText = currentOverlap + 'pt';
+      const delta = (currentOverlap - 44);
+      const sign = delta > 0 ? '+' : '';
+      const formatted = (delta === 0) ? '0.0 pt (锁定)' : (sign + delta.toFixed(1) + ' pt');
+      
+      const indicator = document.getElementById('overlap-indicator');
+      if (indicator) indicator.innerText = formatted;
+      
+      const label1 = document.getElementById('overlap-label-1');
+      if (label1) label1.innerText = currentOverlap + ' pt';
+
+      // Real-time canvas translation of middle slice!
+      const middleSlice = document.getElementById('middle-slice');
+      if (middleSlice) {
+        middleSlice.style.marginTop = (-currentOverlap + 44) + 'px';
+      }
 
       const ruler = document.getElementById('dial-ruler');
-      const offsetPos = -150 + (currentOverlap - 44) * 8;
-      ruler.style.transform = `translateX(${offsetPos}px)`;
+      if (ruler) {
+        const offsetPos = -150 + (currentOverlap - 44) * 8;
+        ruler.style.transform = `translateX(${offsetPos}px)`;
+      }
 
+      const needle = document.getElementById('dial-center-needle');
       const spark = document.getElementById('magnetic-spark');
-      if (Math.abs(currentOverlap - 44) < 1) {
-        spark.classList.remove('hidden');
-        spark.innerText = '✨ 磁吸最佳';
+      const seamLine = document.getElementById('seam-line-1');
+      
+      if (Math.abs(currentOverlap - 44) < 0.8) {
+        if (needle) {
+          needle.className = 'absolute left-1/2 -translate-x-1/2 w-0.5 h-6 bg-emerald-400 shadow-[0_0_12px_#34C759] z-10 pointer-events-none transition-colors';
+        }
+        if (spark) {
+          spark.classList.remove('hidden');
+          spark.innerText = '✨ 磁吸最佳 (NCC 0.998)';
+        }
+        if (seamLine) {
+          seamLine.className = 'w-full bg-emerald-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm';
+          seamLine.innerHTML = '<span>▲ 最佳缝合能量行: 44.0pt (已磁吸对齐 · 0 割裂) ▼</span>';
+        }
         playMagneticLockTone();
       } else {
-        spark.classList.add('hidden');
+        if (needle) {
+          needle.className = 'absolute left-1/2 -translate-x-1/2 w-0.5 h-6 bg-amber-400 shadow-[0_0_8px_#F59E0B] z-10 pointer-events-none transition-colors';
+        }
+        if (spark) spark.classList.add('hidden');
+        if (seamLine) {
+          seamLine.className = 'w-full bg-amber-500/90 py-0.5 text-center text-[9px] font-bold text-white tracking-tight z-10 flex items-center justify-center gap-1 shadow-sm';
+          seamLine.innerHTML = `<span>▲ 人工微调中: ${currentOverlap}pt (偏差 ${formatted}) ▼</span>`;
+        }
       }
       drawWaveformCanvas();
     }
@@ -1143,12 +1337,14 @@
       currentOverlap = 44;
       playMagneticLockTone();
       updateOverlapDisplay();
-      showToast('🎯 已磁吸对齐至接缝能量极小点 (44.0 pt)');
+      showToast('🎯 已磁吸对齐至接缝能量极小点 (44.0 pt · 0 割裂)');
     }
 
     function resetSeamDial() {
       currentOverlap = 30;
+      playMechanicalClick();
       updateOverlapDisplay();
+      showToast('接缝微调已重置');
     }
 
     // Interactive Privacy Brush Scratch Canvas
@@ -1266,33 +1462,101 @@
     let studioRotX = 15;
     let studioRotY = -22;
 
+    let studioRotX = 15;
+    let studioRotY = -22;
+    let isStudioDragging = false;
+    let studioStartX = 0;
+    let studioStartY = 0;
+    let currentRotX = 15;
+    let currentRotY = -22;
+    let activeFinish = 'desert';
+    let activeTheme = 'sunset';
+
     function startStudioDrag(e) {
       isStudioDragging = true;
-      studioStartX = e.clientX;
-      studioStartY = e.clientY;
+      studioStartX = e.clientX || (e.touches && e.touches[0].clientX);
+      studioStartY = e.clientY || (e.touches && e.touches[0].clientY);
 
       const handleMove = (ev) => {
         if (!isStudioDragging) return;
-        const dx = ev.clientX - studioStartX;
-        const dy = ev.clientY - studioStartY;
-        const newY = studioRotY + dx * 0.4;
-        const newX = studioRotX - dy * 0.4;
+        const clientX = ev.clientX || (ev.touches && ev.touches[0].clientX);
+        const clientY = ev.clientY || (ev.touches && ev.touches[0].clientY);
+        const dx = clientX - studioStartX;
+        const dy = clientY - studioStartY;
+        currentRotY = Math.max(-45, Math.min(45, studioRotY + dx * 0.4));
+        currentRotX = Math.max(-30, Math.min(30, studioRotX - dy * 0.4));
         const phone = document.getElementById('studio-phone');
-        phone.style.transform = `rotateX(${newX}deg) rotateY(${newY}deg) scale(0.9)`;
+        if (phone) {
+          phone.style.transform = `rotateX(${currentRotX}deg) rotateY(${currentRotY}deg) scale(0.9)`;
+          phone.style.boxShadow = `${-currentRotY * 0.8}px ${20 + currentRotX * 0.5}px 35px rgba(0,0,0,0.55)`;
+        }
       };
 
       const handleUp = () => {
+        if (!isStudioDragging) return;
         isStudioDragging = false;
+        studioRotX = currentRotX;
+        studioRotY = currentRotY;
         window.removeEventListener('mousemove', handleMove);
         window.removeEventListener('mouseup', handleUp);
+        window.removeEventListener('touchmove', handleMove);
+        window.removeEventListener('touchend', handleUp);
       };
 
       window.addEventListener('mousemove', handleMove);
       window.addEventListener('mouseup', handleUp);
+      window.addEventListener('touchmove', handleMove);
+      window.addEventListener('touchend', handleUp);
+    }
+
+    function setDeviceFinish(finish) {
+      activeFinish = finish;
+      const phone = document.getElementById('studio-phone');
+      const btns = ['desert', 'natural', 'black', 'silver'];
+      btns.forEach(b => {
+        const btn = document.getElementById('finish-btn-' + b);
+        if (btn) {
+          if (b === finish) {
+            btn.className = 'px-2 py-0.5 text-[10px] rounded-full bg-amber-600/30 text-amber-200 border border-amber-400/40 font-semibold flex items-center gap-1 shadow-sm';
+          } else {
+            btn.className = 'px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300 font-medium flex items-center gap-1';
+          }
+        }
+      });
+
+      if (!phone) return;
+      if (finish === 'desert') {
+        phone.style.borderColor = 'rgba(197, 168, 128, 0.7)';
+        showToast('已切换边框工艺为【沙漠钛金属 (Desert Titanium)】');
+      } else if (finish === 'natural') {
+        phone.style.borderColor = 'rgba(142, 139, 130, 0.7)';
+        showToast('已切换边框工艺为【原色钛金属 (Natural Titanium)】');
+      } else if (finish === 'black') {
+        phone.style.borderColor = 'rgba(44, 44, 46, 0.85)';
+        showToast('已切换边框工艺为【深空黑钛 (Space Black)】');
+      } else if (finish === 'silver') {
+        phone.style.borderColor = 'rgba(229, 229, 234, 0.85)';
+        showToast('已切换边框工艺为【银白钛金属 (Silver White)】');
+      }
+      playMechanicalClick();
     }
 
     function setStudioTheme(theme) {
+      activeTheme = theme;
       const stage = document.getElementById('studio-stage');
+      const themes = ['sunset', 'aurora', 'obsidian', 'clean'];
+      themes.forEach(t => {
+        const btn = document.getElementById('theme-btn-' + t);
+        if (btn) {
+          if (t === theme) {
+            btn.className = 'px-2 py-0.5 text-[10px] rounded-full bg-purple-600/40 text-purple-200 border border-purple-400/30 font-semibold';
+          } else {
+            btn.className = 'px-2 py-0.5 text-[10px] rounded-full bg-white/10 text-slate-300';
+          }
+        }
+      });
+
+      if (!stage) return;
       if (theme === 'sunset') {
         stage.className = 'flex-1 bg-gradient-to-tr from-indigo-950 via-purple-900 to-rose-900 rounded-2xl border border-white/20 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none';
       } else if (theme === 'aurora') {
@@ -1302,11 +1566,122 @@
       } else if (theme === 'clean') {
         stage.className = 'flex-1 bg-gradient-to-tr from-slate-100 via-slate-200 to-white text-black rounded-2xl border border-black/10 relative flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing select-none';
       }
+      playMechanicalClick();
       showToast(`已切换摄影棚氛围为【${theme}】`);
     }
 
     function exportStudioPoster() {
-      showToast('✨ 3D 悬浮展示海报已生成并保存到相册！可直接发朋友圈与小红书');
+      const flash = document.getElementById('flash-overlay');
+      if (flash) {
+        flash.style.opacity = '0.9';
+        setTimeout(() => { flash.style.opacity = '0'; }, 150);
+      }
+      playMechanicalClick();
+
+      // Sync preview card in modal
+      const previewCard = document.getElementById('poster-preview-card');
+      if (previewCard) {
+        if (activeTheme === 'sunset') {
+          previewCard.className = 'w-full h-64 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-tr from-indigo-950 via-purple-900 to-rose-900';
+        } else if (activeTheme === 'aurora') {
+          previewCard.className = 'w-full h-64 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-tr from-slate-950 via-cyan-950 to-emerald-950';
+        } else if (activeTheme === 'obsidian') {
+          previewCard.className = 'w-full h-64 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-tr from-black via-slate-950 to-neutral-900';
+        } else {
+          previewCard.className = 'w-full h-64 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl border border-black/10 bg-gradient-to-tr from-slate-100 via-slate-200 to-white';
+        }
+      }
+
+      setTimeout(() => {
+        const modal = document.getElementById('poster-modal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        }
+      }, 200);
+    }
+
+    function closePosterModal() {
+      const modal = document.getElementById('poster-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function savePosterAction() {
+      closePosterModal();
+      playMagneticLockTone();
+      showToast('🎉 4K 悬浮海报已高清保存至系统相册！');
+    }
+
+    function copyPosterLinkAction() {
+      closePosterModal();
+      playMagneticLockTone();
+      showToast('📋 3D 悬浮海报已写入系统剪贴板，可直接粘贴');
+    }
+
+    // Before/After Split Curtain
+    let isCurtainActive = false;
+    let isCurtainDragging = false;
+    function toggleCompareCurtain() {
+      isCurtainActive = !isCurtainActive;
+      const curtain = document.getElementById('split-curtain-container');
+      const btn = document.getElementById('btn-compare-curtain');
+      if (isCurtainActive) {
+        curtain.classList.remove('hidden');
+        btn.classList.add('bg-indigo-600', 'text-white');
+        showToast('双目对比帘幕已开启：拖动中间白色游标，对比拼合前 vs 拼合后');
+        initCurtainDrag();
+      } else {
+        curtain.classList.add('hidden');
+        btn.classList.remove('bg-indigo-600', 'text-white');
+      }
+    }
+
+    let lastAudioTick = 0;
+    function initCurtainDrag() {
+      const handle = document.getElementById('curtain-handle');
+      const leftLayer = document.getElementById('curtain-left');
+      const container = document.getElementById('stitched-canvas-frame');
+      if (!handle || !container) return;
+
+      const onStart = (e) => {
+        isCurtainDragging = true;
+        const rect = container.getBoundingClientRect();
+        
+        const onMove = (ev) => {
+          if (!isCurtainDragging) return;
+          const clientX = ev.clientX || (ev.touches && ev.touches[0].clientX);
+          if (clientX === undefined) return;
+          const x = Math.max(15, Math.min(rect.width - 15, clientX - rect.left));
+          const pct = (x / rect.width) * 100;
+          leftLayer.style.width = pct + '%';
+          handle.style.left = pct + '%';
+          
+          const now = Date.now();
+          if (now - lastAudioTick > 50) {
+            playMechanicalClick();
+            lastAudioTick = now;
+          }
+        };
+
+        const onEnd = () => {
+          isCurtainDragging = false;
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onEnd);
+          window.removeEventListener('touchmove', onMove);
+          window.removeEventListener('touchend', onEnd);
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+      };
+
+      handle.onmousedown = onStart;
+      handle.ontouchstart = onStart;
     }
 
     // Loupe Magnifier
@@ -1318,21 +1693,38 @@
       if (isLoupeActive) {
         lens.classList.remove('hidden');
         btn.classList.add('bg-amber-500', 'text-slate-950');
-        showToast('2.5x 放大镜已开启：在长图上滑动即可检视微米接缝细节');
+        const mirror = document.getElementById('loupe-canvas-mirror');
+        const frame = document.getElementById('stitched-canvas-frame');
+        if (mirror && frame) {
+          mirror.innerHTML = frame.innerHTML;
+        }
+        showToast('2.5x 视网膜微米放大镜已开启：在长图上滑动即可检视无缝像素细节');
       } else {
         lens.classList.add('hidden');
         btn.classList.remove('bg-amber-500', 'text-slate-950');
       }
+      playMechanicalClick();
     }
 
     function handleLoupeMove(e) {
       if (!isLoupeActive) return;
-      const rect = document.getElementById('canvas-scroll-container').getBoundingClientRect();
-      const lens = document.getElementById('loupe-lens');
+      const container = document.getElementById('canvas-scroll-container');
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      lens.style.left = x + 'px';
-      lens.style.top = y + 'px';
+      
+      const lens = document.getElementById('loupe-lens');
+      if (lens) {
+        lens.style.left = x + 'px';
+        lens.style.top = y + 'px';
+      }
+
+      const mirror = document.getElementById('loupe-canvas-mirror');
+      if (mirror) {
+        const scrollY = container.scrollTop;
+        mirror.style.transform = `scale(2.2) translate(${-x + 28}px, ${-(y + scrollY) + 28}px)`;
+      }
     }
 
     // Minimap Sync
@@ -1362,9 +1754,17 @@
 
     // Preset mode selection
     function onPresetChange(val) {
+      playMechanicalClick();
       if (val === 'movie') {
-        alert('已切入【电影台词模式】：首图保留全画幅画面，后续图片仅裁取底部 18% 字幕栏自动纵向堆叠拼接！');
+        showToast('已切入【电影台词模式】：首图保留全画幅画面，后续图片仅裁取底部 18% 字幕栏自动纵向堆叠拼接！');
       } else if (val === 'feed') {
+        showToast('已切入【信息流模式】：保留全屏原始内容，进行连续重叠区域特征互相关匹配。');
+      } else if (val === 'web') {
+        showToast('已切入【网页长文模式】：自动裁剪 Safari 吸顶网址栏与吸底工具条。');
+      } else {
+        showToast('已切入【微信聊天模式】：首图保留标题，中间图剥离吸顶吸底，尾图保留输入框，气泡自然流转！');
+      }
+    } else if (val === 'feed') {
         alert('已切入【信息流模式】：保留全屏原始内容，进行连续重叠区域特征互相关匹配。');
       } else if (val === 'web') {
         alert('已切入【网页长文模式】：自动裁剪 Safari 吸顶网址栏与吸底工具条。');
@@ -1507,5 +1907,57 @@
       alert('【模拟硬件触发】\n1. 用户在聊天界面连截 3 张图；\n2. 长按 15 Pro 侧键或轻敲背面两下；\n3. 系统后台 0.3 秒无感拼好并擦除重复顶栏；\n4. 手机发出清脆触觉振动；\n5. 已复制到剪贴板，可直接粘贴！');
     }
   </script>
+
+  <!-- Shutter Flash Animation Overlay -->
+  <div id="flash-overlay" class="fixed inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-150 z-50"></div>
+
+  <!-- 3D Studio Poster Export Modal -->
+  <div id="poster-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+    <div class="liquid-glass rounded-3xl p-5 max-w-sm w-full border border-white/20 shadow-2xl flex flex-col items-center gap-4 text-center">
+      <div class="flex items-center justify-between w-full">
+        <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+          <span class="text-amber-400">✨</span>
+          <span>3D 悬浮海报已就绪</span>
+        </h4>
+        <button onclick="closePosterModal()" class="w-6 h-6 rounded-full bg-white/10 text-slate-300 hover:text-white flex items-center justify-center text-xs">✕</button>
+      </div>
+
+      <!-- Poster Preview Card -->
+      <div id="poster-preview-card" class="w-full h-64 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl border border-white/20 bg-gradient-to-tr from-indigo-950 via-purple-900 to-rose-900">
+        <div class="w-28 h-48 bg-slate-900 rounded-[18px] border-2 border-amber-500/60 shadow-2xl p-1 relative flex flex-col overflow-hidden rotate-[-8deg] translate-y-1">
+          <div class="w-full h-2.5 bg-black rounded-t-[14px] flex items-center justify-center">
+            <div class="w-7 h-1 bg-slate-800 rounded-full"></div>
+          </div>
+          <div class="flex-1 bg-[#EDEDED] p-1 text-[5px] text-slate-800 space-y-0.5 overflow-hidden">
+            <div class="font-bold border-b pb-0.5 text-center text-slate-600">商业效率研发群</div>
+            <div class="bg-white p-0.5 rounded shadow-xs">今天冲榜首！</div>
+            <div class="bg-[#95EC69] p-0.5 rounded shadow-xs text-right">苹果液态玻璃就绪</div>
+            <div class="bg-white p-0.5 rounded shadow-xs">首创双目帘幕对比</div>
+          </div>
+          <div class="w-full h-2 bg-black rounded-b-[14px] flex items-center justify-center">
+            <div class="w-6 h-0.5 bg-white/30 rounded-full"></div>
+          </div>
+        </div>
+        <div class="absolute bottom-2 right-3 text-[8px] text-white/80 font-mono tracking-tight bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
+          ScrollSnap Studio • 4K
+        </div>
+      </div>
+
+      <div class="space-y-1">
+        <p class="text-xs text-slate-200 font-semibold">海报已完成渲染并合成环境阴影</p>
+        <p class="text-[11px] text-slate-400">已自动适配小红书 3:4 与朋友圈画幅</p>
+      </div>
+
+      <div class="flex items-center gap-2 w-full">
+        <button onclick="savePosterAction()" class="flex-1 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-500 shadow-lg">
+          保存到系统相册
+        </button>
+        <button onclick="copyPosterLinkAction()" class="px-3 py-2 rounded-xl bg-white/10 text-slate-200 text-xs hover:bg-white/20">
+          复制长图
+        </button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

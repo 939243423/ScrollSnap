@@ -15,6 +15,7 @@ public struct HomeStitchView: View {
     @State private var isShowingWebCapture = false
     @State private var isShowingSettings = false
     @State private var isShowingPaywall = false
+    @State private var isShowingStudioShowroom = false
     @State private var isProcessingStitch = false
     @State private var isShowingBroadcastGuide = false
     @State private var isShowingActionShortcutGuide = false
@@ -96,6 +97,9 @@ public struct HomeStitchView: View {
                 WebCaptureView { newSession in
                     self.activeSessionToEdit = newSession
                 }
+            }
+            .sheet(isPresented: $isShowingStudioShowroom) {
+                StudioShowroomView()
             }
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView()
@@ -208,7 +212,7 @@ public struct HomeStitchView: View {
     }
     
     private var coreActionsGrid: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             // Photos Picker
             PhotosPicker(
                 selection: $selectedPhotoItems,
@@ -216,10 +220,24 @@ public struct HomeStitchView: View {
                 photoLibrary: .shared()
             ) {
                 actionCard(
-                    title: "相册多图拼接",
+                    title: "相册拼接",
                     subtitle: "选择连续截图",
                     iconName: "photo.stack",
                     tint: Color.indigo
+                )
+            }
+            .buttonStyle(.plain)
+            
+            // 3D Studio Poster
+            Button {
+                HapticFeedbackManager.shared.triggerSelection()
+                isShowingStudioShowroom = true
+            } label: {
+                actionCard(
+                    title: "3D 摄影棚",
+                    subtitle: "悬浮海报直出",
+                    iconName: "cube.transparent",
+                    tint: Color.purple
                 )
             }
             .buttonStyle(.plain)
@@ -234,8 +252,8 @@ public struct HomeStitchView: View {
                 isShowingWebCapture = true
             } label: {
                 actionCard(
-                    title: "网页全页截图",
-                    subtitle: "输入网址一键滚截",
+                    title: "网页全页",
+                    subtitle: "URL一键滚截",
                     iconName: "safari.fill",
                     tint: Color.teal
                 )
@@ -379,20 +397,74 @@ public struct HomeStitchView: View {
                 .frame(height: 260)
                 .padding(.vertical, 8)
             } else {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.tertiary)
-                        Text("暂无长截图记录，从相册或录屏开始")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                // Curated Interactive Sample Showcase in 3D Cover Flow
+                VStack(spacing: 8) {
+                    Stage3DCoverFlowView(items: sampleShowcaseCards, selectedIndex: $selectedStitchIndex) { card, isSelected in
+                        Button {
+                            HapticFeedbackManager.shared.triggerSelection()
+                            openSampleShowcaseEditor(card)
+                        } label: {
+                            ZStack(alignment: .bottomLeading) {
+                                LinearGradient(
+                                    colors: card.gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                
+                                // Decorative Mock Layout Inside Card
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Image(systemName: card.icon)
+                                            .font(.caption.bold())
+                                            .foregroundStyle(.white)
+                                        Spacer()
+                                        Text(card.pixelHeight)
+                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Capsule().fill(Color.black.opacity(0.35)))
+                                            .foregroundStyle(.white)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text(card.category)
+                                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.8))
+                                    Text(card.title)
+                                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                    
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "hand.tap.fill")
+                                            .font(.system(size: 9))
+                                        Text("轻触体验编辑器")
+                                            .font(.system(size: 9, weight: .medium))
+                                    }
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .padding(.top, 2)
+                                }
+                                .padding(12)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(
+                                        isSelected ? Color.accentColor : Color.white.opacity(0.18),
+                                        lineWidth: isSelected ? 2.0 : 0.8
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 24)
-                    Spacer()
+                    .frame(height: 250)
+                    .padding(.vertical, 4)
+                    
+                    Text("左滑滑动 3D 展台 · 轻触任意示例卡片开启全功能测试")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.2)
             }
         }
     }
@@ -504,6 +576,78 @@ public struct HomeStitchView: View {
             }
         }
     }
+    private var sampleShowcaseCards: [ShowcaseStitchCard] {
+        [
+            ShowcaseStitchCard(
+                id: "sample_chat",
+                title: "微信研发群长对话",
+                category: "聊天记录 · 智能去重",
+                pixelHeight: "3,420 px",
+                gradientColors: [Color(red: 0.12, green: 0.28, blue: 0.20), Color(red: 0.05, green: 0.14, blue: 0.10)],
+                icon: "message.badge.filled.fill",
+                preset: .chatRecord
+            ),
+            ShowcaseStitchCard(
+                id: "sample_social",
+                title: "小红书秋季穿搭清单",
+                category: "九宫格切片 · 朋友圈直发",
+                pixelHeight: "4,860 px",
+                gradientColors: [Color(red: 0.35, green: 0.12, blue: 0.22), Color(red: 0.18, green: 0.05, blue: 0.12)],
+                icon: "square.grid.3x3.fill",
+                preset: .continuousFeed
+            ),
+            ShowcaseStitchCard(
+                id: "sample_web",
+                title: "Safari 苹果空间计算专栏",
+                category: "长文去顶栏 · 原色钛带壳",
+                pixelHeight: "14,890 px",
+                gradientColors: [Color(red: 0.10, green: 0.16, blue: 0.32), Color(red: 0.05, green: 0.08, blue: 0.18)],
+                icon: "safari.fill",
+                preset: .webArticle
+            )
+        ]
+    }
+    
+    private func openSampleShowcaseEditor(_ card: ShowcaseStitchCard) {
+        let slice1 = StitchItem(
+            relativeFilePath: "sample_1.png",
+            originalWidth: 1170,
+            originalHeight: 1800,
+            topCropInset: card.preset.defaultTopCropInset,
+            bottomCropInset: card.preset.defaultBottomCropInset,
+            calculatedOverlapWithPrevious: 0,
+            manualOffsetAdjustment: 0,
+            optimalSeamLineY: 1700
+        )
+        let slice2 = StitchItem(
+            relativeFilePath: "sample_2.png",
+            originalWidth: 1170,
+            originalHeight: 1920,
+            topCropInset: card.preset.defaultTopCropInset,
+            bottomCropInset: card.preset.defaultBottomCropInset,
+            calculatedOverlapWithPrevious: 240,
+            manualOffsetAdjustment: 0,
+            optimalSeamLineY: 1820
+        )
+        let sampleSession = StitchSession(
+            presetMode: card.preset,
+            slices: [slice1, slice2],
+            title: card.title,
+            deviceScreenWidth: 393,
+            deviceScreenScale: 3.0
+        )
+        self.activeSessionToEdit = sampleSession
+    }
+}
+
+private struct ShowcaseStitchCard: Identifiable {
+    let id: String
+    let title: String
+    let category: String
+    let pixelHeight: String
+    let gradientColors: [Color]
+    let icon: String
+    let preset: StitchPresetMode
 }
 
 private struct CompletedStitchItem: Identifiable {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 public enum DeviceFrameFinish: String, CaseIterable, Identifiable {
+    case desertTitanium = "沙漠钛金属"
     case naturalTitanium = "原色钛金属"
     case spaceBlack = "深空黑钛"
     case silverWhite = "银白钛金属"
@@ -9,6 +10,12 @@ public enum DeviceFrameFinish: String, CaseIterable, Identifiable {
     
     public var bezelGradient: [Color] {
         switch self {
+        case .desertTitanium:
+            return [
+                Color(red: 0.78, green: 0.68, blue: 0.58),
+                Color(red: 0.56, green: 0.46, blue: 0.38),
+                Color(red: 0.84, green: 0.74, blue: 0.65)
+            ]
         case .naturalTitanium:
             return [
                 Color(red: 0.58, green: 0.56, blue: 0.52),
