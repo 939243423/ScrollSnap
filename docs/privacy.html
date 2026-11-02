@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScrollSnap 滚动画布 · 隐私政策全文</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .liquid-glass {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+    }
+    @media (prefers-color-scheme: dark) {
+      .liquid-glass {
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen py-10 px-4 flex flex-col items-center font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-3xl space-y-6">
+
+    <!-- Top Navigation Bar -->
+    <div class="flex items-center justify-between">
+      <a href="index.html" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white transition-colors">
+        <span>← 返回合规中心首页</span>
+      </a>
+      <a href="terms.html" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-pink-600 dark:hover:text-white transition-colors">
+        <span>阅读用户服务协议 (Terms) →</span>
+      </a>
+    </div>
+
+    <!-- Header Card -->
+    <header class="liquid-glass rounded-3xl p-6 md:p-8 shadow-xl text-center space-y-3 relative overflow-hidden">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-cyan-500 mx-auto flex items-center justify-center text-white shadow-lg shadow-indigo-500/25">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">ScrollSnap 隐私政策全文</h1>
+        <p class="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">版本：1.0 · 生效日期：2026年11月2日 · 遵循 Apple App Store 审核准则 5.1.1 规范</p>
+      </div>
+      <div class="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>100% 端侧离线运算 · 零网络回传 · 零个人数据追踪</span>
+      </div>
+    </header>
+
+    <!-- Document Content -->
+    <main class="liquid-glass rounded-3xl p-6 md:p-10 shadow-xl space-y-8 text-sm leading-relaxed">
+      
+      <!-- Summary Box -->
+      <div class="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-start gap-3 text-xs text-emerald-800 dark:text-emerald-300">
+        <span class="text-base font-bold">🛡️</span>
+        <div>
+          <strong class="font-bold">隐私核心承诺：数据不出设备</strong>
+          <p class="mt-0.5 opacity-90">ScrollSnap 是一款严格遵循 Apple 设备端隐私哲学的离线效率工具。您的所有屏幕截图、聊天记录、私信对话、网页内容与切片数据完全在 iPhone 本地硬件芯片（Apple Neural Engine 与 GPU）上完成运算，我们既无服务器接收您的图像，也未在客户端植入任何商业统计 SDK。</p>
+        </div>
+      </div>
+
+      <!-- Section 1 -->
+      <section class="space-y-3">
+        <h2 class="font-bold text-base md:text-lg text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <span>一、</span> 系统权限调用及具体用途说明
+        </h2>
+        <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          ScrollSnap 仅在实现特定核心长截图功能时申请以下系统权限，绝不索取任何超出功能必需范围的权限：
+        </p>
+        <ul class="list-disc pl-5 space-y-2.5 text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          <li>
+            <strong>系统相册读写权限 (Photo Library Access)</strong>：
+            仅用于用户主动从相册中选择需要拼合的连续截图，或将拼接完成的高清长截图、3D 摄影棚海报及九宫格切片保存回用户相册。拼接过程中的临时图片缓存仅驻留在 App 沙盒内，并在拼接完成或退出应用时即刻覆写销毁。
+          </li>
+          <li>
+            <strong>屏幕录制与广播扩展权限 (ReplayKit Broadcast Extension)</strong>：
+            供用户在控制中心主动启动滚动屏幕连续长截图广播。广播扩展进程运行于 iOS 独立沙盒内，常态内存消耗严格控制在 28MB 以下。广播进程仅在用户主动触发录制期间捕获屏幕帧，录制停止即刻释放全部像素缓冲区。
+          </li>
+          <li>
+            <strong>系统剪贴板写入权限 (Pasteboard Write-Only)</strong>：
+            用于提供“截完免存相册、秒存剪贴板”的极速体验（如直接粘贴进微信或备忘录）。本软件遵循只写原则（Write-Only），绝不读取用户剪贴板中既有的文字、链接或密码等敏感数据。
+          </li>
+        </ul>
+      </section>
+
+      <!-- Section 2 -->
+      <section class="space-y-3">
+        <h2 class="font-bold text-base md:text-lg text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <span>二、</span> 端侧视觉人工智能（Vision AI）与离线脱敏规范
+        </h2>
+        <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          ScrollSnap 提供的“AI 智能一键脱敏”（自动识别微信头像并马赛克遮蔽、自动识别 11 位手机号与邮箱并打码）以及“全文 OCR 文本时序提取”功能：
+        </p>
+        <ul class="list-disc pl-5 space-y-2 text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          <li>全部通过 iOS 原生 Vision Framework 调度 Apple Neural Engine 神经网络引擎在手机本地硬件离线执行。</li>
+          <li>运行全程无需连接互联网，脱敏过程无任何云端 AI 接口交互，保证敏感个人对话记录绝对安全。</li>
+        </ul>
+      </section>
+
+      <!-- Section 3 -->
+      <section class="space-y-3">
+        <h2 class="font-bold text-base md:text-lg text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <span>三、</span> 数据收集与追踪声明（遵循 App Store 5.1.1）
+        </h2>
+        <ul class="list-disc pl-5 space-y-2 text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          <li><strong>无用户账号系统</strong>：无需注册、无需手机号验证码、无需绑定邮箱。</li>
+          <li><strong>零商业打点与追踪</strong>：未集成 Google AdMob、Firebase Analytics、友盟、巨量引擎等任何商业追踪 SDK。</li>
+          <li><strong>不收集设备硬件标识符</strong>：不请求也不读取广告标识符（IDFA）、IDFV 或系统剪贴板追踪码。</li>
+        </ul>
+      </section>
+
+      <!-- Section 4 -->
+      <section class="space-y-3">
+        <h2 class="font-bold text-base md:text-lg text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <span>四、</span> 应用内购买（In-App Purchase）与支付安全
+        </h2>
+        <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          ScrollSnap 采用每日免费长截图 2 次（本地系统时间 00:00 自动刷新）以及 ¥1.00 永久买断制。全部交易流程通过 Apple 官方 StoreKit 2 框架处理，我们无法亦无需接触用户的银行卡号、Apple Pay 账号或任何金融敏感信息。用户购买凭证由 Apple 签名验证并随 Apple ID 终身可恢复。
+        </p>
+      </section>
+
+      <!-- Section 5 -->
+      <section class="space-y-3">
+        <h2 class="font-bold text-base md:text-lg text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <span>五、</span> 开发者联系方式与协议监督
+        </h2>
+        <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300">
+          如果您对本隐私政策有任何问题、建议或合规监督诉求，欢迎通过以下方式与我们联系：
+        </p>
+        <div class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs space-y-1 font-mono">
+          <div>开发者邮箱：<a href="mailto:939243423@qq.com" class="text-indigo-500 underline">939243423@qq.com</a></div>
+          <div>开源协议仓库：<a href="https://github.com/939243423/protocol__ScrollSnap" class="text-indigo-500 underline" target="_blank">https://github.com/939243423/protocol__ScrollSnap</a></div>
+          <div>合规主页：<a href="https://939243423.github.io/protocol__ScrollSnap/" class="text-indigo-500 underline" target="_blank">https://939243423.github.io/protocol__ScrollSnap/</a></div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-slate-400 dark:text-slate-500 py-4 space-y-1">
+      <div>ScrollSnap 滚动画布 · 纯粹效率长截图工具</div>
+      <div>官方协议存储库：<a href="https://github.com/939243423/protocol__ScrollSnap" class="text-indigo-500 underline" target="_blank">https://github.com/939243423/protocol__ScrollSnap</a></div>
+    </footer>
+
+  </div>
+
+</body>
+</html>

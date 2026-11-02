@@ -88,9 +88,9 @@ public struct SettingsView: View {
                 
                 // Legal & About Section
                 Section("法律协议与关于") {
-                    Link(destination: URL(string: "https://github.com/939243423/protocol__ScrollSnap/blob/main/PRIVACY_POLICY.md")!) {
+                    Link(destination: URL(string: "https://939243423.github.io/protocol__ScrollSnap/privacy.html")!) {
                         HStack {
-                            Text("隐私政策")
+                            Text("隐私政策 (Privacy Policy)")
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "arrow.up.right")
@@ -99,9 +99,20 @@ public struct SettingsView: View {
                         }
                     }
                     
-                    Link(destination: URL(string: "https://github.com/939243423/protocol__ScrollSnap/blob/main/TERMS_OF_SERVICE.md")!) {
+                    Link(destination: URL(string: "https://939243423.github.io/protocol__ScrollSnap/terms.html")!) {
                         HStack {
-                            Text("用户服务协议")
+                            Text("用户服务协议与 EULA (Terms)")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Link(destination: URL(string: "https://939243423.github.io/protocol__ScrollSnap/")!) {
+                        HStack {
+                            Text("合规与政策中心")
                                 .foregroundStyle(.primary)
                             Spacer()
                             Image(systemName: "arrow.up.right")
