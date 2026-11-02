@@ -92,9 +92,10 @@ d:/ai/snap/
 │   └── StitchActivityWidget.swift       # 灵动岛 4 态与锁屏实时活动
 └── Shared/                              # 共享代码（跨 Target 编译）
     ├── Models/                          # 统一数据契约
+    ├── Views/                           # 共享视图 (Stage3DCoverFlowView 3D展台)
     ├── Engine/                          # 拼接计算引擎 (NCC / 投影 / 分块渲染)
     ├── Services/                        # SharedStore (App Group 访问器)
-    └── Intents/                         # AppIntents 交互定义
+    └── Intents/                         # AppIntents 与 AppShortcutsProvider 快捷交互
 ```
 
 ---
@@ -105,9 +106,11 @@ d:/ai/snap/
 |---|---|---|---|
 | **相册多图拼接** | 支持最多 6 张连续截屏 | 无上限批量自动拼合 | `vImage` / `Accelerate` 归一化互相关 |
 | **滚动录屏长截屏** | 单次捕获最长 20 屏 | 无限长画布录制 | `ReplayKit` 广播扩展 + 内存防抖 |
+| **操作按钮 & 轻点背面** | 永久支持 (免打开 App 一键拼合) | 永久支持 (免打开 App 一键拼合) | `AppShortcutsProvider` + `AppIntent` |
+| **吸顶/吸底固定栏过滤** | 自动剥离微信联系人栏与输入框 | 自动剥离微信联系人栏与输入框 | `ImageOverlapDetector` 差分行梯度检测 |
 | **画布清晰度** | 标清压缩导出 (1.5x) | 原始无损 Retina 导出 (3x) | `CGImageDestination` 分块流式写盘 |
 | **隐私保护涂抹** | 基础矩形马赛克 | 智能识别敏感手机号/头像打码 | `Vision` 端侧脱敏 + 非破坏性图层 |
-| **设备带壳展示** | 基础黑白简约壳 | 3D 钛金属质感、动态阴影与倒影 | SwiftUI 拟真物理渲染与视差微动 |
+| **3D 展台与设备带壳** | 基础黑白简约壳 | 3D 钛金属质感、动态阴影与倒影 | `Stage3DCoverFlowView` 空间偏转视差 |
 | **实时活动支持** | 永久免费完整体验 | 永久免费完整体验 | `ActivityKit` 4 态紧凑/展开布局 |
 
 ---

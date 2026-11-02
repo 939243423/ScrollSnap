@@ -12,6 +12,12 @@ public final class BroadcastFrameProcessor {
     private var lastProcessedTimestamp: TimeInterval = 0
     private let minimumFrameInterval: TimeInterval = 0.10 // Limit processing to 10 FPS
     
+    #if canImport(UIKit)
+    private lazy var ciContext: CIContext = {
+        CIContext(options: [.useSoftwareRenderer: false])
+    }()
+    #endif
+    
     public init() {}
     
     public func process(pixelBuffer: CVPixelBuffer) {
@@ -98,8 +104,7 @@ public final class BroadcastFrameProcessor {
         #if canImport(UIKit)
         autoreleasepool {
             let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-            let context = CIContext(options: [.useSoftwareRenderer: false])
-            guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
+            guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
             let uiImage = UIImage(cgImage: cgImage)
             
             // Compress with 0.85 quality to keep disk IO fast and minimal

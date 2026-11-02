@@ -61,6 +61,19 @@ public final class SharedStore {
         return try? JSONDecoder().decode(StitchSession.self, from: data)
     }
     
+    public func listActiveBroadcastSlicePaths() -> [String] {
+        guard let dir = AppGroupConstants.activeSessionDirectory,
+              let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        
+        let sliceFiles = files
+            .filter { $0.pathExtension.lowercased() == "jpg" && $0.lastPathComponent.hasPrefix("slice_") }
+            .sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
+        
+        return sliceFiles.map { "active_session/\($0.lastPathComponent)" }
+    }
+    
     // MARK: - Disk File Resolution
     
     public func resolveFileURL(relativePath: String) -> URL? {
