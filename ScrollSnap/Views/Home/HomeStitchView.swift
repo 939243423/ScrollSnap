@@ -5,6 +5,7 @@ public struct HomeStitchView: View {
     @StateObject private var photoObserver = PhotoLibraryObserver.shared
     @StateObject private var storeKit = StoreKitManager.shared
     
+    @State private var selectedStitchIndex: Int = 0
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var activeSessionToEdit: StitchSession?
     @State private var isShowingWebCapture = false
@@ -246,32 +247,33 @@ public struct HomeStitchView: View {
     
     private var recentStitchesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("历史长截图")
+            Text("历史长截图展台 (3D 拟物视角)")
                 .font(.system(.footnote, design: .rounded).weight(.bold))
                 .foregroundStyle(.secondary)
             
             if let dir = AppGroupConstants.completedStitchesDirectory,
                let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
                !items.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(items, id: \.path) { fileURL in
-                            if let image = UIImage(contentsOfFile: fileURL.path) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 100, height: 160)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
+                let stitchItems = items.map { CompletedStitchItem(id: $0.path, url: $0) }
+                
+                Stage3DCoverFlowView(items: stitchItems, selectedIndex: $selectedStitchIndex) { item, isSelected in
+                    if let image = UIImage(contentsOfFile: item.url.path) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(
+                                        isSelected ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.15),
+                                        lineWidth: isSelected ? 1.5 : 0.8
                                     )
-                                    .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
-                            }
-                        }
+                            )
                     }
-                    .padding(.vertical, 4)
                 }
+                .frame(height: 260)
+                .padding(.vertical, 8)
             } else {
                 HStack {
                     Spacer()
@@ -348,6 +350,11 @@ public struct HomeStitchView: View {
             }
         }
     }
+}
+
+private struct CompletedStitchItem: Identifiable {
+    let id: String
+    let url: URL
 }
 
 // MARK: - Broadcast Guide Sheet
