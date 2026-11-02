@@ -29,22 +29,19 @@
     .cover-card-right {
       transform: rotateY(-32deg) scale(0.85);
     }
-    /* Apple Liquid Glass Styling */
+    /* Apple Official System Glass (Native Material & Glass Background Effect) */
     .liquid-glass {
-      background: rgba(15, 23, 42, 0.72);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.45);
-    }
-    .liquid-specular {
-      background: linear-gradient(var(--specular-deg), rgba(255, 255, 255, var(--specular-opacity)) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0) 100%);
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.35);
     }
     .liquid-pill {
-      background: rgba(255, 255, 255, 0.09);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
     /* Knurled Dial Styling */
     .knurled-track {
@@ -56,7 +53,7 @@
 
   <!-- Top Controller Bar with Liquid Glass -->
   <header class="w-full max-w-5xl mb-6 flex flex-col md:flex-row items-center justify-between gap-4 liquid-glass rounded-2xl p-4 shadow-2xl relative overflow-hidden">
-    <div class="absolute inset-0 liquid-specular pointer-events-none"></div>
+
     
     <div class="flex items-center gap-3 z-10">
       <img src="AppIcon.png" class="w-11 h-11 rounded-2xl shadow-lg shadow-indigo-500/25 border border-white/20 object-cover shrink-0" alt="ScrollSnap AppIcon">
@@ -756,7 +753,7 @@
       
       <!-- High-End Value Prop Card -->
       <div class="liquid-glass rounded-2xl p-5 space-y-4 relative overflow-hidden">
-        <div class="absolute inset-0 liquid-specular pointer-events-none"></div>
+    
 
         <div class="flex items-center justify-between border-b border-white/10 pb-3">
           <div>
@@ -829,7 +826,7 @@
 
       <!-- Cute App Icon Showcase Card -->
       <div class="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden">
-        <div class="absolute inset-0 liquid-specular pointer-events-none"></div>
+    
         <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
           <div class="flex items-center gap-2">
             <span class="text-base">✨</span>

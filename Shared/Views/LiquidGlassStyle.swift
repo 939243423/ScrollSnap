@@ -1,110 +1,55 @@
 import SwiftUI
 
+// MARK: - Apple Official Native Liquid Glass System
+// 直接调用苹果原生提供的一级玻璃效果 (glassBackgroundEffect 与原生 Material 材质系统)
+// 彻底去除多余的人工手写 135° 伪漫射硬编码，全权交由 iOS/visionOS 系统级 GPU 与合成器实时渲染
+
 public struct LiquidGlassCardModifier: ViewModifier {
     public var cornerRadius: CGFloat
-    public var strokeOpacity: Double
     public var isInteractive: Bool
     
-    @Environment(\.colorScheme) private var colorScheme
-    
-    public init(cornerRadius: CGFloat = 20, strokeOpacity: Double = 0.28, isInteractive: Bool = false) {
+    public init(cornerRadius: CGFloat = 20, isInteractive: Bool = false) {
         self.cornerRadius = cornerRadius
-        self.strokeOpacity = strokeOpacity
         self.isInteractive = isInteractive
     }
     
     public func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        
         content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: colorScheme == .dark
-                                    ? [Color.white.opacity(0.08), Color.white.opacity(0.02), Color.clear]
-                                    : [Color.white.opacity(0.45), Color.white.opacity(0.15), Color.clear],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            stops: [
-                                .init(color: Color.white.opacity(strokeOpacity), location: 0.0),
-                                .init(color: Color.white.opacity(strokeOpacity * 0.4), location: 0.45),
-                                .init(color: Color.white.opacity(0.05), location: 1.0)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(
-                color: colorScheme == .dark ? Color.black.opacity(0.45) : Color.black.opacity(0.08),
-                radius: 16,
-                x: 0,
-                y: 8
-            )
+            #if os(visionOS)
+            .glassBackgroundEffect(in: shape)
+            #else
+            .background(.ultraThinMaterial, in: shape)
+            #endif
+            .clipShape(shape)
     }
 }
 
 public struct LiquidGlassPillModifier: ViewModifier {
     public var accentTint: Color?
     
-    @Environment(\.colorScheme) private var colorScheme
-    
     public init(accentTint: Color? = nil) {
         self.accentTint = accentTint
     }
     
     public func body(content: Content) -> some View {
+        let shape = Capsule()
+        
         content
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule()
-                            .fill(
-                                (accentTint ?? Color.white).opacity(colorScheme == .dark ? 0.12 : 0.25)
-                            )
-                    )
-            )
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.35),
-                                Color.white.opacity(0.1),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(
-                color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.06),
-                radius: 10,
-                x: 0,
-                y: 4
-            )
+            #if os(visionOS)
+            .glassBackgroundEffect(in: shape)
+            #else
+            .background((accentTint ?? .primary).opacity(0.1), in: shape)
+            .background(.ultraThinMaterial, in: shape)
+            #endif
+            .clipShape(shape)
     }
 }
 
 public extension View {
-    func liquidGlassCard(cornerRadius: CGFloat = 20, strokeOpacity: Double = 0.28, isInteractive: Bool = false) -> some View {
-        modifier(LiquidGlassCardModifier(cornerRadius: cornerRadius, strokeOpacity: strokeOpacity, isInteractive: isInteractive))
+    func liquidGlassCard(cornerRadius: CGFloat = 20, strokeOpacity: Double = 0.0, isInteractive: Bool = false) -> some View {
+        modifier(LiquidGlassCardModifier(cornerRadius: cornerRadius, isInteractive: isInteractive))
     }
     
     func liquidGlassPill(accentTint: Color? = nil) -> some View {
@@ -117,8 +62,6 @@ public struct LiquidGlassIconPod: View {
     public let tint: Color
     public var size: CGFloat
     public var cornerRadius: CGFloat
-    
-    @Environment(\.colorScheme) private var colorScheme
     
     public init(
         systemName: String,
@@ -133,38 +76,16 @@ public struct LiquidGlassIconPod: View {
     }
     
     public var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        
         ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    tint.opacity(colorScheme == .dark ? 0.35 : 0.22),
-                                    tint.opacity(colorScheme == .dark ? 0.12 : 0.05)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.45),
-                                    tint.opacity(0.3),
-                                    Color.clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: tint.opacity(0.25), radius: 6, x: 0, y: 3)
+            #if os(visionOS)
+            Color.clear
+                .glassBackgroundEffect(in: shape)
+            #else
+            tint.opacity(0.12)
+                .background(.ultraThinMaterial, in: shape)
+            #endif
             
             Image(systemName: systemName)
                 .font(.system(size: size * 0.46, weight: .semibold))
@@ -172,5 +93,6 @@ public struct LiquidGlassIconPod: View {
                 .foregroundStyle(tint)
         }
         .frame(width: size, height: size)
+        .clipShape(shape)
     }
 }
