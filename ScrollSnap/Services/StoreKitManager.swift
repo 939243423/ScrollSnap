@@ -9,8 +9,8 @@ public final class StoreKitManager: ObservableObject {
     @Published public private(set) var currentTier: SubscriptionTier = .freeTier
     @Published public private(set) var availableProducts: [Product] = []
     
-    public static let proMonthlyProductId = "com.scrollsnap.pro.monthly"
-    public static let proLifetimeProductId = "com.scrollsnap.pro.lifetime"
+    /// Product ID for ¥1.00 Permanent Lifetime Unlock (Tier 1 Non-Consumable)
+    public static let lifetimeTier1ProductId = "com.scrollsnap.lifetime.tier1"
     
     private var transactionListener: Task<Void, Never>?
     
@@ -19,6 +19,7 @@ public final class StoreKitManager: ObservableObject {
         transactionListener = listenForTransactions()
         Task {
             await updatePurchasedStatus()
+            await fetchProducts()
         }
     }
     
@@ -41,7 +42,7 @@ public final class StoreKitManager: ObservableObject {
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result, transaction.revocationDate == nil {
                 self.isProUser = true
-                self.currentTier = .proVip
+                self.currentTier = .lifetimePro
                 return
             }
         }
@@ -51,10 +52,23 @@ public final class StoreKitManager: ObservableObject {
     
     public func fetchProducts() async {
         do {
-            let products = try await Product.products(for: [Self.proMonthlyProductId, Self.proLifetimeProductId])
+            let products = try await Product.products(for: [Self.lifetimeTier1ProductId])
             self.availableProducts = products
         } catch {
             self.availableProducts = []
+        }
+    }
+    
+    public func purchaseLifetimeUnlock() async throws -> Bool {
+        if let product = availableProducts.first(where: { $0.id == Self.lifetimeTier1ProductId }) {
+            return try await purchase(product: product)
+        } else {
+            // Fallback fetch if not cached yet
+            let products = try await Product.products(for: [Self.lifetimeTier1ProductId])
+            if let product = products.first {
+                return try await purchase(product: product)
+            }
+            return false
         }
     }
     

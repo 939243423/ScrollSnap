@@ -2,34 +2,57 @@ import Foundation
 import CoreGraphics
 #if canImport(UIKit)
 import UIKit
+import PDFKit
 #endif
+
+public enum ExportFormat: String, CaseIterable, Identifiable {
+    case jpeg = "高画质 JPEG"
+    case png = "无损 PNG"
+    case pdf = "多页可翻页 PDF"
+    
+    public var id: String { rawValue }
+    public var fileExtension: String {
+        switch self {
+        case .jpeg: return "jpg"
+        case .png: return "png"
+        case .pdf: return "pdf"
+        }
+    }
+}
 
 public final class TiledImageRenderer {
     
     /// Safely stitches slices and saves directly to disk file, bypassing single-bitmap RAM limits
     public static func renderStitchedImageToFile(
         session: StitchSession,
+        annotations: [AnnotationItem] = [],
         outputURL: URL,
-        quality: CGFloat = 0.92
+        format: ExportFormat = .jpeg,
+        quality: CGFloat = 0.94
     ) throws {
         guard !session.slices.isEmpty else {
             throw StitchError.emptySlices
         }
         
+        #if canImport(UIKit)
+        if format == .pdf {
+            try renderStitchedPDFToFile(session: session, annotations: annotations, outputURL: outputURL)
+            return
+        }
+        
         let totalHeight = session.totalEstimatedHeight
         let canvasWidth = session.slices.first?.originalWidth ?? 393
         
-        #if canImport(UIKit)
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1.0 // Slices already stored in target pixel dimensions
-        format.opaque = true
+        let rendererFormat = UIGraphicsImageRendererFormat.default()
+        rendererFormat.scale = 1.0
+        rendererFormat.opaque = (format == .jpeg)
         
         let renderer = UIGraphicsImageRenderer(
             size: CGSize(width: canvasWidth, height: totalHeight),
-            format: format
+            format: rendererFormat
         )
         
-        let renderedData = renderer.jpegData(withCompressionQuality: quality) { context in
+        let drawBlock: (UIGraphicsImageRendererContext) -> Void = { context in
             let cgContext = context.cgContext
             var currentY: CGFloat = 0
             
@@ -45,7 +68,6 @@ public final class TiledImageRenderer {
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
                 
-                // Draw image shifted by topCropInset so cropped top region is clipped away
                 let imageDrawRect = CGRect(
                     x: 0,
                     y: currentY - slice.topCropInset,
@@ -54,35 +76,204 @@ public final class TiledImageRenderer {
                 )
                 image.draw(in: imageDrawRect)
                 
-                // Draw non-destructive redactions relative to visible rect
+                // Draw legacy redactions
                 for redaction in slice.redactions {
                     let rX = drawRect.minX + redaction.relativeRect.minX * drawRect.width
                     let rY = drawRect.minY + redaction.relativeRect.minY * drawRect.height
                     let rW = redaction.relativeRect.width * drawRect.width
                     let rH = redaction.relativeRect.height * drawRect.height
                     let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
-                    
                     applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
                 }
                 
                 cgContext.restoreGState()
                 
-                // Advance Y by visible height minus overlap with next slice
-                let nextOverlap: CGFloat
-                if index + 1 < session.slices.count {
-                    nextOverlap = session.slices[index + 1].effectiveOverlap
-                } else {
-                    nextOverlap = 0
-                }
+                let nextOverlap: CGFloat = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
                 currentY += (visibleHeight - nextOverlap)
             }
+            
+            // Draw all annotations onto the full stitched canvas
+            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
         }
         
-        try renderedData.write(to: outputURL, options: .atomic)
+        let data: Data
+        if format == .png {
+            data = renderer.pngData(actions: drawBlock)
+        } else {
+            data = renderer.jpegData(withCompressionQuality: quality, actions: drawBlock)
+        }
+        
+        try data.write(to: outputURL, options: .atomic)
         #endif
     }
     
     #if canImport(UIKit)
+    /// Export stitched session as standard paginated A4 / scroll PDF
+    public static func renderStitchedPDFToFile(
+        session: StitchSession,
+        annotations: [AnnotationItem],
+        outputURL: URL
+    ) throws {
+        let canvasWidth = session.slices.first?.originalWidth ?? 393
+        let pageHeight: CGFloat = 842.0 // Standard A4 height in pt
+        let pageWidth: CGFloat = 595.0  // Standard A4 width in pt
+        let scaleFactor = (pageWidth - 40) / canvasWidth
+        
+        let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight))
+        
+        // Render whole canvas to a temporary memory image for clean PDF pagination
+        let totalHeight = session.totalEstimatedHeight
+        let fullImageRenderer = UIGraphicsImageRenderer(size: CGSize(width: canvasWidth, height: totalHeight))
+        let fullImage = fullImageRenderer.image { context in
+            var currentY: CGFloat = 0
+            for (index, slice) in session.slices.enumerated() {
+                guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                      let image = UIImage(contentsOfFile: fileURL.path) else { continue }
+                
+                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: slice.visibleHeight)
+                context.cgContext.saveGState()
+                context.cgContext.clip(to: drawRect)
+                image.draw(in: CGRect(x: 0, y: currentY - slice.topCropInset, width: canvasWidth, height: slice.originalHeight))
+                context.cgContext.restoreGState()
+                
+                let nextOverlap = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
+                currentY += (slice.visibleHeight - nextOverlap)
+            }
+            drawAnnotations(annotations: annotations, in: context.cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
+        }
+        
+        let scaledFullHeight = totalHeight * scaleFactor
+        let contentWidth = pageWidth - 40
+        let contentHeightPerPage = pageHeight - 60
+        let pageCount = max(1, Int(ceil(scaledFullHeight / contentHeightPerPage)))
+        
+        try pdfRenderer.writePDF(to: outputURL) { pdfContext in
+            for pageIndex in 0..<pageCount {
+                pdfContext.beginPage()
+                let sourceY = CGFloat(pageIndex) * (contentHeightPerPage / scaleFactor)
+                let sourceHeight = min(totalHeight - sourceY, contentHeightPerPage / scaleFactor)
+                
+                if let croppedCG = fullImage.cgImage?.cropping(to: CGRect(x: 0, y: sourceY, width: canvasWidth, height: sourceHeight)) {
+                    let pageSlice = UIImage(cgImage: croppedCG)
+                    pageSlice.draw(in: CGRect(x: 20, y: 30, width: contentWidth, height: sourceHeight * scaleFactor))
+                }
+            }
+        }
+    }
+    
+    private static func drawAnnotations(annotations: [AnnotationItem], in context: CGContext, canvasSize: CGSize) {
+        for item in annotations {
+            let start = CGPoint(x: item.startPoint.x * canvasSize.width, y: item.startPoint.y * canvasSize.height)
+            let end = CGPoint(x: item.endPoint.x * canvasSize.width, y: item.endPoint.y * canvasSize.height)
+            let strokeColor = UIColor(item.color.swiftUIColor).cgColor
+            
+            context.saveGState()
+            context.setStrokeColor(strokeColor)
+            context.setFillColor(strokeColor)
+            context.setLineWidth(item.lineWidth)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            
+            switch item.kind {
+            case .rectangle:
+                let rect = CGRect(
+                    x: min(start.x, end.x),
+                    y: min(start.y, end.y),
+                    width: abs(end.x - start.x),
+                    height: abs(end.y - start.y)
+                )
+                let path = UIBezierPath(roundedRect: rect, cornerRadius: 8)
+                context.addPath(path.cgPath)
+                context.strokePath()
+                
+            case .arrow:
+                context.move(to: start)
+                context.addLine(to: end)
+                context.strokePath()
+                
+                // Draw arrowhead
+                let angle = atan2(end.y - start.y, end.x - start.x)
+                let arrowLength: CGFloat = 16.0
+                let arrowAngle: CGFloat = .pi / 6.0
+                
+                let p1 = CGPoint(
+                    x: end.x - arrowLength * cos(angle - arrowAngle),
+                    y: end.y - arrowLength * sin(angle - arrowAngle)
+                )
+                let p2 = CGPoint(
+                    x: end.x - arrowLength * cos(angle + arrowAngle),
+                    y: end.y - arrowLength * sin(angle + arrowAngle)
+                )
+                
+                let arrowPath = CGMutablePath()
+                arrowPath.move(to: end)
+                arrowPath.addLine(to: p1)
+                arrowPath.addLine(to: p2)
+                arrowPath.closeSubpath()
+                context.addPath(arrowPath)
+                context.fillPath()
+                
+            case .stepBadge:
+                let radius: CGFloat = 16.0
+                context.fillEllipse(in: CGRect(x: start.x - radius, y: start.y - radius, width: radius * 2, height: radius * 2))
+                
+                let numStr = "\(item.stepNumber)" as NSString
+                let font = UIFont.systemFont(ofSize: 15, weight: .bold)
+                let textAttrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: UIColor.white
+                ]
+                let textSize = numStr.size(withAttributes: textAttrs)
+                numStr.draw(
+                    at: CGPoint(x: start.x - textSize.width / 2, y: start.y - textSize.height / 2),
+                    withAttributes: textAttrs
+                )
+                
+            case .highlighter:
+                context.setBlendMode(.multiply)
+                context.setStrokeColor(strokeColor.copy(alpha: 0.4) ?? strokeColor)
+                context.setLineWidth(item.lineWidth * 4)
+                
+                if item.freehandPoints.count > 1 {
+                    let first = CGPoint(x: item.freehandPoints[0].x * canvasSize.width, y: item.freehandPoints[0].y * canvasSize.height)
+                    context.move(to: first)
+                    for pt in item.freehandPoints.dropFirst() {
+                        let actual = CGPoint(x: pt.x * canvasSize.width, y: pt.y * canvasSize.height)
+                        context.addLine(to: actual)
+                    }
+                    context.strokePath()
+                }
+                
+            case .textNote:
+                guard !item.textContent.isEmpty else { break }
+                let text = item.textContent as NSString
+                let font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: UIColor.white
+                ]
+                let size = text.size(withAttributes: attrs)
+                let bgRect = CGRect(x: start.x - 6, y: start.y - 4, width: size.width + 12, height: size.height + 8)
+                let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: 6)
+                context.setFillColor(UIColor.black.withAlphaComponent(0.75).cgColor)
+                context.addPath(bgPath.cgPath)
+                context.fillPath()
+                text.draw(at: start, withAttributes: attrs)
+                
+            case .mosaic:
+                let rect = CGRect(
+                    x: min(start.x, end.x),
+                    y: min(start.y, end.y),
+                    width: abs(end.x - start.x),
+                    height: abs(end.y - start.y)
+                )
+                applyRedaction(in: context, rect: rect, style: item.isBlackout ? .blackout : .pixelatedMosaic)
+            }
+            
+            context.restoreGState()
+        }
+    }
+    
     private static func applyRedaction(in context: CGContext, rect: CGRect, style: RedactionRegion.RedactionStyle) {
         context.saveGState()
         switch style {
@@ -90,9 +281,9 @@ public final class TiledImageRenderer {
             context.setFillColor(UIColor.black.cgColor)
             context.fill(rect)
         case .pixelatedMosaic:
-            context.setFillColor(UIColor.darkGray.withAlphaComponent(0.85).cgColor)
+            context.setFillColor(UIColor.darkGray.withAlphaComponent(0.88).cgColor)
             context.fill(rect)
-            context.setStrokeColor(UIColor.white.withAlphaComponent(0.2).cgColor)
+            context.setStrokeColor(UIColor.white.withAlphaComponent(0.25).cgColor)
             context.setLineWidth(1)
             let blockSize: CGFloat = 12
             for x in stride(from: rect.minX, through: rect.maxX, by: blockSize) {
@@ -101,18 +292,8 @@ public final class TiledImageRenderer {
             for y in stride(from: rect.minY, through: rect.maxY, by: blockSize) {
                 context.strokeLineSegments(between: [CGPoint(x: rect.minX, y: y), CGPoint(x: rect.maxX, y: y)])
             }
-        case .frostedBlur:
-            context.setFillColor(UIColor.systemBackground.withAlphaComponent(0.8).cgColor)
-            context.fill(rect)
         }
         context.restoreGState()
     }
     #endif
-}
-
-public enum StitchError: Error {
-    case emptySlices
-    case fileNotFound(String)
-    case memoryLimitExceeded
-    case renderFailed
 }

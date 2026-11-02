@@ -7,12 +7,14 @@ import ReplayKit
 public struct HomeStitchView: View {
     @StateObject private var photoObserver = PhotoLibraryObserver.shared
     @StateObject private var storeKit = StoreKitManager.shared
+    @StateObject private var quotaManager = QuotaManager.shared
     
     @State private var selectedStitchIndex: Int = 0
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var activeSessionToEdit: StitchSession?
     @State private var isShowingWebCapture = false
     @State private var isShowingSettings = false
+    @State private var isShowingPaywall = false
     @State private var isProcessingStitch = false
     @State private var isShowingBroadcastGuide = false
     @State private var isShowingActionShortcutGuide = false
@@ -23,8 +25,8 @@ public struct HomeStitchView: View {
     public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    // Header Status Bar
+                VStack(spacing: 18) {
+                    // Header Bar with Quota Pill
                     headerBar
                     
                     // Unfinished ReplayKit Broadcast Session Alert Banner
@@ -37,7 +39,7 @@ public struct HomeStitchView: View {
                         recentDetectedScreenshotsBanner
                     }
                     
-                    // Core Capture Actions Grid
+                    // Core Actions Grid
                     coreActionsGrid
                     
                     // Action Button & Back Tap (操作按钮与轻点背面) Shortcut Guide Card
@@ -66,14 +68,24 @@ public struct HomeStitchView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    if storeKit.isProUser {
-                        Text("PRO")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.tint)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.accentColor.opacity(0.12))
-                            .clipShape(Capsule())
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            if storeKit.isProUser {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(.green)
+                                Text("永久会员")
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                            } else {
+                                Text("今日免费 \(quotaManager.remainingDailyFreeStitches)/\(QuotaManager.defaultDailyLimit)")
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(quotaManager.remainingDailyFreeStitches > 0 ? Color.primary : Color.orange)
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .liquidGlassPill(accentTint: storeKit.isProUser ? .green : nil)
                     }
                 }
             }
@@ -88,6 +100,9 @@ public struct HomeStitchView: View {
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView()
             }
+            .sheet(isPresented: $isShowingPaywall) {
+                ProSubscriptionView()
+            }
             .sheet(isPresented: $isShowingBroadcastGuide) {
                 BroadcastGuideSheet()
             }
@@ -95,6 +110,7 @@ public struct HomeStitchView: View {
                 ActionShortcutGuideSheet()
             }
             .onAppear {
+                quotaManager.refreshQuota()
                 refreshActiveBroadcastSlices()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshBroadcastSession"))) { _ in
@@ -110,16 +126,17 @@ public struct HomeStitchView: View {
     
     private var headerBar: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("长截图工坊")
                     .font(.system(.title2, design: .rounded).weight(.bold))
                     .foregroundStyle(.primary)
-                Text("端侧无损连续拼接与屏幕录制长截屏")
+                Text("端侧无损连续拼接 · 支持 15 Pro 操作按钮与双击背面")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             Spacer()
         }
+        .padding(.vertical, 2)
     }
     
     private var activeBroadcastAlertBanner: some View {
@@ -155,12 +172,7 @@ public struct HomeStitchView: View {
             .clipShape(Capsule())
         }
         .padding(14)
-        .background(Color.orange.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1)
-        )
+        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.35)
     }
     
     private var recentDetectedScreenshotsBanner: some View {
@@ -192,12 +204,7 @@ public struct HomeStitchView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(16)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-        )
+        .liquidGlassCard(cornerRadius: 20, strokeOpacity: 0.3)
     }
     
     private var coreActionsGrid: some View {
@@ -212,13 +219,17 @@ public struct HomeStitchView: View {
                     title: "相册多图拼接",
                     subtitle: "选择连续截图",
                     iconName: "photo.stack",
-                    tint: Color(red: 0.29, green: 0.33, blue: 0.41)
+                    tint: Color.indigo
                 )
             }
             .buttonStyle(.plain)
             
             // Web Page Capture
             Button {
+                guard quotaManager.canStitch() else {
+                    isShowingPaywall = true
+                    return
+                }
                 HapticFeedbackManager.shared.triggerSelection()
                 isShowingWebCapture = true
             } label: {
@@ -226,7 +237,7 @@ public struct HomeStitchView: View {
                     title: "网页全页截图",
                     subtitle: "输入网址一键滚截",
                     iconName: "safari.fill",
-                    tint: Color(red: 0.35, green: 0.52, blue: 0.44)
+                    tint: Color.teal
                 )
             }
             .buttonStyle(.plain)
@@ -234,7 +245,7 @@ public struct HomeStitchView: View {
     }
     
     private func actionCard(title: String, subtitle: String, iconName: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack {
                 Circle()
                     .fill(tint.opacity(0.15))
@@ -256,14 +267,9 @@ public struct HomeStitchView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 110)
-        .padding(16)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-        )
+        .frame(height: 105)
+        .padding(14)
+        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
     }
     
     private var actionShortcutCard: some View {
@@ -274,7 +280,7 @@ public struct HomeStitchView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(Color.blue.opacity(0.12))
+                        .fill(Color.blue.opacity(0.14))
                         .frame(width: 44, height: 44)
                     Image(systemName: "iphone.radiowaves.left.and.right")
                         .foregroundStyle(Color.blue)
@@ -283,10 +289,10 @@ public struct HomeStitchView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("支持 15 Pro 操作按钮 & 轻点背面")
+                        Text("15 Pro 操作按钮 & 轻点背面")
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
                             .foregroundStyle(.primary)
-                        Text("NEW")
+                        Text("秒级")
                             .font(.system(size: 9, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 5)
@@ -294,7 +300,7 @@ public struct HomeStitchView: View {
                             .background(Color.blue)
                             .clipShape(Capsule())
                     }
-                    Text("连按截屏后，轻敲背面或按一下操作按钮，即可免打开 App 自动拼好复制！")
+                    Text("连按截屏后，轻敲背面或按侧键，免开 App 0.3秒拼好入剪贴板！")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -306,12 +312,7 @@ public struct HomeStitchView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(14)
-            .background(Color(uiColor: .secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.blue.opacity(0.15), lineWidth: 1)
-            )
+            .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
         }
         .buttonStyle(.plain)
     }
@@ -339,7 +340,6 @@ public struct HomeStitchView: View {
             
             Spacer()
             
-            // Native ReplayKit Broadcast Picker View inside card
             #if canImport(ReplayKit)
             BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
                 .frame(width: 44, height: 44)
@@ -354,12 +354,7 @@ public struct HomeStitchView: View {
             #endif
         }
         .padding(16)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-        )
+        .liquidGlassCard(cornerRadius: 20, strokeOpacity: 0.28)
     }
     
     private var recentStitchesSection: some View {
@@ -405,8 +400,7 @@ public struct HomeStitchView: View {
                     .padding(.vertical, 24)
                     Spacer()
                 }
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.2)
             }
         }
     }
@@ -418,6 +412,10 @@ public struct HomeStitchView: View {
     }
     
     private func stitchActiveBroadcastSlices() {
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            return
+        }
         guard !activeBroadcastSlices.isEmpty else { return }
         isProcessingStitch = true
         
@@ -444,8 +442,13 @@ public struct HomeStitchView: View {
     
     private func handleSelectedPhotoPickerItems(_ items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
-        isProcessingStitch = true
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            self.selectedPhotoItems.removeAll()
+            return
+        }
         
+        isProcessingStitch = true
         Task {
             var paths: [String] = []
             for (index, item) in items.enumerated() {
@@ -475,6 +478,11 @@ public struct HomeStitchView: View {
     }
     
     private func stitchRecentAssets(_ assets: [PHAsset]) {
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            return
+        }
+        
         isProcessingStitch = true
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
@@ -497,6 +505,10 @@ public struct HomeStitchView: View {
                     self.activeSessionToEdit = session
                     self.isProcessingStitch = false
                 }
+            } else {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                }
             }
         }
     }
@@ -506,8 +518,6 @@ private struct CompletedStitchItem: Identifiable {
     let id: String
     let url: URL
 }
-
-// MARK: - Native RPSystemBroadcastPickerView Representable
 
 #if canImport(ReplayKit)
 private struct BroadcastPickerViewRepresentable: UIViewRepresentable {
@@ -524,146 +534,55 @@ private struct BroadcastPickerViewRepresentable: UIViewRepresentable {
 }
 #endif
 
-// MARK: - Action Button & Back Tap Setup Guide Sheet
+private struct BroadcastGuideSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Text("如何在微信中滚动截长图")
+                    .font(.headline)
+                Text("1. 在控制中心添加「屏幕录制」按钮；\n2. 长按录制按钮选择「ScrollSnap 录屏拼图」；\n3. 切回微信匀速滑动聊天记录；\n4. 点击灵动岛红点停止录制，长截图自动拼好。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .padding()
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("滚动录屏指南")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("知道了") { dismiss() }
+                }
+            }
+        }
+    }
+}
 
 private struct ActionShortcutGuideSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("如何配置 iPhone 15 Pro 操作按钮与轻点背面截屏")
-                        .font(.system(.title3, design: .rounded).weight(.bold))
-                    
-                    Text("无需每次打开 App，只需在任意应用截取 2~5 张图后，按一下操作按钮或轻敲背面两下，系统将在后台自动拼接并把长截图存入剪贴板！")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    
-                    VStack(alignment: .leading, spacing: 16) {
-                        stepCard(
-                            tag: "A",
-                            title: "配置 iPhone 15 Pro / 16 Pro 操作按钮 (Action Button)",
-                            steps: [
-                                "打开系统「设置」 -> 点击「操作按钮」",
-                                "横向滑动选择「快捷指令」选项",
-                                "轻触下方的选取列表，在 ScrollSnap 下勾选「一键拼合长截图」",
-                                "完成！今后在任何 App 截屏后，长按侧边操作按钮，立即自动拼合存入剪切板。"
-                            ]
-                        )
-                        
-                        stepCard(
-                            tag: "B",
-                            title: "配置「轻点背面两下」 (Back Tap，所有 iPhone 均支持)",
-                            steps: [
-                                "打开系统「设置」 -> 点击「辅助功能」",
-                                "点击「触控」 -> 滑至最底部点击「轻点背面」",
-                                "选择「轻点两下」或「轻点三下」",
-                                "在「快捷指令」区域中勾选「ScrollSnap：一键拼合长截图」",
-                                "完成！日常连截几张图后，食指轻敲手机背面两下，立刻听到清脆触觉振动并完成拼合！"
-                            ]
-                        )
-                    }
-                }
-                .padding(20)
+            VStack(spacing: 20) {
+                Text("配置 15 Pro 操作按钮与双击背面")
+                    .font(.headline)
+                Text("1. 打开系统「设置」->「操作按钮」（或「辅助功能」->「触控」->「轻点背面」）；\n2. 选择「快捷指令」；\n3. 找到并勾选「ScrollSnap: 一键拼合最近截屏」；\n4. 以后在任意 App 截取多张图后，直接按侧键或敲击手机背面两下，系统后台自动拼合长图并存入剪贴板！")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .padding()
+                Spacer()
             }
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("快捷触发指引")
+            .padding()
+            .navigationTitle("硬件触发配置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") {
-                        dismiss()
-                    }
+                    Button("完成") { dismiss() }
                 }
-            }
-        }
-    }
-    
-    private func stepCard(tag: String, title: String, steps: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(tag)
-                    .font(.system(.caption, design: .rounded).weight(.bold))
-                    .frame(width: 22, height: 22)
-                    .background(Color.blue)
-                    .foregroundStyle(.white)
-                    .clipShape(Circle())
-                
-                Text(title)
-                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(steps.indices, id: \.self) { i in
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("\(i + 1).")
-                            .font(.caption.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(steps[i])
-                            .font(.caption)
-                            .foregroundStyle(.primary)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-}
-
-// MARK: - Broadcast Guide Sheet
-
-private struct BroadcastGuideSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("如何使用滚动录屏截取长图")
-                    .font(.system(.title3, design: .rounded).weight(.bold))
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    stepRow(index: 1, title: "打开系统控制中心", detail: "从屏幕右上角向下滑动，找到「屏幕录制」按钮。")
-                    stepRow(index: 2, title: "长按录制按钮并选择 ScrollSnap", detail: "在弹出列表中勾选「ScrollSnap 滚屏录制」，然后轻触「开始直播」。")
-                    stepRow(index: 3, title: "切换至目标应用并匀速滚动", detail: "打开任意需要长截图的界面（如聊天对话或文章），自顶向下匀速慢速滑动。")
-                    stepRow(index: 4, title: "轻触状态栏红点结束并拼合", detail: "停止录屏后返回 ScrollSnap，系统已自动按位移提取关键帧并无缝拼合。")
-                }
-                
-                Spacer()
-                
-                Button("我知道了") {
-                    dismiss()
-                }
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.accentColor)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .padding(24)
-            .navigationTitle("录屏长截图指引")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-    
-    private func stepRow(index: Int, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text("\(index)")
-                .font(.system(.caption, design: .rounded).weight(.bold))
-                .frame(width: 24, height: 24)
-                .background(Color.accentColor.opacity(0.15))
-                .foregroundStyle(.tint)
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }
