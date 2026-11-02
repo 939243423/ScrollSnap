@@ -43,11 +43,8 @@ public struct HomeStitchView: View {
                     // Core Actions Grid
                     coreActionsGrid
                     
-                    // Action Button & Back Tap (操作按钮与轻点背面) Shortcut Guide Card
-                    actionShortcutCard
-                    
-                    // Broadcast Rolling Screen Capture Card
-                    broadcastGuideCard
+                    // Hardware & Broadcast Quick Capture Hub (Streamlined 2-Column Hub)
+                    quickCaptureHub
                     
                     // Recent Stitched Works 3D Stage
                     recentStitchesSection
@@ -287,84 +284,80 @@ public struct HomeStitchView: View {
         .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
     }
     
-    private var actionShortcutCard: some View {
-        Button {
-            HapticFeedbackManager.shared.triggerSelection()
-            isShowingActionShortcutGuide = true
-        } label: {
-            HStack(spacing: 14) {
-                LiquidGlassIconPod(
-                    systemName: "iphone.radiowaves.left.and.right",
-                    tint: Color.blue,
-                    size: 44,
-                    cornerRadius: 14
-                )
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("15 Pro 操作按钮 & 轻点背面")
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Text("秒级")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Color.blue)
-                            .clipShape(Capsule())
+    private var quickCaptureHub: some View {
+        HStack(spacing: 10) {
+            // Left: Action Button & Back Tap (15 Pro / 轻敲背面免开 App 极速拼图)
+            Button {
+                HapticFeedbackManager.shared.triggerSelection()
+                isShowingActionShortcutGuide = true
+            } label: {
+                HStack(spacing: 10) {
+                    LiquidGlassIconPod(
+                        systemName: "iphone.radiowaves.left.and.right",
+                        tint: Color.blue,
+                        size: 38,
+                        cornerRadius: 11
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text("侧键 / 轻敲背面")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text("0.3s")
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1.5)
+                                .background(Color.blue)
+                                .clipShape(Capsule())
+                        }
+                        Text("截屏后轻敲两下直接拼好")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    Text("连按截屏后，轻敲背面或按侧键，免开 App 0.3秒拼好入剪贴板！")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Spacer()
                 }
-                
+                .padding(12)
+                .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
+            }
+            .buttonStyle(.plain)
+            
+            // Right: ReplayKit Rolling Broadcast Capture (微信录屏长截)
+            HStack(spacing: 10) {
+                LiquidGlassIconPod(
+                    systemName: "record.circle.fill",
+                    tint: Color.orange,
+                    size: 38,
+                    cornerRadius: 11
+                )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("滚动录屏截取")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("微信后台匀速录制")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 Spacer()
                 
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                #if canImport(ReplayKit)
+                BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
+                    .frame(width: 36, height: 36)
+                #else
+                Button {
+                    isShowingBroadcastGuide = true
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                #endif
             }
-            .padding(14)
+            .padding(12)
             .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
         }
-        .buttonStyle(.plain)
-    }
-    
-    private var broadcastGuideCard: some View {
-        HStack(spacing: 16) {
-            LiquidGlassIconPod(
-                systemName: "record.circle.fill",
-                tint: Color.orange,
-                size: 46,
-                cornerRadius: 14
-            )
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("跨应用滚动截屏 (录屏广播)")
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text("轻按右侧录制按钮，在微信等应用匀速滚屏，后台实时捕获")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-            
-            #if canImport(ReplayKit)
-            BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
-                .frame(width: 44, height: 44)
-            #else
-            Button {
-                isShowingBroadcastGuide = true
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            #endif
-        }
-        .padding(16)
-        .liquidGlassCard(cornerRadius: 20, strokeOpacity: 0.28)
     }
     
     private var recentStitchesSection: some View {

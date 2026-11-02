@@ -634,54 +634,6 @@ public struct StitchEditorView: View {
         .padding(.bottom, 16)
     }
     
-    // Sub-panel: Seam Tuner with Magnetic Tactile Clicks
-    private var seamTunerPanel: some View {
-        HStack(spacing: 16) {
-            Button {
-                adjustSliceOverlap(sliceIndex: selectedSliceIndex, delta: -3)
-            } label: {
-                Image(systemName: "minus.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
-            
-            VStack(spacing: 2) {
-                Text("接缝 #\(selectedSliceIndex) 磁吸微调")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                if selectedSliceIndex < session.slices.count {
-                    Text("\(Int(session.slices[selectedSliceIndex].effectiveOverlap)) pt")
-                        .font(.subheadline.bold().monospacedDigit())
-                }
-            }
-            
-            Button {
-                adjustSliceOverlap(sliceIndex: selectedSliceIndex, delta: 3)
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Divider().frame(height: 20)
-            
-            // Loupe Toggle
-            Button {
-                withAnimation {
-                    isShowingLoupe.toggle()
-                }
-                HapticFeedbackManager.shared.triggerSelection()
-            } label: {
-                Image(systemName: isShowingLoupe ? "magnifyingglass.circle.fill" : "magnifyingglass.circle")
-                    .font(.title3)
-                    .foregroundStyle(isShowingLoupe ? Color.accentColor : Color.secondary)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .liquidGlassPill()
-    }
-    
     // Sub-panel: Annotation Tools (Now with AI Privacy & OCR Buttons)
     private var annotationToolsPanel: some View {
         VStack(spacing: 8) {

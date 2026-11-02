@@ -152,3 +152,24 @@ public final class StitchEngine {
     }
 }
 ```
+
+
+---
+
+## 5. 交互渲染架构与特色交互管线
+
+### 5.1 双目无缝对比帘幕管线 (`BeforeAfterComparisonView`)
+采用双层几何裁切与光刃游标设计：
+- **底层 (After)**：渲染 ScrollSnap 算法去重后的无缝会话；
+- **顶层 (Before)**：渲染未经去重的原始连续截图，保留重复吸顶栏与重叠区，并用 `max(0, splitX)` 裁切遮罩 (`.clipped()`)；
+- **分界光刃**：以 `GeometryReader` 实时抓取手势位置，计算归一化分割比例 `splitRatio`，驱动发光钛金细线平滑移动，并在拖拽时触发触觉反馈。
+
+### 5.2 3D 摄影棚空间矩阵 (`StudioShowroomView`)
+- **投影矩阵**：使用 SwiftUI 原生 `.rotation3DEffect(.degrees(dragY), axis: (0, 1, 0))` 与 `(1, 0, 0)` 实现真实 3D 倾斜；
+- **动态环境阴影**：阴影的偏移量 `x` 与旋转角度 `dragY * 0.8` 联动，实现光照方向一致的物理投射；
+- **边框材质着色**：采用 `LinearGradient` 模拟 **沙漠钛**、**原色钛**、**深空黑**、**银白钛** 的金属反射与高光倒角。
+
+### 5.3 商业配额与 StoreKit 2 本地验签管线
+- **双重守卫**：
+  1. `QuotaManager`：基于设备本地日历管理每日免费 2 次配额；
+  2. `StoreKitManager`：基于现代 StoreKit 2 异步流 `Transaction.updates`，密码学验证 `jwsRepresentation`，确保离线状态下防篡改；Pro 状态通过 `AppGroup` 共享至所有扩展。
