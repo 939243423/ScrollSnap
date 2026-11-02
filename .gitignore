@@ -1,0 +1,27 @@
+# Xcode
+## User settings
+xcuserdata/
+*.xcscmblueprint
+
+## Build generated
+build/
+DerivedData/
+*.moved-aside
+*.xcuserstate
+
+## Output
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## App Group local runtime caches (if generated locally)
+AppGroupContainer/
+
+## macOS
+.DS_Store
+
+## Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output

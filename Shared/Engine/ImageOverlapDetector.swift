@@ -1,0 +1,158 @@
+import Foundation
+import CoreGraphics
+
+public struct OverlapMatchResult {
+    public let offset: CGFloat
+    public let confidence: Double
+    public let optimalSeamY: CGFloat
+}
+
+public final class ImageOverlapDetector {
+    
+    /// Calculates optimal vertical overlap between topSlice and bottomSlice
+    /// Returns offset in points and correlation confidence [0.0 ... 1.0]
+    public static func findOverlap(
+        topSlice: CGImage,
+        bottomSlice: CGImage,
+        templateHeightPt: CGFloat = 120,
+        minOverlapRatio: CGFloat = 0.15,
+        maxOverlapRatio: CGFloat = 0.85
+    ) -> OverlapMatchResult {
+        let width = topSlice.width
+        let topHeight = topSlice.height
+        let bottomHeight = bottomSlice.height
+        
+        guard width > 0, topHeight > 0, bottomHeight > 0 else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        // Convert vertical projections to 1D luminance arrays
+        let topLuminance = calculateVerticalLuminanceProfile(cgImage: topSlice)
+        let bottomLuminance = calculateVerticalLuminanceProfile(cgImage: bottomSlice)
+        
+        let minOffset = Int(CGFloat(topHeight) * minOverlapRatio)
+        let maxOffset = min(Int(CGFloat(topHeight) * maxOverlapRatio), topHeight - Int(templateHeightPt))
+        
+        guard minOffset < maxOffset else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        var bestOffset = minOffset
+        var maxCorrelation: Double = -1.0
+        let templateLen = min(Int(templateHeightPt), bottomHeight)
+        
+        // Template extracted from the very top of bottomSlice
+        let template = Array(bottomLuminance.prefix(templateLen))
+        let meanT = template.reduce(0.0, +) / Double(templateLen)
+        var varT: Double = 0.0
+        for val in template {
+            let diff = val - meanT
+            varT += diff * diff
+        }
+        
+        // Slide template along search window at the bottom of topSlice
+        for offset in stride(from: minOffset, through: maxOffset, by: 2) {
+            guard offset + templateLen <= topHeight else { break }
+            let sub = Array(topLuminance[offset..<(offset + templateLen)])
+            let meanS = sub.reduce(0.0, +) / Double(templateLen)
+            
+            var numerator: Double = 0.0
+            var varS: Double = 0.0
+            for i in 0..<templateLen {
+                let diffS = sub[i] - meanS
+                let diffT = template[i] - meanT
+                numerator += diffS * diffT
+                varS += diffS * diffS
+            }
+            
+            let denominator = sqrt(varS * varT)
+            if denominator > 0.0001 {
+                let r = numerator / denominator
+                if r > maxCorrelation {
+                    maxCorrelation = r
+                    bestOffset = offset
+                }
+            }
+        }
+        
+        // Calculate seam line with minimal gradient in overlap region
+        let overlapHeight = topHeight - bestOffset
+        let optimalSeam = findMinimalEnergySeam(
+            luminanceProfile: topLuminance,
+            startRow: bestOffset,
+            endRow: min(topHeight, bestOffset + overlapHeight)
+        )
+        
+        let normalizedConfidence = max(0.0, min(1.0, maxCorrelation))
+        return OverlapMatchResult(
+            offset: CGFloat(overlapHeight),
+            confidence: normalizedConfidence,
+            optimalSeamY: CGFloat(optimalSeam - bestOffset)
+        )
+    }
+    
+    // MARK: - 1D Vertical Luminance Profiling
+    
+    private static func calculateVerticalLuminanceProfile(cgImage: CGImage) -> [Double] {
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        var profile = [Double](repeating: 0.0, count: height)
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        var rawData = [UInt8](repeating: 0, count: height * bytesPerRow)
+        
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(
+            data: &rawData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return profile
+        }
+        
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        
+        let stepX = max(1, width / 64) // 64 sample columns for performance
+        let samplesPerRow = width / stepX
+        
+        for y in 0..<height {
+            var sumLuminance: Double = 0.0
+            let rowOffset = y * bytesPerRow
+            for x in stride(from: 0, to: width, by: stepX) {
+                let pixelOffset = rowOffset + x * bytesPerPixel
+                let r = Double(rawData[pixelOffset])
+                let g = Double(rawData[pixelOffset + 1])
+                let b = Double(rawData[pixelOffset + 2])
+                // ITU-R BT.601
+                sumLuminance += (0.299 * r + 0.587 * g + 0.114 * b)
+            }
+            profile[y] = sumLuminance / Double(samplesPerRow)
+        }
+        return profile
+    }
+    
+    // MARK: - Minimum Energy Seam Line Search
+    
+    private static func findMinimalEnergySeam(luminanceProfile: [Double], startRow: Int, endRow: Int) -> Int {
+        guard startRow < endRow - 4, luminanceProfile.count > endRow else {
+            return (startRow + endRow) / 2
+        }
+        
+        var minGradient = Double.greatestFiniteMagnitude
+        var bestRow = (startRow + endRow) / 2
+        
+        for y in (startRow + 2)..<(endRow - 2) {
+            let grad = abs(luminanceProfile[y + 1] - luminanceProfile[y - 1])
+            if grad < minGradient {
+                minGradient = grad
+                bestRow = y
+            }
+        }
+        return bestRow
+    }
+}
