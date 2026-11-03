@@ -31,6 +31,12 @@ public struct StitchItem: Codable, Identifiable, Hashable {
     
     public var calculatedOverlapWithPrevious: CGFloat // Overlap offset in points
     public var manualOffsetAdjustment: CGFloat // User fine-tuning delta
+    
+    /// Alias for fine-tuning adjustment across editor views
+    public var manualOverlapAdjustment: CGFloat {
+        get { manualOffsetAdjustment }
+        set { manualOffsetAdjustment = newValue }
+    }
     public var optimalSeamLineY: CGFloat // Seam cutline relative to slice top
     public var redactions: [RedactionRegion]
     public var timestamp: Date

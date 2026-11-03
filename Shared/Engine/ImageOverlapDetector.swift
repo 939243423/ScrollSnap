@@ -153,47 +153,40 @@ public final class ImageOverlapDetector {
         )
     }
     
-    // MARK: - 1D Vertical Luminance Profiling
+    // MARK: - 1D Vertical Luminance Profiling (Hardware Accelerated Grayscale Downsampling)
     
     private static func calculateVerticalLuminanceProfile(cgImage: CGImage) -> [Double] {
-        let width = cgImage.width
+        let sampleWidth = 64
         let height = cgImage.height
-        
         var profile = [Double](repeating: 0.0, count: height)
-        let bytesPerPixel = 4
-        let bytesPerRow = width * bytesPerPixel
-        var rawData = [UInt8](repeating: 0, count: height * bytesPerRow)
         
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bytesPerRow = sampleWidth
+        var rawData = [UInt8](repeating: 0, count: height * bytesPerRow)
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        
         guard let context = CGContext(
             data: &rawData,
-            width: width,
+            width: sampleWidth,
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: bytesPerRow,
             space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
         ) else {
             return profile
         }
         
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        context.interpolationQuality = .low
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleWidth, height: height))
         
-        let stepX = max(1, width / 64)
-        let samplesPerRow = width / stepX
-        
+        let invScale = 1.0 / Double(sampleWidth * 255.0)
         for y in 0..<height {
             var sumLuminance: Double = 0.0
             let rowOffset = y * bytesPerRow
-            for x in stride(from: 0, to: width, by: stepX) {
-                let pixelOffset = rowOffset + x * bytesPerPixel
-                let r = Double(rawData[pixelOffset])
-                let g = Double(rawData[pixelOffset + 1])
-                let b = Double(rawData[pixelOffset + 2])
-                // ITU-R BT.601
-                sumLuminance += (0.299 * r + 0.587 * g + 0.114 * b)
+            for x in 0..<sampleWidth {
+                sumLuminance += Double(rawData[rowOffset + x])
             }
-            profile[y] = sumLuminance / Double(samplesPerRow * 255.0)
+            profile[y] = sumLuminance * invScale
         }
         return profile
     }

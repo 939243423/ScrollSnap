@@ -9,7 +9,7 @@ public enum RedactionBrushType: String, CaseIterable, Identifiable {
     
     public var iconName: String {
         switch self {
-        case .frostedGlass: return "sparkles"
+        case .frostedGlass: return "drop.fill"
         case .pixelateMosaic: return "checkerboard.rectangle"
         case .confidentialInk: return "paintbrush.pointed.fill"
         }

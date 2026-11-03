@@ -27,7 +27,7 @@ public struct SocialGridStageView: View {
             // Header stats
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "square.grid.3x3.fill")
                         .foregroundStyle(Color.pink)
                     Text("小红书 3:4 黄金画幅切片")
                         .font(.caption.bold())

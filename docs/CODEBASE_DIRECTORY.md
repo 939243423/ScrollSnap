@@ -42,6 +42,8 @@ d:\ai\snap/
 │   └── ScrollSnapWidgetBundle.swift    # 小组件打包入口
 │
 ├── docs/                               # 完整项目技术规范、设计指南与合规政策
+├── project.yml                         # XcodeGen 项目全自动生成配置 (全 Targets、签名、Entitlements)
+├── Package.swift                       # Swift Package Manager (SPM) 模块化构建与单元测试配置
 └── preview.html                        # 交互式全功能 Web 仿真器 (支持免 Mac 验证全部功能)
 ```
 

@@ -109,7 +109,7 @@ public struct ProSubscriptionView: View {
                         perkRow(
                             icon: "text.viewfinder",
                             tint: .indigo,
-                            title: "端侧 Vision AI 一键脱敏与 OCR 提取",
+                            title: "端侧 Vision 视觉引擎与 OCR 离线提取",
                             detail: "Neural Engine 毫秒级离线识别头像与手机号，时序提取全文"
                         )
                         perkRow(
@@ -142,7 +142,7 @@ public struct ProSubscriptionView: View {
                                             .tint(.white)
                                             .controlSize(.small)
                                     } else {
-                                        Image(systemName: "sparkles")
+                                        Image(systemName: "checkmark.seal.fill")
                                             .font(.body.bold())
                                     }
                                     

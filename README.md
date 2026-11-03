@@ -17,13 +17,13 @@
 
 ---
 
-## 📑 快速导航与文档索引
+## 快速导航与文档索引
 
-* 📖 **[全量源码文件字典与模块职责速查手册 (CODEBASE_DIRECTORY.md)](docs/CODEBASE_DIRECTORY.md)**：包含工程中每一个文件的核心职责、关键类型、协作关系与重构记录。
-* 🏛️ **[系统架构与全栈技术规范 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)**：进程拓扑、App Group 数据总线、Metal 平铺渲染与内存边界控制。
-* 💎 **[液态玻璃与视觉设计系统 (DESIGN_SYSTEM.md)](docs/DESIGN_SYSTEM.md)**：苹果官方原生玻璃材质、图标舱设计准则。
-* 📻 **[录屏广播与低内存优化指南 (REPLAYKIT_BROADCAST_GUIDE.md)](docs/REPLAYKIT_BROADCAST_GUIDE.md)**：ReplayKit 广播流式分块写入与 50MB 内存红线控制。
-* 📜 **合规与法律政策中心**：
+* **[全量源码文件字典与模块职责速查手册 (CODEBASE_DIRECTORY.md)](docs/CODEBASE_DIRECTORY.md)**：包含工程中每一个文件的核心职责、关键类型、协作关系与重构记录。
+* **[系统架构与全栈技术规范 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)**：进程拓扑、App Group 数据总线、Metal 平铺渲染与内存边界控制。
+* **[液态玻璃与视觉设计系统 (DESIGN_SYSTEM.md)](docs/DESIGN_SYSTEM.md)**：苹果官方原生玻璃材质、图标舱设计准则。
+* **[录屏广播与低内存优化指南 (REPLAYKIT_BROADCAST_GUIDE.md)](docs/REPLAYKIT_BROADCAST_GUIDE.md)**：ReplayKit 广播流式分块写入与 50MB 内存红线控制。
+* **合规与法律政策中心**：
   * [合规主页 (Index)](https://939243423.github.io/protocol__ScrollSnap/)
   * [隐私政策全文 (Privacy Policy)](https://939243423.github.io/protocol__ScrollSnap/privacy.html)
   * [最终用户许可协议 (EULA / Terms)](https://939243423.github.io/protocol__ScrollSnap/terms.html)
@@ -31,7 +31,7 @@
 
 ---
 
-## 🌟 核心破局优势与差异化特性
+## 核心技术优势与差异化特性
 
 1. **商业模式：每日免费 2 次 + ¥1.00 永久买断**
    - 每日免费长截图 2 次（基于本地时间 00:00 自动刷新重置）。
@@ -51,7 +51,7 @@
 
 ---
 
-## 🏛️ 核心架构与 Target 拓扑
+## 核心架构与 Target 拓扑
 
 ```mermaid
 graph TD
@@ -62,7 +62,7 @@ graph TD
         M2 --> M5[StudioShowroomView 3D 摄影棚展台]
         M2 --> M6[StoreKitManager 商业化服务]
         M3 --> M7[PhotoLibraryObserver 相册监听]
-        M3 --> M8[PrivacySanitizer 端侧 Vision AI]
+        M3 --> M8[PrivacySanitizer 端侧 Vision 引擎]
     end
 
     subgraph BroadcastTarget ["滚动录屏扩展 (ScrollSnapBroadcast)"]
@@ -94,7 +94,7 @@ graph TD
 
 ---
 
-## 💻 快速上手与本地调试
+## 快速上手与本地调试
 
 1. **在线体验免编译模拟器**：
    可以直接在浏览器中打开根目录下的 [`preview.html`](preview.html)，体验双目对比帘幕、机械棘轮滚轮、2.5x 放大镜及 3D 摄影棚。

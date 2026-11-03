@@ -10,12 +10,12 @@
       "internalID" : "6499887711",
       "localizations" : [
         {
-          "description" : "永久解锁无限长截图拼接、AI智能脱敏、全文OCR提取与3D摄影棚制图特权",
+          "description" : "永久解锁无限长截图拼接、端侧隐私脱敏、全文OCR提取与3D摄影棚制图特权",
           "displayName" : "ScrollSnap 永久终身买断",
           "locale" : "zh_CN"
         },
         {
-          "description" : "Lifetime access to unlimited long screenshots, on-device AI redaction, and 3D studio.",
+          "description" : "Lifetime access to unlimited long screenshots, on-device Vision privacy redaction, and 3D studio.",
           "displayName" : "ScrollSnap Lifetime Pro",
           "locale" : "en_US"
         }

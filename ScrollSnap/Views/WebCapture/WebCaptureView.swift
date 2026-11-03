@@ -95,11 +95,15 @@ public struct WebCaptureView: View {
         isCapturing = true
         HapticFeedbackManager.shared.triggerSnap()
         
-        // Execute javascript to fetch full document height
-        webView.evaluateJavaScript("document.body.scrollHeight") { result, _ in
+        // Execute javascript to fetch accurate full document height across SPAs and standard HTML5 pages
+        let heightScript = "Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight, document.documentElement.offsetHeight, 1000)"
+        webView.evaluateJavaScript(heightScript) { result, _ in
             let scrollHeight = (result as? CGFloat) ?? 1200
+            let captureWidth = max(webView.bounds.width, 393)
+            
             let config = WKSnapshotConfiguration()
-            config.rect = CGRect(x: 0, y: 0, width: webView.bounds.width, height: min(scrollHeight, 12000))
+            config.rect = CGRect(x: 0, y: 0, width: captureWidth, height: min(scrollHeight, 16000))
+            config.afterScreenUpdates = true
             
             webView.takeSnapshot(with: config) { image, error in
                 guard let image = image, let data = image.jpegData(compressionQuality: 0.9) else {

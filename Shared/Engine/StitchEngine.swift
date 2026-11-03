@@ -31,13 +31,15 @@ public final class StitchEngine {
                 
                 var cgImages: [CGImage] = []
                 for path in fileRelativePaths {
-                    guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: path),
-                          let sourceData = try? Data(contentsOf: fileURL),
-                          let uiImage = UIImage(data: sourceData),
-                          let cgImage = uiImage.cgImage else {
-                        continue
+                    autoreleasepool {
+                        guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: path),
+                              let sourceData = try? Data(contentsOf: fileURL),
+                              let uiImage = UIImage(data: sourceData),
+                              let cgImage = uiImage.cgImage else {
+                            return
+                        }
+                        cgImages.append(cgImage)
                     }
-                    cgImages.append(cgImage)
                 }
                 
                 guard !cgImages.isEmpty else {

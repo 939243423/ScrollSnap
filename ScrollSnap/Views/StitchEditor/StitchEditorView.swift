@@ -358,7 +358,7 @@ public struct StitchEditorView: View {
                             .frame(height: selectedSliceIndex == index ? 2.5 : 1)
                             .overlay(
                                 HStack(spacing: 4) {
-                                    Image(systemName: "sparkles")
+                                    Image(systemName: "arrow.up.and.down")
                                     Text("接缝 #\(index): \(Int(slice.effectiveOverlap))pt (触觉磁吸)")
                                 }
                                 .font(.caption2.bold().monospacedDigit())
@@ -580,7 +580,7 @@ public struct StitchEditorView: View {
                     range: -35...35,
                     onSnapToOptimal: {
                         if selectedSliceIndex < session.slices.count {
-                            adjustSliceOverlap(sliceIndex: selectedSliceIndex, delta: -Int(seamDialOffset))
+                            adjustSliceOverlap(sliceIndex: selectedSliceIndex, delta: -seamDialOffset)
                             seamDialOffset = 0.0
                         }
                     }
@@ -646,9 +646,9 @@ public struct StitchEditorView: View {
                         if privacySanitizer.isDetecting {
                             ProgressView().controlSize(.small)
                         } else {
-                            Image(systemName: "sparkles")
+                            Image(systemName: "shield.checkerboard")
                         }
-                        Text("AI智能脱敏")
+                        Text("自动脱敏保护")
                             .font(.system(size: 11, weight: .bold))
                     }
                     .padding(.horizontal, 10)
@@ -874,10 +874,42 @@ public struct StitchEditorView: View {
         guard session.presetMode != newMode else { return }
         session.presetMode = newMode
         
-        for i in 0..<session.slices.count {
-            if i > 0 && i < session.slices.count - 1 {
-                session.slices[i].topCropInset = newMode.defaultTopCropInset
-                session.slices[i].bottomCropInset = newMode.defaultBottomCropInset
+        switch newMode {
+        case .movieSubtitles:
+            for i in 0..<session.slices.count {
+                if i == 0 {
+                    session.slices[i].topCropInset = 0
+                    session.slices[i].bottomCropInset = 0
+                    session.slices[i].calculatedOverlapWithPrevious = 0
+                } else {
+                    session.slices[i].topCropInset = session.slices[i].originalHeight * 0.82
+                    session.slices[i].bottomCropInset = 0
+                    session.slices[i].calculatedOverlapWithPrevious = 0
+                    session.slices[i].manualOffsetAdjustment = 0
+                }
+            }
+        case .webArticle:
+            for i in 0..<session.slices.count {
+                session.slices[i].topCropInset = (i > 0) ? newMode.defaultTopCropInset : 0
+                session.slices[i].bottomCropInset = (i < session.slices.count - 1) ? newMode.defaultBottomCropInset : 0
+            }
+        case .continuousFeed, .horizontalCompare:
+            for i in 0..<session.slices.count {
+                session.slices[i].topCropInset = 0
+                session.slices[i].bottomCropInset = 0
+            }
+        case .chatRecord, .smartAuto:
+            for i in 0..<session.slices.count {
+                if i == 0 {
+                    session.slices[i].topCropInset = 0
+                    session.slices[i].bottomCropInset = session.slices.count > 1 ? newMode.defaultBottomCropInset : 0
+                } else if i == session.slices.count - 1 {
+                    session.slices[i].topCropInset = newMode.defaultTopCropInset
+                    session.slices[i].bottomCropInset = 0
+                } else {
+                    session.slices[i].topCropInset = newMode.defaultTopCropInset
+                    session.slices[i].bottomCropInset = newMode.defaultBottomCropInset
+                }
             }
         }
         HapticFeedbackManager.shared.triggerSnap()
@@ -912,7 +944,7 @@ public struct StitchEditorView: View {
                 await MainActor.run {
                     self.annotations.append(contentsOf: autoMosaics)
                     HapticFeedbackManager.shared.triggerSnap()
-                    self.toastMessage = "AI 已自动对头像与敏感数字打码脱敏！"
+                    self.toastMessage = "已自动对头像与敏感信息打码脱敏！"
                     showToast()
                 }
             }

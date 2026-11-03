@@ -179,7 +179,7 @@ public struct HomeStitchView: View {
     private var recentDetectedScreenshotsBanner: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "sparkles.rectangle.stack.fill")
+                Image(systemName: "rectangle.stack.fill")
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color.accentColor)
                 
