@@ -61,7 +61,11 @@ public final class TextExtractor: ObservableObject {
             request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
             
             let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
-            try? handler.perform([request])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: ("", []))
+            }
         }
     }
 }

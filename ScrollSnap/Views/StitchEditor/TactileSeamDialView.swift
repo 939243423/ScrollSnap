@@ -93,6 +93,7 @@ public struct TactileSeamDialView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("减少对齐偏移量")
                 
                 mechanicalDialView
                     .frame(height: 52)
@@ -126,6 +127,22 @@ public struct TactileSeamDialView: View {
                         }
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("接缝对齐滚轮")
+                    .accessibilityValue("\(String(format: "%+.1f", offset)) 像素")
+                    .accessibilityAdjustableAction { direction in
+                        let step: CGFloat = isFineGrained ? 0.5 : 1.0
+                        switch direction {
+                        case .increment:
+                            offset = min(range.upperBound, offset + step)
+                        case .decrement:
+                            offset = max(range.lowerBound, offset - step)
+                        @unknown default:
+                            break
+                        }
+                        HapticFeedbackManager.shared.triggerDialDetent()
+                        SoundEffectManager.shared.playRatchetTick()
+                    }
                 
                 Button {
                     let step: CGFloat = isFineGrained ? 0.5 : 1.0
@@ -143,6 +160,7 @@ public struct TactileSeamDialView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("增加对齐偏移量")
             }
             
             // Controls Footer

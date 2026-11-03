@@ -10,17 +10,24 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
     
     @Published public private(set) var recentScreenshotAssets: [PHAsset] = []
     @Published public private(set) var authorizationStatus: PHAuthorizationStatus = .notDetermined
+    private var isObserverRegistered = false
     
     private override init() {
         super.init()
         checkAuthorization()
     }
     
+    deinit {
+        if isObserverRegistered {
+            PHPhotoLibrary.shared().unregisterChangeObserver(self)
+        }
+    }
+    
     public func checkAuthorization() {
         let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         self.authorizationStatus = status
         if status == .authorized || status == .limited {
-            PHPhotoLibrary.shared().register(self)
+            registerObserverIfNeeded()
             scanRecentScreenshots()
         }
     }
@@ -29,9 +36,15 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
         self.authorizationStatus = status
         if status == .authorized || status == .limited {
-            PHPhotoLibrary.shared().register(self)
+            registerObserverIfNeeded()
             scanRecentScreenshots()
         }
+    }
+    
+    private func registerObserverIfNeeded() {
+        guard !isObserverRegistered else { return }
+        PHPhotoLibrary.shared().register(self)
+        isObserverRegistered = true
     }
     
     public func scanRecentScreenshots(windowMinutes: Double = 5.0) {

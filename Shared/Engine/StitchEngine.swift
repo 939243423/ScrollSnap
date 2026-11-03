@@ -29,7 +29,7 @@ public final class StitchEngine {
                     return
                 }
                 
-                var cgImages: [CGImage] = []
+                var loadedSlices: [(path: String, image: CGImage)] = []
                 for path in fileRelativePaths {
                     autoreleasepool {
                         guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: path),
@@ -38,11 +38,11 @@ public final class StitchEngine {
                               let cgImage = uiImage.cgImage else {
                             return
                         }
-                        cgImages.append(cgImage)
+                        loadedSlices.append((path: path, image: cgImage))
                     }
                 }
                 
-                guard !cgImages.isEmpty else {
+                guard !loadedSlices.isEmpty else {
                     continuation.resume(throwing: StitchError.emptySlices)
                     return
                 }
@@ -50,22 +50,23 @@ public final class StitchEngine {
                 // Detect static navigation bar and bottom bar height from first two slices
                 var detectedTopBar: CGFloat = 0
                 var detectedBottomBar: CGFloat = 0
-                if cgImages.count >= 2 {
+                if loadedSlices.count >= 2 {
                     let chrome = ImageOverlapDetector.detectStaticChromeRegions(
-                        topImage: cgImages[0],
-                        bottomImage: cgImages[1]
+                        topImage: loadedSlices[0].image,
+                        bottomImage: loadedSlices[1].image
                     )
                     detectedTopBar = chrome.topBarHeight
                     detectedBottomBar = chrome.bottomBarHeight
                 }
                 
                 var items: [StitchItem] = []
-                let totalCount = cgImages.count
+                let totalCount = loadedSlices.count
                 
-                for (index, cgImage) in cgImages.enumerated() {
+                for (index, slice) in loadedSlices.enumerated() {
+                    let cgImage = slice.image
+                    let path = slice.path
                     let width = CGFloat(cgImage.width)
                     let height = CGFloat(cgImage.height)
-                    let path = fileRelativePaths[index]
                     
                     var topCrop: CGFloat = 0
                     var bottomCrop: CGFloat = 0
@@ -111,7 +112,7 @@ public final class StitchEngine {
                             overlapOffset = 0
                             seamLineY = 0
                         } else {
-                            let prevImage = cgImages[index - 1]
+                            let prevImage = loadedSlices[index - 1].image
                             let prevItem = items[index - 1]
                             let match = ImageOverlapDetector.findOverlap(
                                 topSlice: prevImage,

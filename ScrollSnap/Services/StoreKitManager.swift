@@ -28,10 +28,10 @@ public final class StoreKitManager: ObservableObject {
     }
     
     public func listenForTransactions() -> Task<Void, Never> {
-        Task.detached {
+        Task.detached { [weak self] in
             for await result in Transaction.updates {
                 if case .verified(let transaction) = result {
-                    await self.updatePurchasedStatus()
+                    await self?.updatePurchasedStatus()
                     await transaction.finish()
                 }
             }

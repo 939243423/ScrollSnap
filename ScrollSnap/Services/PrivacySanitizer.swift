@@ -81,7 +81,11 @@ public final class PrivacySanitizer: ObservableObject {
             }
             
             let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
-            try? handler.perform([request])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: [])
+            }
         }
     }
     
@@ -122,7 +126,11 @@ public final class PrivacySanitizer: ObservableObject {
             request.recognitionLanguages = ["zh-Hans", "en-US"]
             
             let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])
-            try? handler.perform([request])
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(returning: [])
+            }
         }
     }
 }

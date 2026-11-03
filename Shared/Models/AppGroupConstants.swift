@@ -7,7 +7,11 @@ public enum AppGroupConstants {
     public static let notificationSessionCompleted = "com.scrollsnap.broadcast.sessionCompleted"
     
     public static var containerURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName)
+        if let appGroupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName) {
+            return appGroupURL
+        }
+        // Graceful fallback for local debug, unit testing, and SwiftUI Previews
+        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("AppGroup_ScrollSnap", isDirectory: true)
     }
     
     public static var activeSessionDirectory: URL? {

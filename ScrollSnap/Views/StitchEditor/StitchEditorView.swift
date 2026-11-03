@@ -1076,7 +1076,7 @@ public struct StitchEditorView: View {
                 )
                 
                 #if canImport(UIKit)
-                if let rawImage = UIImage(contentsOfFile: outputURL.path) {
+                if selectedExportFormat != .pdf, let rawImage = UIImage(contentsOfFile: outputURL.path) {
                     let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: rawImage, isProUser: storeKit.isProUser)
                     if let data = (selectedExportFormat == .png ? watermarked.pngData() : watermarked.jpegData(compressionQuality: 0.9)) {
                         try? data.write(to: outputURL)

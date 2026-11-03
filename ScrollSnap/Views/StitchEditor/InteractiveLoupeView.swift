@@ -64,6 +64,9 @@ public struct InteractiveLoupeView<Content: View>: View {
         }
         .frame(width: diameter, height: diameter)
         .shadow(color: Color.black.opacity(0.4), radius: 14, x: 0, y: 8)
-        .position(x: touchPosition.x, y: touchPosition.y - diameter * 0.75) // Floats above user's finger so finger doesn't obscure view
+        .position(
+            x: touchPosition.x,
+            y: touchPosition.y < (diameter * 0.85) ? (touchPosition.y + diameter * 0.75) : (touchPosition.y - diameter * 0.75)
+        ) // Smart edge avoidance: flips below finger if touching near the top bezel
     }
 }

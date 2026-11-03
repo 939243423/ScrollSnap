@@ -379,20 +379,26 @@ public struct HomeStitchView: View {
                 let stitchItems = items.map { CompletedStitchItem(id: $0.path, url: $0) }
                 
                 Stage3DCoverFlowView(items: stitchItems, selectedIndex: $selectedStitchIndex) { item, isSelected in
-                    if let image = UIImage(contentsOfFile: item.url.path) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .clipped()
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .strokeBorder(
-                                        isSelected ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.15),
-                                        lineWidth: isSelected ? 1.5 : 0.8
-                                    )
-                            )
+                    Button {
+                        HapticFeedbackManager.shared.triggerSelection()
+                        openCompletedStitch(item)
+                    } label: {
+                        if let image = UIImage(contentsOfFile: item.url.path) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipped()
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .strokeBorder(
+                                            isSelected ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.15),
+                                            lineWidth: isSelected ? 1.5 : 0.8
+                                        )
+                                )
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
                 .frame(height: 260)
                 .padding(.vertical, 8)
@@ -637,6 +643,24 @@ public struct HomeStitchView: View {
             deviceScreenScale: 3.0
         )
         self.activeSessionToEdit = sampleSession
+    }
+    
+    private func openCompletedStitch(_ item: CompletedStitchItem) {
+        if let image = UIImage(contentsOfFile: item.url.path) {
+            let slice = StitchItem(
+                relativeFilePath: "completed_stitches/\(item.url.lastPathComponent)",
+                originalWidth: image.size.width * image.scale,
+                originalHeight: image.size.height * image.scale,
+                calculatedOverlapWithPrevious: 0,
+                manualOffsetAdjustment: 0,
+                optimalSeamLineY: 0
+            )
+            let session = StitchSession(
+                slices: [slice],
+                title: item.url.deletingPathExtension().lastPathComponent
+            )
+            self.activeSessionToEdit = session
+        }
     }
 }
 

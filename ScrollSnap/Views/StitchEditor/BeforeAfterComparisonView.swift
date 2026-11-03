@@ -91,6 +91,20 @@ public struct BeforeAfterComparisonView: View {
                         .position(x: splitX, y: size.height / 2)
                         .scaleEffect(isDragging ? 1.15 : 1.0)
                         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("对比帘幕推拉游标")
+                        .accessibilityValue("当前左侧原图显示 \(Int(splitRatio * 100))%，右侧拼合图显示 \(Int((1 - splitRatio) * 100))%")
+                        .accessibilityAdjustableAction { direction in
+                            switch direction {
+                            case .increment:
+                                splitRatio = min(0.95, splitRatio + 0.1)
+                            case .decrement:
+                                splitRatio = max(0.05, splitRatio - 0.1)
+                            @unknown default:
+                                break
+                            }
+                            HapticFeedbackManager.shared.triggerSelection()
+                        }
                     }
                     .contentShape(Rectangle())
                     .gesture(
