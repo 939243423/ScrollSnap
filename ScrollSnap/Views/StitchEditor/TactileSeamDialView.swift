@@ -81,6 +81,7 @@ public struct TactileSeamDialView: View {
                     let step: CGFloat = isFineGrained ? 0.5 : 1.0
                     offset = max(range.lowerBound, offset - step)
                     HapticFeedbackManager.shared.triggerDialDetent()
+                    SoundEffectManager.shared.playRatchetTick()
                 } label: {
                     Image(systemName: "minus")
                         .font(.system(size: 11, weight: .bold))
@@ -130,6 +131,7 @@ public struct TactileSeamDialView: View {
                     let step: CGFloat = isFineGrained ? 0.5 : 1.0
                     offset = min(range.upperBound, offset + step)
                     HapticFeedbackManager.shared.triggerDialDetent()
+                    SoundEffectManager.shared.playRatchetTick()
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .bold))
@@ -167,6 +169,7 @@ public struct TactileSeamDialView: View {
                         offset = optimalOffset
                     }
                     HapticFeedbackManager.shared.triggerMagneticLock()
+                    SoundEffectManager.shared.playMagneticSnap()
                     onSnapToOptimal()
                 } label: {
                     HStack(spacing: 4) {
@@ -303,12 +306,14 @@ public struct TactileSeamDialView: View {
                         if abs(newOffset - lastDetentOffset) >= 1.0 {
                             lastDetentOffset = round(newOffset)
                             HapticFeedbackManager.shared.triggerDialDetent()
+                            SoundEffectManager.shared.playRatchetTick()
                         }
                         
                         // Magnetic snap when near optimal
                         if abs(newOffset - optimalOffset) < 1.0 {
                             newOffset = optimalOffset
                             HapticFeedbackManager.shared.triggerMagneticLock()
+                            SoundEffectManager.shared.playMagneticSnap()
                         }
                         
                         self.offset = newOffset

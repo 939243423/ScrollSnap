@@ -19,6 +19,7 @@
 
 ## 快速导航与文档索引
 
+* **[商业化冲榜与 App Store 运营上架全案指南 (APP_STORE_LAUNCH_GUIDE.md)](docs/APP_STORE_LAUNCH_GUIDE.md)**：包含 ASO 关键词矩阵、智能好评引导策略、苹果编辑自荐信与审核人备注。
 * **[全量源码文件字典与模块职责速查手册 (CODEBASE_DIRECTORY.md)](docs/CODEBASE_DIRECTORY.md)**：包含工程中每一个文件的核心职责、关键类型、协作关系与重构记录。
 * **[系统架构与全栈技术规范 (ARCHITECTURE.md)](docs/ARCHITECTURE.md)**：进程拓扑、App Group 数据总线、Metal 平铺渲染与内存边界控制。
 * **[液态玻璃与视觉设计系统 (DESIGN_SYSTEM.md)](docs/DESIGN_SYSTEM.md)**：苹果官方原生玻璃材质、图标舱设计准则。

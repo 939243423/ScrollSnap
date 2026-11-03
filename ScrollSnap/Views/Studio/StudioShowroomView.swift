@@ -209,6 +209,8 @@ public struct StudioShowroomView: View {
                         // Action Button
                         Button {
                             HapticFeedbackManager.shared.triggerSuccess()
+                            SoundEffectManager.shared.playShutter()
+                            StoreReviewManager.shared.recordSuccessfulExport()
                             onSavePoster()
                         } label: {
                             HStack(spacing: 8) {

@@ -15,7 +15,7 @@ d:\ai\snap/
 ├── ScrollSnap/                         # 主应用进程 (SwiftUI 界面、系统服务与用户交互)
 │   ├── App/                            # 应用程序入口生命周期
 │   ├── Resources/                      # 静态资源、应用图标、StoreKit 本地测试套件
-│   ├── Services/                       # 核心业务服务 (配额、内购、触觉、相册监听、AI 脱敏、OCR)
+│   ├── Services/                       # 核心业务服务 (配额、内购、触觉、智能好评、版本新特性、水印、音效)
 │   └── Views/                          # 核心界面层
 │       ├── Home/                       # 主工作台 (主视图、3D 展台、快速动作)
 │       ├── StitchEditor/               # 全能编辑器 (双目帘幕、棘轮微调、放大镜、隐私涂抹、标注、9宫格)
@@ -23,7 +23,8 @@ d:\ai\snap/
 │       ├── DeviceFrame/                # 拟真机身外壳与多材质渲染组件
 │       ├── Telemetry/                  # 灵动遥测胶囊与内存红线监控
 │       ├── WebCapture/                 # 网页全长自动滚截 WebView
-│       └── Settings/                   # 设置中心与 ¥1.00 永久买断 Paywall
+│       ├── WhatsNew/                   # 全新功能与版本升级提醒弹窗 (Apple 原生设计)
+│       └── Settings/                   # 设置中心、App Store 5星好评、邮件反馈与偏好设置
 │
 ├── Shared/                             # 跨进程共享编译库 (主 App、Extension、Widget 共享)
 │   ├── Engine/                         # 纯数学与图像算法内核 (NCC 对齐、吸顶去重、平铺渲染、台词拼接)
@@ -68,8 +69,12 @@ d:\ai\snap/
 | :--- | :--- | :--- | :--- |
 | [`QuotaManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/QuotaManager.swift) | 每日免费 2 次配额控制器与本地持久化 | `class QuotaManager: ObservableObject` | 基于 `Calendar.current` 当日 0 点重置计数；Pro 会员自动绕过限制 |
 | [`StoreKitManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/StoreKitManager.swift) | 现代 StoreKit 2 交易监听与 ¥1.00 永久买断状态管理 | `class StoreKitManager: ObservableObject` | `Transaction.updates` 后台持续监听；`VerificationResult` 强类型密码学验签 |
+| [`StoreReviewManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/StoreReviewManager.swift) | 智能好评引导与口碑增长引擎 | `class StoreReviewManager: ObservableObject` | 遵循 Apple HIG 5.6.1；仅在导出成功等“Aha!”时刻智能触发；好评引流 App Store，建议分流至开发者邮箱 |
+| [`WhatsNewManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/WhatsNewManager.swift) | 版本升级特性与更新日志控制器 | `class WhatsNewManager: ObservableObject` | 基于 `CFBundleShortVersionString` 自动探测大版本升级并推送特性提醒 |
+| [`ExportWatermarkManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/ExportWatermarkManager.swift) | 极简品牌水印与病毒式裂变引擎 | `class ExportWatermarkManager` | 免费版附带极简签名底栏驱动社交裂变；¥1 买断用户支持在设置中一键移除 |
+| [`SoundEffectManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/SoundEffectManager.swift) | 机械棘轮声效与快门音频调度器 | `class SoundEffectManager` | 联动 AudioServices 播放 1104/1057/1108 系统高保真机械齿轮转动与快门音效 |
 | [`PhotoLibraryObserver.swift`](file:///d:/ai/snap/ScrollSnap/Services/PhotoLibraryObserver.swift) | 本地相册截屏变化监听器 | `class PhotoLibraryObserver: PHPhotoLibraryChangeObserver` | `PHAssetMediaSubtype.photoScreenshot` 过滤；自动拉取 5 分钟内连续截屏 |
-| [`PrivacySanitizer.swift`](file:///d:/ai/snap/ScrollSnap/Services/PrivacySanitizer.swift) | Apple Vision 端侧 AI 敏感信息自动识别脱敏 | `class PrivacySanitizer: ObservableObject` | `VNDetectFaceRectanglesRequest` (头像检测) + 正则探测手机号/金额 |
+| [`PrivacySanitizer.swift`](file:///d:/ai/snap/ScrollSnap/Services/PrivacySanitizer.swift) | Apple Vision 端侧离线隐私保护自动识别脱敏 | `class PrivacySanitizer: ObservableObject` | `VNDetectFaceRectanglesRequest` (头像检测) + 正则探测手机号/金额 |
 | [`TextExtractor.swift`](file:///d:/ai/snap/ScrollSnap/Services/TextExtractor.swift) | Vision 高精度中文/英文 OCR 离线文字提取 | `class TextExtractor: ObservableObject` | `VNRecognizeTextRequest(recognitionLevel: .accurate)` 纯离线识别整张长图 |
 | [`HapticFeedbackManager.swift`](file:///d:/ai/snap/ScrollSnap/Services/HapticFeedbackManager.swift) | Taptic Engine 触觉引擎分级调度器 | `class HapticFeedbackManager` | 机械滚轮步进、磁吸锁定碰撞、错误警告、成功保存等多阶震动编排 |
 

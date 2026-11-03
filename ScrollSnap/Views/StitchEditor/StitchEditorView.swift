@@ -1008,6 +1008,8 @@ public struct StitchEditorView: View {
                 self.isSlicing = false
                 self.isShowingSlicesSavedAlert = true
                 HapticFeedbackManager.shared.triggerSnap()
+                SoundEffectManager.shared.playShutter()
+                StoreReviewManager.shared.recordSuccessfulExport()
             }
         }
     }
@@ -1028,11 +1030,14 @@ public struct StitchEditorView: View {
             )
             
             if let image = UIImage(contentsOfFile: tempOutput.path) {
-                UIPasteboard.general.image = image
+                let finalImage = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: storeKit.isProUser)
+                UIPasteboard.general.image = finalImage
                 quotaManager.recordStitchUsage()
                 
                 await MainActor.run {
                     HapticFeedbackManager.shared.triggerSnap()
+                    SoundEffectManager.shared.playMagneticSnap()
+                    StoreReviewManager.shared.recordSuccessfulExport()
                     self.toastMessage = "已复制长截图到剪贴板，可直接粘贴"
                     showToast()
                 }
@@ -1070,6 +1075,15 @@ public struct StitchEditorView: View {
                     format: selectedExportFormat
                 )
                 
+                #if canImport(UIKit)
+                if let rawImage = UIImage(contentsOfFile: outputURL.path) {
+                    let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: rawImage, isProUser: storeKit.isProUser)
+                    if let data = (selectedExportFormat == .png ? watermarked.pngData() : watermarked.jpegData(compressionQuality: 0.9)) {
+                        try? data.write(to: outputURL)
+                    }
+                }
+                #endif
+                
                 quotaManager.recordStitchUsage()
                 
                 await MainActor.run {
@@ -1077,6 +1091,8 @@ public struct StitchEditorView: View {
                     self.isExporting = false
                     self.isShowingExportSheet = true
                     HapticFeedbackManager.shared.triggerSnap()
+                    SoundEffectManager.shared.playShutter()
+                    StoreReviewManager.shared.recordSuccessfulExport()
                 }
             } catch {
                 await MainActor.run {

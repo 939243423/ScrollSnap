@@ -91,6 +91,10 @@
         <button onclick="switchScreen('action-button')" id="tab-action" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white">
           硬件联动
         </button>
+        <button onclick="openSettingsModal()" id="tab-settings" class="tab-btn px-2.5 py-1.5 rounded-lg font-medium transition-all text-slate-400 hover:text-white flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>设置与好评</span>
+        </button>
       </nav>
     </div>
   </header>
@@ -131,9 +135,14 @@
               
               <!-- Header Title -->
               <div class="pt-2 flex items-center justify-between">
-                <div>
-                  <h2 class="text-xl font-bold tracking-tight text-white">长截图工坊</h2>
-                  <p class="text-[11px] text-slate-400">端侧无损连续拼接 · 支持 15 Pro 硬件极速联动</p>
+                <div class="flex items-center gap-2.5">
+                  <button onclick="openSettingsModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 transition-colors" title="打开设置与好评中心">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                  <div>
+                    <h2 class="text-xl font-bold tracking-tight text-white">长截图工坊</h2>
+                    <p class="text-[11px] text-slate-400">端侧无损连续拼接 · 支持 15 Pro 硬件极速联动</p>
+                  </div>
                 </div>
                 <button onclick="openPaywallModal()" class="liquid-pill px-2.5 py-1 text-[11px] font-bold text-amber-300 flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
@@ -1632,6 +1641,7 @@
       closePosterModal();
       playMagneticLockTone();
       showToast('4K 悬浮海报已高清保存至系统相册！');
+      recordStitchMilestone();
     }
 
     function copyPosterLinkAction() {
@@ -1988,13 +1998,124 @@
       document.getElementById('home-badge-text').innerText = '永久会员';
       const btn = document.getElementById('quota-pill-btn');
       btn.className = 'liquid-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold text-emerald-300 border-emerald-400/50';
-      alert('【购买成功】\n已激活 ¥1.00 永久买断特权：\n• 无限长截图拼接\n• 端侧 Vision AI 一键智能脱敏\n• 全图 OCR 文本提取\n• 微米级棘轮对齐与能量图谱\n• 极光毛玻璃刮刮乐涂抹\n• 3D 摄影棚悬浮海报直出！');
+      showToast('已激活 ¥1.00 永久买断特权！享有无限制拼图、隐私脱敏保护与4K海报直出');
+      document.getElementById('settings-pro-status').innerText = '已激活 ¥1 永久特权 (终身会员)';
       closePaywallModal();
     }
 
     // Hardware simulation
     function simulateActionTrigger() {
-      alert('【模拟硬件触发】\n1. 用户在聊天界面连截 3 张图；\n2. 长按 15 Pro 侧键或轻敲背面两下；\n3. 系统后台 0.3 秒无感拼好并擦除重复顶栏；\n4. 手机发出清脆触觉振动；\n5. 已复制到剪贴板，可直接粘贴！');
+      showToast('硬件快捷联动：连截多屏后敲击背面，0.3秒秒拼入剪贴板！');
+    }
+
+    // Settings, Rating, WhatsNew, and Preferences
+    let isWatermarkActive = true;
+    let isSoundActive = true;
+    let successfulStitches = 0;
+
+    function openSettingsModal() {
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function openWhatsNewModal() {
+      document.getElementById('whatsnew-modal').classList.remove('hidden');
+    }
+
+    function closeWhatsNewModal() {
+      document.getElementById('whatsnew-modal').classList.add('hidden');
+    }
+
+    function openReviewModal() {
+      document.getElementById('review-modal').classList.remove('hidden');
+    }
+
+    function closeReviewModal() {
+      document.getElementById('review-modal').classList.add('hidden');
+    }
+
+    function confirmAppStoreRating() {
+      closeReviewModal();
+      showToast('已模拟唤起 App Store 评价页，感谢您给予五星好评！');
+      window.open('https://apps.apple.com/app/id6499887700?action=write-review', '_blank');
+    }
+
+    function openFeedbackFromReview() {
+      closeReviewModal();
+      sendFeedbackAction();
+    }
+
+    function rateOnAppStoreAction() {
+      confirmAppStoreRating();
+    }
+
+    function sendFeedbackAction() {
+      const email = 'ruohui49@gmail.com';
+      const subject = encodeURIComponent('ScrollSnap 建议与问题反馈 (v1.2.0)');
+      const body = encodeURIComponent('\n\n------------------\n设备机型: iPhone 15 Pro\n系统版本: iOS 18.0\n应用版本: 1.2.0 (Build 2026.11)\n拼接引擎: CoreGraphics NCC + Metal\n------------------');
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    }
+
+    function shareAppAction() {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText('推荐一款纯端侧高颜值的长截图神器：ScrollSnap 滚动画布 (https://apps.apple.com/app/id6499887700)');
+        showToast('推荐文案与链接已复制到剪贴板！');
+      } else {
+        showToast('推荐链接：https://apps.apple.com/app/id6499887700');
+      }
+    }
+
+    function toggleWatermarkAction() {
+      const isPro = document.getElementById('home-badge-text').innerText.includes('永久');
+      if (!isPro && isWatermarkActive) {
+        openPaywallModal();
+        return;
+      }
+      isWatermarkActive = !isWatermarkActive;
+      const circle = document.getElementById('watermark-toggle-circle');
+      const btn = document.getElementById('btn-watermark-toggle');
+      if (isWatermarkActive) {
+        btn.classList.add('bg-indigo-600');
+        btn.classList.remove('bg-slate-700');
+        circle.classList.add('translate-x-5');
+        circle.classList.remove('translate-x-0.5');
+      } else {
+        btn.classList.remove('bg-indigo-600');
+        btn.classList.add('bg-slate-700');
+        circle.classList.remove('translate-x-5');
+        circle.classList.add('translate-x-0.5');
+      }
+      showToast(isWatermarkActive ? '极简品牌水印已开启' : '极简品牌水印已移除');
+    }
+
+    function toggleSoundAction() {
+      isSoundActive = !isSoundActive;
+      const circle = document.getElementById('sound-toggle-circle');
+      const btn = document.getElementById('btn-sound-toggle');
+      if (isSoundActive) {
+        btn.classList.add('bg-indigo-600');
+        btn.classList.remove('bg-slate-700');
+        circle.classList.add('translate-x-5');
+        circle.classList.remove('translate-x-0.5');
+      } else {
+        btn.classList.remove('bg-indigo-600');
+        btn.classList.add('bg-slate-700');
+        circle.classList.remove('translate-x-5');
+        circle.classList.add('translate-x-0.5');
+      }
+      showToast(isSoundActive ? '机械音效已开启' : '机械音效已静音');
+    }
+
+    function recordStitchMilestone() {
+      successfulStitches++;
+      if (successfulStitches === 1 || successfulStitches === 3) {
+        setTimeout(() => {
+          openReviewModal();
+        }, 1200);
+      }
     }
   </script>
 
@@ -2044,6 +2165,205 @@
         </button>
         <button onclick="copyPosterLinkAction()" class="px-3 py-2 rounded-xl bg-white/10 text-slate-200 text-xs hover:bg-white/20">
           复制长图
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SETTINGS & COMMUNITY (APP STORE RANKING DRIVER) -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-sm liquid-glass rounded-3xl p-5 border border-white/20 shadow-2xl relative space-y-4 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+          设置与支持
+        </h3>
+        <button onclick="closeSettingsModal()" class="w-6 h-6 rounded-full bg-white/10 text-slate-300 hover:text-white flex items-center justify-center text-xs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Pro Subscription Card -->
+      <div onclick="openPaywallModal()" class="liquid-card p-3 rounded-2xl flex items-center justify-between cursor-pointer hover:border-amber-400/40 transition-all border border-amber-500/20 bg-amber-500/10">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-300">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5m14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+          </div>
+          <div>
+            <div id="settings-pro-status" class="text-xs font-bold text-white">¥1.00 永久终身买断</div>
+            <div class="text-[10px] text-slate-300">无限制长图、隐私脱敏、3D海报直出</div>
+          </div>
+        </div>
+        <span class="text-xs text-amber-300 font-semibold">查看特权 &rarr;</span>
+      </div>
+
+      <!-- Rating & Community Growth -->
+      <div class="space-y-1.5">
+        <div class="text-[10px] font-bold tracking-wider text-slate-400 uppercase px-1">支持与互动 · 冲榜口碑</div>
+        <div class="liquid-glass rounded-xl divide-y divide-white/5 text-xs">
+          <button onclick="rateOnAppStoreAction()" class="w-full p-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
+            <span class="flex items-center gap-2 text-slate-200">
+              <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+              在 App Store 给予五星好评
+            </span>
+            <span class="text-[10px] text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full font-semibold">支持作者</span>
+          </button>
+          
+          <button onclick="sendFeedbackAction()" class="w-full p-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
+            <span class="flex items-center gap-2 text-slate-200">
+              <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              建议与问题反馈 (邮箱)
+            </span>
+            <span class="text-[10px] text-slate-400 font-mono">ruohui49@gmail.com</span>
+          </button>
+          
+          <button onclick="shareAppAction()" class="w-full p-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
+            <span class="flex items-center gap-2 text-slate-200">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+              推荐 ScrollSnap 给朋友
+            </span>
+            <span class="text-slate-400">&rarr;</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Version & Feature Highlights -->
+      <div class="space-y-1.5">
+        <div class="text-[10px] font-bold tracking-wider text-slate-400 uppercase px-1">版本特性与升级</div>
+        <div class="liquid-glass rounded-xl divide-y divide-white/5 text-xs">
+          <button onclick="openWhatsNewModal()" class="w-full p-2.5 flex items-center justify-between hover:bg-white/5 transition-colors">
+            <span class="flex items-center gap-2 text-slate-200">
+              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+              新功能介绍与升级日志
+            </span>
+            <span class="text-[10px] text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full font-semibold">v1.2.0</span>
+          </button>
+          
+          <div class="p-2.5 flex items-center justify-between text-slate-300">
+            <span>当前版本</span>
+            <span class="font-mono text-[11px] text-slate-400">1.2.0 (Build 2026.11)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Preferences -->
+      <div class="space-y-1.5">
+        <div class="text-[10px] font-bold tracking-wider text-slate-400 uppercase px-1">偏好设置</div>
+        <div class="liquid-glass rounded-xl p-3 space-y-3 text-xs">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-white flex items-center gap-1.5">
+                极简品牌水印
+                <span class="text-[9px] font-bold bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded-full">PRO 可关</span>
+              </div>
+              <div class="text-[10px] text-slate-400">长图底栏附带优雅签名，帮助口碑传播</div>
+            </div>
+            <button onclick="toggleWatermarkAction()" id="btn-watermark-toggle" class="w-10 h-5 bg-indigo-600 rounded-full p-0.5 transition-colors relative flex items-center">
+              <div id="watermark-toggle-circle" class="w-4 h-4 bg-white rounded-full shadow-md transform translate-x-5 transition-transform"></div>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-white/5 pt-2.5">
+            <div>
+              <div class="font-semibold text-white">机械转轮与相机音效</div>
+              <div class="text-[10px] text-slate-400">模拟微米齿轮转动与快门声效</div>
+            </div>
+            <button onclick="toggleSoundAction()" id="btn-sound-toggle" class="w-10 h-5 bg-indigo-600 rounded-full p-0.5 transition-colors relative flex items-center">
+              <div id="sound-toggle-circle" class="w-4 h-4 bg-white rounded-full shadow-md transform translate-x-5 transition-transform"></div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legal Links -->
+      <div class="pt-2 text-center text-[11px] text-slate-400 space-x-3">
+        <a href="https://939243423.github.io/protocol__ScrollSnap/privacy.html" target="_blank" class="hover:text-indigo-300 underline">隐私政策</a>
+        <span>&bull;</span>
+        <a href="https://939243423.github.io/protocol__ScrollSnap/terms.html" target="_blank" class="hover:text-indigo-300 underline">用户协议</a>
+        <span>&bull;</span>
+        <a href="https://939243423.github.io/protocol__ScrollSnap/" target="_blank" class="hover:text-indigo-300 underline">合规中心</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: WHAT'S NEW (APPLE DESIGN AWARD SPEC) -->
+  <div id="whatsnew-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-sm liquid-glass rounded-3xl p-6 border border-white/20 shadow-2xl relative space-y-5">
+      <div class="text-center space-y-2">
+        <img src="AppIcon.png" class="w-14 h-14 rounded-2xl mx-auto shadow-lg shadow-indigo-500/25 border border-white/20 object-cover" alt="AppIcon">
+        <h3 class="text-lg font-bold text-white">全新功能与升级特性</h3>
+        <p class="text-xs text-indigo-300 font-medium">ScrollSnap 滚动画布 v1.2.0</p>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-400/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          </div>
+          <div>
+            <div class="font-bold text-white text-sm">双目无缝对比帘幕</div>
+            <div class="text-slate-400 text-[11px] leading-relaxed">推拉带微光的钛金激光游标，左侧原片与右侧拼合实时无缝比对，毫厘之间验证亚像素对齐。</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-400/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 7v5l3 3"/></svg>
+          </div>
+          <div>
+            <div class="font-bold text-white text-sm">微米级机械棘轮微调</div>
+            <div class="text-slate-400 text-[11px] leading-relaxed">转动阻尼滚轮实现 0.5px 精细微调，伴随清脆齿轮震颤与自动翡翠绿磁吸锁定。</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 border border-purple-400/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          </div>
+          <div>
+            <div class="font-bold text-white text-sm">3D 摄影棚海报直出</div>
+            <div class="text-slate-400 text-[11px] leading-relaxed">配备沙漠钛等四款苹果旗舰边框，自由倾斜空间角度与地面接触阴影，一键输出 4K 大片。</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-400/30">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <div class="font-bold text-white text-sm">端侧脱敏与极光毛玻璃</div>
+            <div class="text-slate-400 text-[11px] leading-relaxed">Neural Engine 毫秒级离线识别头像与手机号码，支持如同刮刮乐般的手绘毛玻璃涂抹保护。</div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="closeWhatsNewModal()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl text-xs shadow-lg shadow-indigo-600/30 transition-all">
+        继续使用
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: SMART APP STORE RATING PROMPT (AHA MOMENT) -->
+  <div id="review-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-xs liquid-glass rounded-3xl p-5 border border-white/20 shadow-2xl relative space-y-4 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 flex items-center justify-center mx-auto shadow-lg shadow-orange-500/30">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+      </div>
+
+      <div class="space-y-1">
+        <h4 class="text-base font-bold text-white">喜欢 ScrollSnap 吗？</h4>
+        <p class="text-xs text-slate-300">您的五星好评将帮助我们登上 App Store 效率榜单，激励我们持续精雕细琢！</p>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <button onclick="confirmAppStoreRating()" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-slate-950 font-bold rounded-xl text-xs shadow-md">
+          去 App Store 给予五星好评
+        </button>
+        <button onclick="openFeedbackFromReview()" class="w-full py-2 bg-white/10 hover:bg-white/15 text-slate-300 font-medium rounded-xl text-xs">
+          遇到问题？向开发者反馈
+        </button>
+        <button onclick="closeReviewModal()" class="w-full py-1 text-slate-400 hover:text-white text-[11px]">
+          稍后再说
         </button>
       </div>
     </div>

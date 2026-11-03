@@ -19,6 +19,7 @@ public struct HomeStitchView: View {
     @State private var isProcessingStitch = false
     @State private var isShowingBroadcastGuide = false
     @State private var isShowingActionShortcutGuide = false
+    @State private var isShowingWhatsNew = false
     @State private var activeBroadcastSlices: [String] = []
     
     public init() {}
@@ -110,9 +111,15 @@ public struct HomeStitchView: View {
             .sheet(isPresented: $isShowingActionShortcutGuide) {
                 ActionShortcutGuideSheet()
             }
+            .sheet(isPresented: $isShowingWhatsNew) {
+                WhatsNewSheetView()
+            }
             .onAppear {
                 quotaManager.refreshQuota()
                 refreshActiveBroadcastSlices()
+                if WhatsNewManager.shared.shouldShowWhatsNew() {
+                    isShowingWhatsNew = true
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshBroadcastSession"))) { _ in
                 refreshActiveBroadcastSlices()
