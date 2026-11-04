@@ -137,8 +137,10 @@ public final class StitchEngine {
                             let match = ImageOverlapDetector.findOverlap(
                                 topSlice: prevImage,
                                 bottomSlice: cgImage,
-                                topCropInset: topCrop,
-                                bottomCropInset: prevItem.bottomCropInset
+                                topSliceTopCrop: prevItem.topCropInset,
+                                topSliceBottomCrop: prevItem.bottomCropInset,
+                                bottomSliceTopCrop: topCrop,
+                                bottomSliceBottomCrop: bottomCrop
                             )
                             overlapOffset = match.offset
                             seamLineY = match.optimalSeamY

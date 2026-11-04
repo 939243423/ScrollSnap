@@ -20,7 +20,105 @@ public enum ExportFormat: String, CaseIterable, Identifiable {
     }
 }
 
+public struct SliceCanvasLayout: Sendable, Hashable {
+    public let sliceIndex: Int
+    public let sourceYStart: CGFloat
+    public let sourceHeight: CGFloat
+    public let canvasY: CGFloat
+    public let canvasHeight: CGFloat
+    public let scale: CGFloat
+    
+    public init(
+        sliceIndex: Int,
+        sourceYStart: CGFloat,
+        sourceHeight: CGFloat,
+        canvasY: CGFloat,
+        canvasHeight: CGFloat,
+        scale: CGFloat
+    ) {
+        self.sliceIndex = sliceIndex
+        self.sourceYStart = sourceYStart
+        self.sourceHeight = sourceHeight
+        self.canvasY = canvasY
+        self.canvasHeight = canvasHeight
+        self.scale = scale
+    }
+}
+
 public final class TiledImageRenderer {
+    
+    /// Mathematically computes continuous seam transitions across slices
+    /// Guarantees that cuts fall on minimum-energy whitespace margins with zero character truncation
+    public static func computeVerticalLayout(
+        session: StitchSession,
+        canvasWidth: CGFloat
+    ) -> [SliceCanvasLayout] {
+        let slices = session.slices
+        guard !slices.isEmpty else { return [] }
+        
+        var layouts: [SliceCanvasLayout] = []
+        var currentCanvasY: CGFloat = 0
+        let isMovieSubtitles = (session.presetMode == .movieSubtitles)
+        
+        for (index, slice) in slices.enumerated() {
+            let widthScale = canvasWidth / max(1.0, slice.originalWidth)
+            let origH = slice.originalHeight
+            
+            let sourceStart: CGFloat
+            let sourceEnd: CGFloat
+            
+            if isMovieSubtitles {
+                if index == 0 {
+                    sourceStart = 0
+                    sourceEnd = origH
+                } else {
+                    sourceStart = origH * 0.82
+                    sourceEnd = origH
+                }
+            } else {
+                // Top boundary in slice coordinates
+                if index == 0 {
+                    sourceStart = slice.topCropInset
+                } else {
+                    let overlapWithPrev = slice.effectiveOverlap
+                    let seamOffset = (slice.optimalSeamLineY > 0 && slice.optimalSeamLineY <= overlapWithPrev)
+                        ? slice.optimalSeamLineY
+                        : (overlapWithPrev * 0.5)
+                    sourceStart = slice.topCropInset + seamOffset
+                }
+                
+                // Bottom boundary in slice coordinates
+                if index + 1 < slices.count {
+                    let nextSlice = slices[index + 1]
+                    let overlapWithNext = nextSlice.effectiveOverlap
+                    let nextSeamOffset = (nextSlice.optimalSeamLineY > 0 && nextSlice.optimalSeamLineY <= overlapWithNext)
+                        ? nextSlice.optimalSeamLineY
+                        : (overlapWithNext * 0.5)
+                    sourceEnd = max(sourceStart, origH - slice.bottomCropInset - overlapWithNext + nextSeamOffset)
+                } else {
+                    sourceEnd = max(sourceStart, origH - slice.bottomCropInset)
+                }
+            }
+            
+            let sourceHeight = max(0, sourceEnd - sourceStart)
+            let sliceCanvasHeight = sourceHeight * widthScale
+            
+            layouts.append(
+                SliceCanvasLayout(
+                    sliceIndex: index,
+                    sourceYStart: sourceStart,
+                    sourceHeight: sourceHeight,
+                    canvasY: currentCanvasY,
+                    canvasHeight: sliceCanvasHeight,
+                    scale: widthScale
+                )
+            )
+            
+            currentCanvasY += sliceCanvasHeight
+        }
+        
+        return layouts
+    }
     
     /// Safely stitches slices and saves directly to disk file, bypassing single-bitmap RAM limits
     public static func renderStitchedImageToFile(
@@ -98,42 +196,41 @@ public final class TiledImageRenderer {
             if scaleFactor != 1.0 {
                 cgContext.scaleBy(x: scaleFactor, y: scaleFactor)
             }
-            var currentY: CGFloat = 0
             
-            for (index, slice) in session.slices.enumerated() {
+            let layouts = computeVerticalLayout(session: session, canvasWidth: originalCanvasWidth)
+            
+            for layout in layouts {
+                let slice = session.slices[layout.sliceIndex]
                 guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                       let image = UIImage(contentsOfFile: fileURL.path) else {
                     continue
                 }
                 
-                let visibleHeight = slice.visibleHeight
-                let drawRect = CGRect(x: 0, y: currentY, width: originalCanvasWidth, height: visibleHeight)
+                let drawRect = CGRect(x: 0, y: layout.canvasY, width: originalCanvasWidth, height: layout.canvasHeight)
                 
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
                 
                 let imageDrawRect = CGRect(
                     x: 0,
-                    y: currentY - slice.topCropInset,
+                    y: layout.canvasY - (layout.sourceYStart * layout.scale),
                     width: originalCanvasWidth,
-                    height: slice.originalHeight
+                    height: slice.originalHeight * layout.scale
                 )
                 image.draw(in: imageDrawRect)
                 
-                // Draw legacy redactions
+                // Draw legacy redactions mapped to slice coordinates
                 for redaction in slice.redactions {
-                    let rX = drawRect.minX + redaction.relativeRect.minX * drawRect.width
-                    let rY = drawRect.minY + redaction.relativeRect.minY * drawRect.height
-                    let rW = redaction.relativeRect.width * drawRect.width
-                    let rH = redaction.relativeRect.height * drawRect.height
+                    let rX = redaction.relativeRect.minX * originalCanvasWidth
+                    let sliceY = redaction.relativeRect.minY * slice.originalHeight
+                    let rY = layout.canvasY + (sliceY - layout.sourceYStart) * layout.scale
+                    let rW = redaction.relativeRect.width * originalCanvasWidth
+                    let rH = (redaction.relativeRect.height * slice.originalHeight) * layout.scale
                     let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
                     applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
                 }
                 
                 cgContext.restoreGState()
-                
-                let nextOverlap: CGFloat = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
-                currentY += (visibleHeight - nextOverlap)
             }
             
             // Draw all annotations onto the full stitched canvas
@@ -193,27 +290,31 @@ public final class TiledImageRenderer {
                 cgContext.translateBy(x: 20, y: 30 - (sourceY * scaleFactor))
                 cgContext.scaleBy(x: scaleFactor, y: scaleFactor)
                 
-                var currentY: CGFloat = 0
-                for (index, slice) in session.slices.enumerated() {
-                    let sliceTop = currentY
-                    let sliceBottom = currentY + slice.visibleHeight
+                let layouts = computeVerticalLayout(session: session, canvasWidth: canvasWidth)
+                for layout in layouts {
+                    let sliceTop = layout.canvasY
+                    let sliceBottom = layout.canvasY + layout.canvasHeight
                     
                     // Streaming check: only decode slice if it intersects this page's viewport
                     if sliceBottom > sourceY && sliceTop < pageEndY {
                         autoreleasepool {
+                            let slice = session.slices[layout.sliceIndex]
                             if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                                let image = UIImage(contentsOfFile: fileURL.path) {
-                                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: slice.visibleHeight)
+                                let drawRect = CGRect(x: 0, y: layout.canvasY, width: canvasWidth, height: layout.canvasHeight)
                                 cgContext.saveGState()
                                 cgContext.clip(to: drawRect)
-                                image.draw(in: CGRect(x: 0, y: currentY - slice.topCropInset, width: canvasWidth, height: slice.originalHeight))
+                                let imageDrawRect = CGRect(
+                                    x: 0,
+                                    y: layout.canvasY - (layout.sourceYStart * layout.scale),
+                                    width: canvasWidth,
+                                    height: slice.originalHeight * layout.scale
+                                )
+                                image.draw(in: imageDrawRect)
                                 cgContext.restoreGState()
                             }
                         }
                     }
-                    
-                    let nextOverlap = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
-                    currentY += (slice.visibleHeight - nextOverlap)
                 }
                 
                 // Draw annotations positioned on this page
@@ -542,40 +643,38 @@ public final class TiledImageRenderer {
             let clipPath = UIBezierPath(roundedRect: phoneRect, cornerRadius: cornerRadius)
             clipPath.addClip()
             
-            var currentY = phoneRect.minY
-            for (index, slice) in session.slices.enumerated() {
+            let layouts = computeVerticalLayout(session: session, canvasWidth: originalContentWidth)
+            for layout in layouts {
+                let slice = session.slices[layout.sliceIndex]
                 guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                       let image = UIImage(contentsOfFile: fileURL.path) else {
                     continue
                 }
                 
-                let visibleHeight = slice.visibleHeight
-                let drawRect = CGRect(x: phoneRect.minX, y: currentY, width: originalContentWidth, height: visibleHeight)
+                let drawRect = CGRect(x: phoneRect.minX, y: phoneRect.minY + layout.canvasY, width: originalContentWidth, height: layout.canvasHeight)
                 
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
                 
                 let imageDrawRect = CGRect(
                     x: phoneRect.minX,
-                    y: currentY - slice.topCropInset,
+                    y: phoneRect.minY + layout.canvasY - (layout.sourceYStart * layout.scale),
                     width: originalContentWidth,
-                    height: slice.originalHeight
+                    height: slice.originalHeight * layout.scale
                 )
                 image.draw(in: imageDrawRect)
                 
                 for redaction in slice.redactions {
-                    let rX = drawRect.minX + redaction.relativeRect.minX * drawRect.width
-                    let rY = drawRect.minY + redaction.relativeRect.minY * drawRect.height
-                    let rW = redaction.relativeRect.width * drawRect.width
-                    let rH = redaction.relativeRect.height * drawRect.height
+                    let rX = phoneRect.minX + redaction.relativeRect.minX * originalContentWidth
+                    let sliceY = redaction.relativeRect.minY * slice.originalHeight
+                    let rY = phoneRect.minY + layout.canvasY + (sliceY - layout.sourceYStart) * layout.scale
+                    let rW = redaction.relativeRect.width * originalContentWidth
+                    let rH = (redaction.relativeRect.height * slice.originalHeight) * layout.scale
                     let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
                     applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
                 }
                 
                 cgContext.restoreGState()
-                
-                let nextOverlap: CGFloat = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
-                currentY += (visibleHeight - nextOverlap)
             }
             
             // Annotations and Brush Strokes

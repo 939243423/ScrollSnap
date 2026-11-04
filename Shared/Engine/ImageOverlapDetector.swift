@@ -15,6 +15,16 @@ public struct StaticChromeDetectionResult {
     public let bottomBarHeight: CGFloat
 }
 
+public struct ImageProfile1D {
+    public let luminance: [Double]
+    public let horizontalEdgeEnergy: [Double]
+    
+    public init(luminance: [Double], horizontalEdgeEnergy: [Double]) {
+        self.luminance = luminance
+        self.horizontalEdgeEnergy = horizontalEdgeEnergy
+    }
+}
+
 public final class ImageOverlapDetector {
     
     /// Detects repeating static top navigation bars and bottom bars (e.g. WeChat title bar, input box)
@@ -63,13 +73,15 @@ public final class ImageOverlapDetector {
         )
     }
     
-    /// Calculates optimal vertical overlap between topSlice and bottomSlice
-    /// Returns offset in points and correlation confidence [0.0 ... 1.0]
+    /// Calculates optimal vertical overlap between topSlice and bottomSlice with explicit crops
+    /// Returns offset in points, correlation confidence [0.0 ... 1.0], and optimal seam offset
     public static func findOverlap(
         topSlice: CGImage,
         bottomSlice: CGImage,
-        topCropInset: CGFloat = 0,
-        bottomCropInset: CGFloat = 0,
+        topSliceTopCrop: CGFloat = 0,
+        topSliceBottomCrop: CGFloat = 0,
+        bottomSliceTopCrop: CGFloat = 0,
+        bottomSliceBottomCrop: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
         minOverlapRatio: CGFloat = 0.10,
         maxOverlapRatio: CGFloat = 0.90
@@ -82,12 +94,14 @@ public final class ImageOverlapDetector {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        // Convert vertical projections to 1D luminance arrays
-        let topLuminance = calculateVerticalLuminanceProfile(cgImage: topSlice)
-        let bottomLuminance = calculateVerticalLuminanceProfile(cgImage: bottomSlice)
+        // Convert vertical projections to 1D luminance and horizontal edge gradient energy profiles
+        let topProfile = calculateVerticalProfile(cgImage: topSlice)
+        let bottomProfile = calculateVerticalProfile(cgImage: bottomSlice)
+        let topLuminance = topProfile.luminance
+        let bottomLuminance = bottomProfile.luminance
         
-        let validTopStart = Int(topCropInset)
-        let validTopEnd = topHeight - Int(bottomCropInset)
+        let validTopStart = Int(topSliceTopCrop)
+        let validTopEnd = topHeight - Int(topSliceBottomCrop)
         guard validTopEnd > validTopStart + 100 else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
@@ -101,12 +115,12 @@ public final class ImageOverlapDetector {
         
         var bestOffset = minOffset
         var maxCorrelation: Double = -1.0
-        let templateLen = min(Int(templateHeightPt), bottomHeight - Int(topCropInset))
+        let templateLen = min(Int(templateHeightPt), bottomHeight - Int(bottomSliceBottomCrop) - Int(bottomSliceTopCrop))
         guard templateLen > 20 else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        let templateStart = Int(topCropInset)
+        let templateStart = Int(bottomSliceTopCrop)
         let invTemplateLen = 1.0 / Double(templateLen)
         
         // Fast O(N) Prefix Sum Tables for S (topLuminance) and S^2
@@ -131,7 +145,7 @@ public final class ImageOverlapDetector {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        // Vectorized SIMD dot-product sliding correlation with zero intermediate heap allocations
+        // Step 1: Hardware SIMD coarse search with stride 2 for real-time speed
         topLuminance.withUnsafeBufferPointer { topPtr in
             bottomLuminance.withUnsafeBufferPointer { botPtr in
                 guard let topBase = topPtr.baseAddress,
@@ -168,6 +182,38 @@ public final class ImageOverlapDetector {
                         }
                     }
                 }
+                
+                // Step 2: 1-pixel fine search in [-2, +2] neighborhood of coarse peak
+                // Eliminates single-pixel rounding drift for text rendering sharpness
+                let fineStart = max(minOffset, bestOffset - 2)
+                let fineEnd = min(maxOffset, bestOffset + 2)
+                for fineOffset in fineStart...fineEnd {
+                    guard fineOffset != bestOffset, fineOffset + templateLen <= validTopEnd else { continue }
+                    let sSum = sumS[fineOffset + templateLen] - sumS[fineOffset]
+                    let sSqSum = sumSqS[fineOffset + templateLen] - sumSqS[fineOffset]
+                    let varS = max(0.0, sSqSum - (sSum * sSum) * invTemplateLen)
+                    guard varS > 0.0001 else { continue }
+                    
+                    let sBase = topBase + fineOffset
+                    var dot = 0.0
+                    #if canImport(Accelerate)
+                    vDSP_dotprD(sBase, 1, tBase, 1, &dot, vDSP_Length(templateLen))
+                    #else
+                    for i in 0..<templateLen {
+                        dot += sBase[i] * tBase[i]
+                    }
+                    #endif
+                    
+                    let numerator = dot - (sSum * sumT) * invTemplateLen
+                    let denominator = sqrt(varS * varT)
+                    if denominator > 0.0001 {
+                        let r = numerator / denominator
+                        if r > maxCorrelation {
+                            maxCorrelation = r
+                            bestOffset = fineOffset
+                        }
+                    }
+                }
             }
         }
         
@@ -185,7 +231,8 @@ public final class ImageOverlapDetector {
         
         let overlapHeight = validTopEnd - bestOffset
         let optimalSeam = findMinimalEnergySeam(
-            luminanceProfile: topLuminance,
+            luminance: topLuminance,
+            horizontalEnergy: topProfile.horizontalEdgeEnergy,
             startRow: bestOffset,
             endRow: min(validTopEnd, bestOffset + overlapHeight)
         )
@@ -197,12 +244,36 @@ public final class ImageOverlapDetector {
         )
     }
     
-    // MARK: - 1D Vertical Luminance Profiling (Hardware Accelerated Grayscale Downsampling)
+    /// Backward-compatible overload for existing call sites
+    public static func findOverlap(
+        topSlice: CGImage,
+        bottomSlice: CGImage,
+        topCropInset: CGFloat = 0,
+        bottomCropInset: CGFloat = 0,
+        templateHeightPt: CGFloat = 120,
+        minOverlapRatio: CGFloat = 0.10,
+        maxOverlapRatio: CGFloat = 0.90
+    ) -> OverlapMatchResult {
+        return findOverlap(
+            topSlice: topSlice,
+            bottomSlice: bottomSlice,
+            topSliceTopCrop: 0,
+            topSliceBottomCrop: bottomCropInset,
+            bottomSliceTopCrop: topCropInset,
+            bottomSliceBottomCrop: 0,
+            templateHeightPt: templateHeightPt,
+            minOverlapRatio: minOverlapRatio,
+            maxOverlapRatio: maxOverlapRatio
+        )
+    }
     
-    private static func calculateVerticalLuminanceProfile(cgImage: CGImage) -> [Double] {
+    // MARK: - 1D Vertical Luminance & Horizontal Edge Energy Profiling
+    
+    public static func calculateVerticalProfile(cgImage: CGImage) -> ImageProfile1D {
         let sampleWidth = 64
         let height = cgImage.height
-        var profile = [Double](repeating: 0.0, count: height)
+        var luminance = [Double](repeating: 0.0, count: height)
+        var edgeEnergy = [Double](repeating: 0.0, count: height)
         
         let bytesPerRow = sampleWidth
         var rawData = [UInt8](repeating: 0, count: height * bytesPerRow)
@@ -217,38 +288,68 @@ public final class ImageOverlapDetector {
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.none.rawValue
         ) else {
-            return profile
+            return ImageProfile1D(luminance: luminance, horizontalEdgeEnergy: edgeEnergy)
         }
         
         context.interpolationQuality = .low
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleWidth, height: height))
         
         let invScale = 1.0 / Double(sampleWidth * 255.0)
+        let invGradScale = 1.0 / Double(max(1, sampleWidth - 1) * 255.0)
+        
         for y in 0..<height {
-            var sumLuminance: Double = 0.0
             let rowOffset = y * bytesPerRow
-            for x in 0..<sampleWidth {
-                sumLuminance += Double(rawData[rowOffset + x])
+            var sumLum = Double(rawData[rowOffset])
+            var sumGrad: Double = 0.0
+            var prevVal = sumLum
+            
+            for x in 1..<sampleWidth {
+                let val = Double(rawData[rowOffset + x])
+                sumLum += val
+                sumGrad += abs(val - prevVal)
+                prevVal = val
             }
-            profile[y] = sumLuminance * invScale
+            
+            luminance[y] = sumLum * invScale
+            edgeEnergy[y] = sumGrad * invGradScale
         }
-        return profile
+        return ImageProfile1D(luminance: luminance, horizontalEdgeEnergy: edgeEnergy)
     }
     
-    // MARK: - Minimum Energy Seam Line Search
+    public static func calculateVerticalLuminanceProfile(cgImage: CGImage) -> [Double] {
+        return calculateVerticalProfile(cgImage: cgImage).luminance
+    }
     
-    private static func findMinimalEnergySeam(luminanceProfile: [Double], startRow: Int, endRow: Int) -> Int {
-        guard startRow < endRow - 4, luminanceProfile.count > endRow else {
+    // MARK: - Minimum Energy Seam Line Search (Gradient-Aware Blank Space Detection)
+    
+    private static func findMinimalEnergySeam(
+        luminance: [Double],
+        horizontalEnergy: [Double],
+        startRow: Int,
+        endRow: Int
+    ) -> Int {
+        guard startRow < endRow - 4,
+              luminance.count > endRow,
+              horizontalEnergy.count > endRow else {
             return (startRow + endRow) / 2
         }
         
-        var minGradient = Double.greatestFiniteMagnitude
-        var bestRow = (startRow + endRow) / 2
+        var minEnergy = Double.greatestFiniteMagnitude
+        let midRow = (startRow + endRow) / 2
+        var bestRow = midRow
+        let windowLen = max(1.0, Double(endRow - startRow))
         
         for y in (startRow + 2)..<(endRow - 2) {
-            let grad = abs(luminanceProfile[y + 1] - luminanceProfile[y - 1])
-            if grad < minGradient {
-                minGradient = grad
+            // Horizontal edge energy: dense on text lines, near 0 in blank spacing between text lines
+            let horizE = horizontalEnergy[y]
+            // Vertical luminance gradient
+            let vertE = abs(luminance[y + 1] - luminance[y - 1])
+            // Center distance penalty: ensures wide blank margins choose their balanced center
+            let centerDistPenalty = (abs(Double(y - midRow)) / windowLen) * 0.05
+            
+            let totalE = horizE * 0.70 + vertE * 0.25 + centerDistPenalty
+            if totalE < minEnergy {
+                minEnergy = totalE
                 bestRow = y
             }
         }

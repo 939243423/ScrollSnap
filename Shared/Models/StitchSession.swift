@@ -93,6 +93,14 @@ public struct StitchSession: Codable, Identifiable {
         if presetMode == .horizontalCompare {
             return slices.map { $0.originalHeight }.max() ?? 800
         }
+        if presetMode == .movieSubtitles {
+            guard let first = slices.first else { return 0 }
+            var height = first.originalHeight
+            for slice in slices.dropFirst() {
+                height += slice.originalHeight * 0.18
+            }
+            return max(1, height)
+        }
         guard let first = slices.first else { return 0 }
         var height = first.visibleHeight
         for slice in slices.dropFirst() {

@@ -375,19 +375,13 @@ public struct StitchEditorView: View {
         }
     }
     
+    private var verticalLayouts: [SliceCanvasLayout] {
+        let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
+        return TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: displayWidth)
+    }
+    
     private var sliceYOffsets: [CGFloat] {
-        var offsets: [CGFloat] = []
-        var currentY: CGFloat = 0
-        for (index, slice) in session.slices.enumerated() {
-            offsets.append(currentY)
-            let nextOverlap: CGFloat = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
-            let isMovieSubtitlesMode = (session.presetMode == .movieSubtitles)
-            let visibleHeight = (isMovieSubtitlesMode && index > 0)
-                ? (slice.originalHeight * 0.18)
-                : slice.visibleHeight
-            currentY += (visibleHeight - nextOverlap) / 3.0
-        }
-        return offsets
+        return verticalLayouts.map { $0.canvasY }
     }
     
     private var annotatedCanvasStack: some View {
@@ -395,7 +389,7 @@ public struct StitchEditorView: View {
         let targetDisplayHeight: CGFloat = isHorizontal ? 360.0 : (session.totalEstimatedHeight / 3.0)
         let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
         let totalDisplayWidth: CGFloat = isHorizontal ? (session.totalEstimatedWidth / 3.0) : displayWidth
-        let yOffsets = sliceYOffsets
+        let layouts = verticalLayouts
         
         return ZStack(alignment: .topLeading) {
             if isHorizontal {
@@ -408,9 +402,11 @@ public struct StitchEditorView: View {
             } else {
                 // Underneath: Raw Stitched Slices placed at mathematically exact seam positions
                 ForEach(Array(session.slices.enumerated()), id: \.element.id) { index, slice in
-                    let offsetY = index < yOffsets.count ? yOffsets[index] : 0
-                    renderSliceView(index: index, slice: slice, displayWidth: displayWidth)
-                        .offset(y: offsetY)
+                    if index < layouts.count {
+                        let layout = layouts[index]
+                        renderSliceView(index: index, slice: slice, layout: layout, displayWidth: displayWidth)
+                            .offset(y: layout.canvasY)
+                    }
                 }
             }
             
@@ -478,31 +474,21 @@ public struct StitchEditorView: View {
         }
     }
     
-    private func renderSliceView(index: Int, slice: StitchItem, displayWidth: CGFloat) -> some View {
+    private func renderSliceView(index: Int, slice: StitchItem, layout: SliceCanvasLayout, displayWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                let image = UIImage(contentsOfFile: fileURL.path) {
                 
-                let isMovieSubtitlesMode = (session.presetMode == .movieSubtitles)
-                let displayVisibleHeight: CGFloat
-                let displayOriginalHeight = slice.originalHeight / 3.0
-                let displayTopCrop: CGFloat
-                
-                if isMovieSubtitlesMode && index > 0 {
-                    // Movie Subtitles Mode: slice 1..N only show bottom 18% subtitle bar
-                    displayVisibleHeight = displayOriginalHeight * 0.18
-                    displayTopCrop = displayOriginalHeight * 0.82
-                } else {
-                    displayVisibleHeight = slice.visibleHeight / 3.0
-                    displayTopCrop = slice.topCropInset / 3.0
-                }
+                let displayOriginalHeight = slice.originalHeight * layout.scale
+                let displaySourceY = layout.sourceYStart * layout.scale
+                let displayVisibleHeight = layout.canvasHeight
                 
                 ZStack(alignment: .topLeading) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
                         .frame(width: displayWidth, height: displayOriginalHeight)
-                        .offset(y: -displayTopCrop)
+                        .offset(y: -displaySourceY)
                         .frame(width: displayWidth, height: displayVisibleHeight, alignment: .top)
                         .clipped()
                     
