@@ -40,64 +40,68 @@ public final class VideoFrameExtractor {
         
         guard !candidateTimes.isEmpty else { return [] }
         
-        // 2. Extract initial candidates
-        var candidates: [(time: CMTime, image: UIImage, profile: [Double])] = []
+        // Pass 1: Fast Probe with downscaled thumbnails (width: 160, height: 360)
+        // Memory-safe: decodes small thumbnails for optical displacement analysis with zero memory pressure.
+        generator.maximumSize = CGSize(width: 160, height: 360)
+        var candidates: [(time: CMTime, profile: [Double])] = []
+        
         for cmTime in candidateTimes {
             if let cgImage = try? generator.copyCGImage(at: cmTime, actualTime: nil) {
-                let uiImage = UIImage(cgImage: cgImage)
                 let profile = calculate1DLuminanceProfile(cgImage: cgImage)
-                candidates.append((time: cmTime, image: uiImage, profile: profile))
+                candidates.append((time: cmTime, profile: profile))
             }
         }
         
         guard !candidates.isEmpty else { return [] }
         
-        // 3. Adaptive Displacement-Gated Selection:
+        // Pass 1 Selection: Adaptive Displacement-Gated Timestamps
         // Ensures consecutive keyframes have ~35% - 65% overlap regardless of scroll speed.
-        var keyframes: [UIImage] = []
+        var selectedTimes: [CMTime] = []
+        var currentCandidate = candidates[0]
+        selectedTimes.append(currentCandidate.time)
         
-        // Always select the first candidate
-        var currentKeyframe = candidates[0]
-        keyframes.append(currentKeyframe.image)
-        onProgress?(1, candidates.count)
-        
-        let screenHeight = Double(currentKeyframe.image.cgImage?.height ?? 800)
-        let minDisplacement = screenHeight * 0.28 // Need at least 28% scroll movement
-        let targetDisplacement = screenHeight * 0.50 // Ideal 50% scroll movement (50% overlap)
-        let maxDisplacement = screenHeight * 0.72 // Upper ceiling before overlap is lost
+        let probeHeight = 360.0
+        let minDisplacement = probeHeight * 0.28 // Need at least 28% scroll movement
+        let targetDisplacement = probeHeight * 0.50 // Ideal 50% scroll movement (50% overlap)
+        let maxDisplacement = probeHeight * 0.72 // Upper ceiling before overlap is lost
         
         var i = 1
-        while i < candidates.count && keyframes.count < maxKeyframes {
+        while i < candidates.count && selectedTimes.count < maxKeyframes {
             let cand = candidates[i]
             let shift = estimateVerticalShift(
-                profileA: currentKeyframe.profile,
+                profileA: currentCandidate.profile,
                 profileB: cand.profile,
-                height: Int(screenHeight)
+                height: Int(probeHeight)
             )
             
             // If user flicked rapidly or reached target displacement window
             if shift >= targetDisplacement || (shift >= minDisplacement && i == candidates.count - 1) {
-                keyframes.append(cand.image)
-                currentKeyframe = cand
-                onProgress?(keyframes.count, candidates.count)
+                selectedTimes.append(cand.time)
+                currentCandidate = cand
             } else if shift >= maxDisplacement {
                 // Flick was so fast that candidate i exceeded max displacement:
                 // Pick candidate i - 1 or candidate i immediately to preserve seam
                 let chosen = (i > 0 && i - 1 < candidates.count) ? candidates[i - 1] : cand
-                keyframes.append(chosen.image)
-                currentKeyframe = chosen
-                onProgress?(keyframes.count, candidates.count)
+                selectedTimes.append(chosen.time)
+                currentCandidate = chosen
             }
             i += 1
         }
         
-        // Ensure final frame of the video is captured to include the very bottom of the page
-        if let lastCandidate = candidates.last,
-           let lastKeyframeImg = keyframes.last?.cgImage,
-           let lastCandImg = lastCandidate.image.cgImage {
-            if !isFrameNearlyIdentical(lastKeyframeImg, lastCandImg) && keyframes.count < maxKeyframes {
-                keyframes.append(lastCandidate.image)
-                onProgress?(keyframes.count, candidates.count)
+        // Ensure final frame timestamp is captured to include the very bottom of the page
+        if let lastCandidate = candidates.last, selectedTimes.last != lastCandidate.time && selectedTimes.count < maxKeyframes {
+            selectedTimes.append(lastCandidate.time)
+        }
+        
+        // Pass 2: High-Resolution Native Extraction ONLY for selected keyframe timestamps
+        generator.maximumSize = .zero // Full native resolution
+        var keyframes: [UIImage] = []
+        
+        for (index, time) in selectedTimes.enumerated() {
+            if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
+                let uiImage = UIImage(cgImage: cgImage)
+                keyframes.append(uiImage)
+                onProgress?(index + 1, selectedTimes.count)
             }
         }
         

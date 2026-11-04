@@ -151,7 +151,7 @@
               </div>
 
               <!-- Method 1: Screen Recording Video to Long Screenshot Hero Card (免多张连截方案) -->
-              <div class="liquid-glass rounded-2xl p-4 space-y-3 relative overflow-hidden border border-purple-500/30">
+              <div id="banner-recent-video" class="liquid-glass rounded-2xl p-4 space-y-3 relative overflow-hidden border border-purple-500/30 transition-all duration-300">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-400/30">
@@ -159,12 +159,15 @@
                     </div>
                     <div>
                       <div class="flex items-center gap-1.5">
-                        <span class="text-xs font-bold text-white">录屏秒转长图 · 支持快滑到底</span>
+                        <span class="text-xs font-bold text-white">录屏秒转长图 · 自适应快滑</span>
                         <span class="px-1.5 py-0.5 text-[9px] font-bold bg-purple-500/20 text-purple-300 rounded-full border border-purple-400/30">4s 视频</span>
                       </div>
-                      <p class="text-[10px] text-slate-400">单次下滑屏幕录制，光流自动抽帧合成无缝长图</p>
+                      <p class="text-[10px] text-slate-400">自适应光流追帧，0.08s 捕捉不匀速快滑，去重合成为长图</p>
                     </div>
                   </div>
+                  <button onclick="dismissBanner('banner-recent-video')" class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
                 </div>
 
                 <!-- Primary Action: Extract Long Image & Delete Raw Video -->
@@ -175,10 +178,22 @@
                   </span>
                   <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                 </button>
+
+                <!-- Secondary Actions -->
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
+                  <button onclick="simulateVideoSaveOnly()" class="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold rounded-lg border border-white/10 flex items-center justify-center gap-1 transition-all">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    仅存长图
+                  </button>
+                  <button onclick="switchScreen('editor')" class="py-1.5 px-2 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold rounded-lg border border-white/10 flex items-center justify-center gap-1 transition-all">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    工作台精修
+                  </button>
+                </div>
               </div>
 
               <!-- Method 2: Auto-detected Clipboard Web Article (0 截图 0 录屏) -->
-              <div class="liquid-glass rounded-2xl p-3.5 flex items-center gap-3 relative overflow-hidden border border-teal-500/30">
+              <div id="banner-clipboard" class="liquid-glass rounded-2xl p-3.5 flex items-center gap-3 relative overflow-hidden border border-teal-500/30 transition-all duration-300">
                 <div class="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 border border-teal-400/30">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
                 </div>
@@ -192,10 +207,13 @@
                 <button onclick="switchScreen('editor')" class="px-3 py-1.5 text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white rounded-full transition-colors shadow-sm shrink-0">
                   整页直出
                 </button>
+                <button onclick="dismissBanner('banner-clipboard')" class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white flex items-center justify-center transition-colors shrink-0">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
               </div>
 
               <!-- Method 3: Instant Screenshot Cluster (即开即拼) -->
-              <div class="liquid-glass rounded-2xl p-4 space-y-3 relative overflow-hidden border border-indigo-500/30">
+              <div id="banner-screenshot-cluster" class="liquid-glass rounded-2xl p-4 space-y-3 relative overflow-hidden border border-indigo-500/30 transition-all duration-300">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-400/30">
@@ -209,6 +227,9 @@
                       <p class="text-[10px] text-slate-400">检测到相册有 4 张连续截图，已自动对齐重叠</p>
                     </div>
                   </div>
+                  <button onclick="dismissBanner('banner-screenshot-cluster')" class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
                 </div>
 
                 <!-- Primary Action: Save & Delete Raw Slices (Killer Feature) -->
@@ -233,35 +254,49 @@
                 </div>
               </div>
 
-              <!-- Tier 1: Core Creation 3-Column Grid -->
-              <div class="grid grid-cols-3 gap-2">
-                <div onclick="switchScreen('editor')" class="liquid-glass rounded-2xl p-2.5 flex flex-col justify-between h-24 cursor-pointer hover:border-indigo-400/40 transition-all">
-                  <div class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-400/20">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <!-- Tier 1: Core Creation 2x2 Balanced Grid -->
+              <div class="grid grid-cols-2 gap-2.5">
+                <!-- 1. 截图拼长图 -->
+                <div onclick="switchScreen('editor')" class="liquid-glass rounded-2xl p-3 flex flex-col justify-between h-25 cursor-pointer hover:border-indigo-400/50 transition-all group">
+                  <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-400/20 group-hover:scale-105 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-white">相册拼接</h4>
-                    <p class="text-[9px] text-slate-400">连续截屏</p>
+                    <h4 class="text-xs font-bold text-white">截图拼长图</h4>
+                    <p class="text-[10px] text-slate-400">相册多选拼合</p>
                   </div>
                 </div>
 
-                <div onclick="switchScreen('studio')" class="liquid-glass rounded-2xl p-2.5 flex flex-col justify-between h-24 cursor-pointer hover:border-pink-400/40 transition-all">
-                  <div class="w-7 h-7 rounded-lg bg-pink-500/20 text-pink-400 flex items-center justify-center border border-pink-400/20">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <!-- 2. 视频转长图 -->
+                <div onclick="simulateVideoStitchAndClean()" class="liquid-glass rounded-2xl p-3 flex flex-col justify-between h-25 cursor-pointer hover:border-purple-400/50 transition-all group">
+                  <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-400/20 group-hover:scale-105 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-white">3D摄影棚</h4>
-                    <p class="text-[9px] text-slate-400">悬浮海报</p>
+                    <h4 class="text-xs font-bold text-white">视频转长图</h4>
+                    <p class="text-[10px] text-slate-400">自适应光流抽帧</p>
                   </div>
                 </div>
 
-                <div onclick="switchScreen('editor')" class="liquid-glass rounded-2xl p-2.5 flex flex-col justify-between h-24 cursor-pointer hover:border-teal-400/40 transition-all">
-                  <div class="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-400/20">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                <!-- 3. 网页全页截 -->
+                <div onclick="switchScreen('editor')" class="liquid-glass rounded-2xl p-3 flex flex-col justify-between h-25 cursor-pointer hover:border-teal-400/50 transition-all group">
+                  <div class="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-400/20 group-hover:scale-105 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-white">网页全页</h4>
-                    <p class="text-[9px] text-slate-400">一键滚截</p>
+                    <h4 class="text-xs font-bold text-white">网页全页截</h4>
+                    <p class="text-[10px] text-slate-400">0截屏链接直出</p>
+                  </div>
+                </div>
+
+                <!-- 4. 3D 摄影棚 -->
+                <div onclick="switchScreen('studio')" class="liquid-glass rounded-2xl p-3 flex flex-col justify-between h-25 cursor-pointer hover:border-pink-400/50 transition-all group">
+                  <div class="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center border border-pink-400/20 group-hover:scale-105 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-bold text-white">3D 摄影棚</h4>
+                    <p class="text-[10px] text-slate-400">悬浮海报精修</p>
                   </div>
                 </div>
               </div>
@@ -653,6 +688,19 @@
               <div id="clipboard-toast" class="absolute top-14 left-1/2 -translate-x-1/2 liquid-pill px-4 py-1.5 text-xs text-white rounded-full hidden flex items-center gap-2 z-40 shadow-xl border-emerald-400/50">
                 <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                 <span id="clipboard-toast-text">长截图已直接存入剪贴板，可前往微信粘贴！</span>
+              </div>
+
+              <!-- Post-Save Quick Actions Delight Capsule -->
+              <div id="post-save-delight" class="absolute top-24 left-1/2 -translate-x-1/2 liquid-glass px-2.5 py-1.5 rounded-full hidden flex items-center gap-2 z-40 shadow-2xl border-purple-400/50">
+                <button onclick="copyToClipboard(); document.getElementById('post-save-delight').classList.add('hidden')" class="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white rounded-full text-[10px] font-bold flex items-center gap-1 transition-colors">
+                  <svg class="w-3 h-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                  复制长图
+                </button>
+                <button onclick="switchScreen('studio'); document.getElementById('post-save-delight').classList.add('hidden')" class="px-2 py-0.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-full text-[10px] font-bold flex items-center gap-1 border border-pink-500/30 transition-colors">
+                  <svg class="w-3 h-3 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                  套3D机壳
+                </button>
+                <button onclick="document.getElementById('post-save-delight').classList.add('hidden')" class="w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 text-slate-400 flex items-center justify-center text-[9px]">✕</button>
               </div>
 
               <!-- BOTTOM EXPANDABLE LIQUID GLASS TOOLBAR -->
@@ -2027,6 +2075,37 @@
       setTimeout(() => {
         toast.classList.add('hidden');
       }, 2500);
+    }
+
+    // Post-Save Quick Actions & Hero Simulation
+    function showPostSaveDelightActions() {
+      const delight = document.getElementById('post-save-delight');
+      if (delight) {
+        delight.classList.remove('hidden');
+        setTimeout(() => {
+          delight.classList.add('hidden');
+        }, 5000);
+      }
+    }
+
+    function simulateSaveAndClean() {
+      showToast('已提取并保存高清长图至相册，并清理 4 张原截图！');
+      showPostSaveDelightActions();
+    }
+
+    function simulateSaveOnly() {
+      showToast('已提取并保存高清长图至相册 (保留原截图)！');
+      showPostSaveDelightActions();
+    }
+
+    function simulateVideoStitchAndClean() {
+      showToast('自适应光流追帧完成！已保存长图并清理原录屏！');
+      showPostSaveDelightActions();
+    }
+
+    function simulateVideoSaveOnly() {
+      showToast('自适应光流追帧完成！已保存长图 (保留原录屏)！');
+      showPostSaveDelightActions();
     }
 
     function copyToClipboard() {

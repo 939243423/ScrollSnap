@@ -27,6 +27,11 @@ public struct HomeStitchView: View {
     @State private var isShowingToast: Bool = false
     @State private var detectedClipboardURL: URL?
     @State private var lastSavedImage: UIImage?
+    @State private var selectedVideoPickerItems: [PhotosPickerItem] = []
+    @State private var isDismissedRecentScreenshots = false
+    @State private var isDismissedRecentVideo = false
+    @State private var isDismissedClipboardURL = false
+    @State private var processingStatusMessage = "正在智能拼接长图..."
     
     public init() {}
     
@@ -43,17 +48,17 @@ public struct HomeStitchView: View {
                     }
                     
                     // Auto-detected Recent Screen Recording Video (The "Once and For All" 0-screenshot solution!)
-                    if let videoAsset = photoObserver.recentScreenRecordingAsset {
+                    if let videoAsset = photoObserver.recentScreenRecordingAsset, !isDismissedRecentVideo {
                         recentScreenRecordingBanner(videoAsset)
                     }
                     
                     // Auto-detected Recent Continuous Screenshots
-                    if !photoObserver.recentScreenshotAssets.isEmpty {
+                    if !photoObserver.recentScreenshotAssets.isEmpty, !isDismissedRecentScreenshots {
                         recentDetectedScreenshotsBanner
                     }
                     
                     // Auto-detected Clipboard Web Article URL (0-screenshot 0-recording solution!)
-                    if let url = detectedClipboardURL {
+                    if let url = detectedClipboardURL, !isDismissedClipboardURL {
                         clipboardURLBanner(url)
                     }
                     
@@ -144,9 +149,35 @@ public struct HomeStitchView: View {
             .onChange(of: selectedPhotoItems) { _, items in
                 handleSelectedPhotoPickerItems(items)
             }
+            .onChange(of: selectedVideoPickerItems) { _, items in
+                handleSelectedVideoPickerItem(items)
+            }
             .overlay(alignment: .bottom) {
                 if isShowingToast {
                     toastOverlayView
+                }
+            }
+            .overlay {
+                if isProcessingStitch {
+                    ZStack {
+                        Color.black.opacity(0.32)
+                            .ignoresSafeArea()
+                        
+                        VStack(spacing: 14) {
+                            ProgressView()
+                                .controlSize(.large)
+                                .tint(.white)
+                            Text(processingStatusMessage)
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 22)
+                        .liquidGlassCard(cornerRadius: 22, strokeOpacity: 0.45)
+                        .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isProcessingStitch)
                 }
             }
         }
@@ -330,6 +361,20 @@ public struct HomeStitchView: View {
             .background(Color.teal)
             .foregroundStyle(.white)
             .clipShape(Capsule())
+            
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    isDismissedClipboardURL = true
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(6)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(14)
         .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.35)
@@ -362,11 +407,25 @@ public struct HomeStitchView: View {
                             .background(Color.purple.opacity(0.12))
                             .clipShape(Capsule())
                     }
-                    Text("只需顺畅滑动屏幕一次，光流算法自动抽帧去重合成为完整长图")
+                    Text("自适应光流追帧，0.08s 捕捉不匀速快滑，去重合成为长图")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        isDismissedRecentVideo = true
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(6)
+                        .background(Color.secondary.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
             
             VStack(spacing: 10) {
@@ -405,23 +464,43 @@ public struct HomeStitchView: View {
                 .buttonStyle(.plain)
                 .disabled(isProcessingStitch)
                 
-                Button {
-                    HapticFeedbackManager.shared.triggerSelection()
-                    stitchVideoAsset(video, deleteOriginalVideo: false)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.and.arrow.down")
-                        Text("仅提取长图 (保留录屏视频)")
-                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                HStack(spacing: 10) {
+                    Button {
+                        HapticFeedbackManager.shared.triggerSelection()
+                        stitchVideoAsset(video, deleteOriginalVideo: false)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("仅存长图")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(Color.secondary.opacity(0.12))
+                        .foregroundStyle(.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(Color.secondary.opacity(0.12))
-                    .foregroundStyle(.primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingStitch)
+                    
+                    Button {
+                        HapticFeedbackManager.shared.triggerSelection()
+                        stitchVideoAsset(video, deleteOriginalVideo: false, openInEditor: true)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "slider.horizontal.3")
+                            Text("工作台精修")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(Color.secondary.opacity(0.12))
+                        .foregroundStyle(.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingStitch)
                 }
-                .buttonStyle(.plain)
-                .disabled(isProcessingStitch)
             }
         }
         .padding(16)
@@ -461,6 +540,20 @@ public struct HomeStitchView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        isDismissedRecentScreenshots = true
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(6)
+                        .background(Color.secondary.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
             
             // Primary Action Buttons
@@ -548,53 +641,72 @@ public struct HomeStitchView: View {
     }
     
     private var coreActionsGrid: some View {
-        HStack(spacing: 10) {
-            // Photos Picker
-            PhotosPicker(
-                selection: $selectedPhotoItems,
-                matching: .screenshots,
-                photoLibrary: .shared()
-            ) {
-                actionCard(
-                    title: "相册拼接",
-                    subtitle: "选择连续截图",
-                    iconName: "photo.stack",
-                    tint: Color.indigo
-                )
-            }
-            .buttonStyle(.plain)
-            
-            // 3D Studio Poster
-            Button {
-                HapticFeedbackManager.shared.triggerSelection()
-                isShowingStudioShowroom = true
-            } label: {
-                actionCard(
-                    title: "3D 摄影棚",
-                    subtitle: "悬浮海报直出",
-                    iconName: "cube.transparent",
-                    tint: Color.purple
-                )
-            }
-            .buttonStyle(.plain)
-            
-            // Web Page Capture
-            Button {
-                guard quotaManager.canStitch() else {
-                    isShowingPaywall = true
-                    return
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                // Screenshots Picker
+                PhotosPicker(
+                    selection: $selectedPhotoItems,
+                    matching: .screenshots,
+                    photoLibrary: .shared()
+                ) {
+                    actionCard(
+                        title: "截图拼长图",
+                        subtitle: "相册多选拼合",
+                        iconName: "photo.stack",
+                        tint: Color.indigo
+                    )
                 }
-                HapticFeedbackManager.shared.triggerSelection()
-                isShowingWebCapture = true
-            } label: {
-                actionCard(
-                    title: "网页全页",
-                    subtitle: "URL一键滚截",
-                    iconName: "safari.fill",
-                    tint: Color.teal
-                )
+                .buttonStyle(.plain)
+                
+                // Screen Recording Video Picker
+                PhotosPicker(
+                    selection: $selectedVideoPickerItems,
+                    matching: .videos,
+                    photoLibrary: .shared()
+                ) {
+                    actionCard(
+                        title: "视频转长图",
+                        subtitle: "自适应光流抽帧",
+                        iconName: "film.stack",
+                        tint: Color.purple
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            
+            HStack(spacing: 10) {
+                // Web Page Capture
+                Button {
+                    guard quotaManager.canStitch() else {
+                        isShowingPaywall = true
+                        return
+                    }
+                    HapticFeedbackManager.shared.triggerSelection()
+                    isShowingWebCapture = true
+                } label: {
+                    actionCard(
+                        title: "网页全页截",
+                        subtitle: "0截屏链接直出",
+                        iconName: "safari.fill",
+                        tint: Color.teal
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                // 3D Studio Poster
+                Button {
+                    HapticFeedbackManager.shared.triggerSelection()
+                    isShowingStudioShowroom = true
+                } label: {
+                    actionCard(
+                        title: "3D 摄影棚",
+                        subtitle: "悬浮海报精修",
+                        iconName: "cube.transparent",
+                        tint: Color.pink
+                    )
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
     
@@ -819,6 +931,7 @@ public struct HomeStitchView: View {
             return
         }
         guard !activeBroadcastSlices.isEmpty else { return }
+        processingStatusMessage = "正在拼合录屏广播切片..."
         isProcessingStitch = true
         
         Task {
@@ -850,6 +963,7 @@ public struct HomeStitchView: View {
             return
         }
         
+        processingStatusMessage = "正在读取并拼接相册切片..."
         isProcessingStitch = true
         Task {
             var paths: [String] = []
@@ -879,12 +993,74 @@ public struct HomeStitchView: View {
         }
     }
     
+    private func handleSelectedVideoPickerItem(_ items: [PhotosPickerItem]) {
+        guard let item = items.first else { return }
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            self.selectedVideoPickerItems.removeAll()
+            return
+        }
+        
+        processingStatusMessage = "自适应光流分析抽帧中..."
+        isProcessingStitch = true
+        Task {
+            if let movieData = try? await item.loadTransferable(type: Data.self) {
+                let tempDir = FileManager.default.temporaryDirectory
+                let tempURL = tempDir.appendingPathComponent("imported_\(UUID().uuidString).mov")
+                try? movieData.write(to: tempURL)
+                
+                let avAsset = AVAsset(url: tempURL)
+                do {
+                    let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset) { current, total in
+                        Task { @MainActor in
+                            HapticFeedbackManager.shared.triggerDialDetent()
+                        }
+                    }
+                    guard frames.count >= 2 else {
+                        await MainActor.run {
+                            self.isProcessingStitch = false
+                            self.selectedVideoPickerItems.removeAll()
+                            self.showToast(message: "视频中未检测到足够的滑动画面")
+                        }
+                        return
+                    }
+                    
+                    var paths: [String] = []
+                    for (index, frame) in frames.enumerated() {
+                        if let data = frame.jpegData(compressionQuality: 0.9),
+                           let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                            paths.append(path)
+                        }
+                    }
+                    
+                    let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
+                    await MainActor.run {
+                        self.activeSessionToEdit = session
+                        self.isProcessingStitch = false
+                        self.selectedVideoPickerItems.removeAll()
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isProcessingStitch = false
+                        self.selectedVideoPickerItems.removeAll()
+                    }
+                }
+            } else {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.selectedVideoPickerItems.removeAll()
+                }
+            }
+        }
+    }
+    
     private func quickSaveRecentAssets(_ assets: [PHAsset], deleteOriginals: Bool) {
         guard quotaManager.canStitch() else {
             isShowingPaywall = true
             return
         }
         
+        processingStatusMessage = "正在读取并拼合 \(assets.count) 张原截图..."
         isProcessingStitch = true
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
@@ -960,6 +1136,7 @@ public struct HomeStitchView: View {
             return
         }
         
+        processingStatusMessage = "正在无缝拼接相册截图..."
         isProcessingStitch = true
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
@@ -978,7 +1155,11 @@ public struct HomeStitchView: View {
                 }
             }
             
-            if let session = try? await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary) {
+            if let session = try? await StitchEngine.shared.stitchSlices(
+                fileRelativePaths: paths,
+                source: .photoLibrary,
+                sourceAssetIdentifiers: sortedAssets.map(\.localIdentifier)
+            ) {
                 await MainActor.run {
                     self.activeSessionToEdit = session
                     self.isProcessingStitch = false
@@ -991,12 +1172,13 @@ public struct HomeStitchView: View {
         }
     }
     
-    private func stitchVideoAsset(_ asset: PHAsset, deleteOriginalVideo: Bool) {
+    private func stitchVideoAsset(_ asset: PHAsset, deleteOriginalVideo: Bool, openInEditor: Bool = false) {
         guard quotaManager.canStitch() else {
             isShowingPaywall = true
             return
         }
         
+        processingStatusMessage = "自适应光流追帧合成中..."
         isProcessingStitch = true
         let options = PHVideoRequestOptions()
         options.isNetworkAccessAllowed = true
@@ -1010,7 +1192,11 @@ public struct HomeStitchView: View {
             
             Task.detached(priority: .userInitiated) {
                 do {
-                    let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset)
+                    let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset) { current, total in
+                        Task { @MainActor in
+                            HapticFeedbackManager.shared.triggerDialDetent()
+                        }
+                    }
                     guard frames.count >= 2 else {
                         await MainActor.run {
                             self.isProcessingStitch = false
@@ -1027,7 +1213,20 @@ public struct HomeStitchView: View {
                         }
                     }
                     
-                    let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
+                    let session = try await StitchEngine.shared.stitchSlices(
+                        fileRelativePaths: paths,
+                        source: .photoLibrary,
+                        sourceAssetIdentifiers: [asset.localIdentifier]
+                    )
+                    
+                    if openInEditor {
+                        await MainActor.run {
+                            self.activeSessionToEdit = session
+                            self.isProcessingStitch = false
+                        }
+                        return
+                    }
+                    
                     let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_Video_\(Int(Date().timeIntervalSince1970)).jpg")
                     try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
                     

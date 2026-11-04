@@ -20,7 +20,8 @@ public final class StitchEngine {
     public func stitchSlices(
         fileRelativePaths: [String],
         source: StitchCaptureSource = .photoLibrary,
-        presetMode: StitchPresetMode = .chatRecord
+        presetMode: StitchPresetMode = .chatRecord,
+        sourceAssetIdentifiers: [String] = []
     ) async throws -> StitchSession {
         return try await withCheckedThrowingContinuation { continuation in
             processingQueue.async {
@@ -167,7 +168,8 @@ public final class StitchEngine {
                     title: "Stitched_\(Int(Date().timeIntervalSince1970))",
                     deviceScreenWidth: items.first?.originalWidth ?? 393,
                     deviceScreenScale: 3.0,
-                    hasAppliedDeviceFrame: false
+                    hasAppliedDeviceFrame: false,
+                    sourceAssetIdentifiers: sourceAssetIdentifiers
                 )
                 
                 continuation.resume(returning: session)

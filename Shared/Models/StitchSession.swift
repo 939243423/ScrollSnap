@@ -67,6 +67,7 @@ public struct StitchSession: Codable, Identifiable {
     public var deviceScreenWidth: CGFloat
     public var deviceScreenScale: CGFloat
     public var hasAppliedDeviceFrame: Bool
+    public var sourceAssetIdentifiers: [String]
     
     public var totalEstimatedHeight: CGFloat {
         guard let first = slices.first else { return 0 }
@@ -86,7 +87,8 @@ public struct StitchSession: Codable, Identifiable {
         title: String = "Stitched Screenshot",
         deviceScreenWidth: CGFloat = 393,
         deviceScreenScale: CGFloat = 3.0,
-        hasAppliedDeviceFrame: Bool = false
+        hasAppliedDeviceFrame: Bool = false,
+        sourceAssetIdentifiers: [String] = []
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -97,5 +99,6 @@ public struct StitchSession: Codable, Identifiable {
         self.deviceScreenWidth = deviceScreenWidth
         self.deviceScreenScale = deviceScreenScale
         self.hasAppliedDeviceFrame = hasAppliedDeviceFrame
+        self.sourceAssetIdentifiers = sourceAssetIdentifiers
     }
 }

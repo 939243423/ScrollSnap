@@ -175,6 +175,15 @@ public struct StitchEditorView: View {
                         .disabled(isExporting)
                         
                         Menu {
+                            if !session.sourceAssetIdentifiers.isEmpty {
+                                Section("智能清理") {
+                                    Button {
+                                        saveDirectlyToAlbum(deleteOriginals: true)
+                                    } label: {
+                                        Label("存长图并删除原切片", systemImage: "trash.slash")
+                                    }
+                                }
+                            }
                             Section("视觉体验") {
                                 Button {
                                     isShowingComparisonSheet = true
@@ -1084,7 +1093,7 @@ public struct StitchEditorView: View {
         }
     }
     
-    private func saveDirectlyToAlbum() {
+    private func saveDirectlyToAlbum(deleteOriginals: Bool = false) {
         guard quotaManager.canStitch() else {
             isShowingPaywall = true
             return
@@ -1114,6 +1123,20 @@ public struct StitchEditorView: View {
                 try await PHPhotoLibrary.shared().performChanges {
                     PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
                 }
+                
+                // If requested to delete original source assets
+                if deleteOriginals && !session.sourceAssetIdentifiers.isEmpty {
+                    let assets = PHAsset.fetchAssets(withLocalIdentifiers: session.sourceAssetIdentifiers, options: nil)
+                    var toDelete: [PHAsset] = []
+                    assets.enumerateObjects { asset, _, _ in
+                        toDelete.append(asset)
+                    }
+                    if !toDelete.isEmpty {
+                        try? await PHPhotoLibrary.shared().performChanges {
+                            PHAssetChangeRequest.deleteAssets(toDelete as NSArray)
+                        }
+                    }
+                }
                 #endif
                 
                 quotaManager.recordStitchUsage()
@@ -1123,7 +1146,7 @@ public struct StitchEditorView: View {
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playShutter()
                     StoreReviewManager.shared.recordSuccessfulExport()
-                    self.toastMessage = "已成功保存高清长图至相册！"
+                    self.toastMessage = deleteOriginals ? "已保存长图并清理 \(session.sourceAssetIdentifiers.count) 张原图！" : "已成功保存高清长图至相册！"
                     showToast()
                 }
             } catch {
