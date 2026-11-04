@@ -138,6 +138,18 @@ public final class ImageOverlapDetector {
             }
         }
         
+        let normalizedConfidence = max(0.0, min(1.0, maxCorrelation))
+        
+        // Safety guard: if correlation is below noise threshold (0.20), these are non-continuous or dissimilar images.
+        // Returning offset = 0 safely stacks them sequentially without clipping or mangling content.
+        if normalizedConfidence < 0.20 {
+            return OverlapMatchResult(
+                offset: 0,
+                confidence: normalizedConfidence,
+                optimalSeamY: 0
+            )
+        }
+        
         let overlapHeight = validTopEnd - bestOffset
         let optimalSeam = findMinimalEnergySeam(
             luminanceProfile: topLuminance,
@@ -145,7 +157,6 @@ public final class ImageOverlapDetector {
             endRow: min(validTopEnd, bestOffset + overlapHeight)
         )
         
-        let normalizedConfidence = max(0.0, min(1.0, maxCorrelation))
         return OverlapMatchResult(
             offset: CGFloat(overlapHeight),
             confidence: normalizedConfidence,

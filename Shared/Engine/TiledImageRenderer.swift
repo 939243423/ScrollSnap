@@ -123,7 +123,8 @@ public final class TiledImageRenderer {
     }
     
     #if canImport(UIKit)
-    /// Export stitched session as standard paginated A4 / scroll PDF
+    /// Export stitched session as standard paginated A4 / scroll PDF directly to disk
+    /// Zero contiguous bitmap RAM spikes: streams slices page-by-page directly into the PDF graphics context
     public static func renderStitchedPDFToFile(
         session: StitchSession,
         annotations: [AnnotationItem],
@@ -132,46 +133,60 @@ public final class TiledImageRenderer {
         let canvasWidth = session.slices.first?.originalWidth ?? 393
         let pageHeight: CGFloat = 842.0 // Standard A4 height in pt
         let pageWidth: CGFloat = 595.0  // Standard A4 width in pt
-        let scaleFactor = (pageWidth - 40) / canvasWidth
+        let contentWidth = pageWidth - 40.0
+        let contentHeightPerPage = pageHeight - 60.0
+        let scaleFactor = contentWidth / canvasWidth
+        
+        let totalHeight = session.totalEstimatedHeight
+        let scaledFullHeight = totalHeight * scaleFactor
+        let pageCount = max(1, Int(ceil(scaledFullHeight / contentHeightPerPage)))
         
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight))
-        
-        // Render whole canvas to a temporary memory image for clean PDF pagination
-        let totalHeight = session.totalEstimatedHeight
-        let fullImageRenderer = UIGraphicsImageRenderer(size: CGSize(width: canvasWidth, height: totalHeight))
-        let fullImage = fullImageRenderer.image { context in
-            var currentY: CGFloat = 0
-            for (index, slice) in session.slices.enumerated() {
-                guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
-                      let image = UIImage(contentsOfFile: fileURL.path) else { continue }
-                
-                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: slice.visibleHeight)
-                context.cgContext.saveGState()
-                context.cgContext.clip(to: drawRect)
-                image.draw(in: CGRect(x: 0, y: currentY - slice.topCropInset, width: canvasWidth, height: slice.originalHeight))
-                context.cgContext.restoreGState()
-                
-                let nextOverlap = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
-                currentY += (slice.visibleHeight - nextOverlap)
-            }
-            drawAnnotations(annotations: annotations, in: context.cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
-        }
-        
-        let scaledFullHeight = totalHeight * scaleFactor
-        let contentWidth = pageWidth - 40
-        let contentHeightPerPage = pageHeight - 60
-        let pageCount = max(1, Int(ceil(scaledFullHeight / contentHeightPerPage)))
         
         try pdfRenderer.writePDF(to: outputURL) { pdfContext in
             for pageIndex in 0..<pageCount {
                 pdfContext.beginPage()
+                let cgContext = pdfContext.cgContext
+                
                 let sourceY = CGFloat(pageIndex) * (contentHeightPerPage / scaleFactor)
                 let sourceHeight = min(totalHeight - sourceY, contentHeightPerPage / scaleFactor)
+                let pageEndY = sourceY + sourceHeight
                 
-                if let croppedCG = fullImage.cgImage?.cropping(to: CGRect(x: 0, y: sourceY, width: canvasWidth, height: sourceHeight)) {
-                    let pageSlice = UIImage(cgImage: croppedCG)
-                    pageSlice.draw(in: CGRect(x: 20, y: 30, width: contentWidth, height: sourceHeight * scaleFactor))
+                cgContext.saveGState()
+                // Clip strictly to page printable margin
+                cgContext.clip(to: CGRect(x: 20, y: 30, width: contentWidth, height: sourceHeight * scaleFactor))
+                
+                // Translate & scale so canvas coordinate (0, sourceY) aligns with (20, 30)
+                cgContext.translateBy(x: 20, y: 30 - (sourceY * scaleFactor))
+                cgContext.scaleBy(x: scaleFactor, y: scaleFactor)
+                
+                var currentY: CGFloat = 0
+                for (index, slice) in session.slices.enumerated() {
+                    let sliceTop = currentY
+                    let sliceBottom = currentY + slice.visibleHeight
+                    
+                    // Streaming check: only decode slice if it intersects this page's viewport
+                    if sliceBottom > sourceY && sliceTop < pageEndY {
+                        autoreleasepool {
+                            if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                               let image = UIImage(contentsOfFile: fileURL.path) {
+                                let drawRect = CGRect(x: 0, y: currentY, width: canvasWidth, height: slice.visibleHeight)
+                                cgContext.saveGState()
+                                cgContext.clip(to: drawRect)
+                                image.draw(in: CGRect(x: 0, y: currentY - slice.topCropInset, width: canvasWidth, height: slice.originalHeight))
+                                cgContext.restoreGState()
+                            }
+                        }
+                    }
+                    
+                    let nextOverlap = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
+                    currentY += (slice.visibleHeight - nextOverlap)
                 }
+                
+                // Draw annotations positioned on this page
+                drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
+                
+                cgContext.restoreGState()
             }
         }
     }

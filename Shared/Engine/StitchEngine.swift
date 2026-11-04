@@ -124,11 +124,13 @@ public final class StitchEngine {
                     
                     var overlapOffset: CGFloat = 0
                     var seamLineY: CGFloat = 0
+                    var matchConfidence: Double = 1.0
                     
                     if index > 0 {
                         if presetMode == .movieSubtitles || presetMode == .horizontalCompare {
                             overlapOffset = 0
                             seamLineY = 0
+                            matchConfidence = 1.0
                         } else {
                             let prevImage = loadedSlices[index - 1].image
                             let prevItem = items[index - 1]
@@ -140,6 +142,7 @@ public final class StitchEngine {
                             )
                             overlapOffset = match.offset
                             seamLineY = match.optimalSeamY
+                            matchConfidence = match.confidence
                         }
                     }
                     
@@ -153,6 +156,7 @@ public final class StitchEngine {
                         calculatedOverlapWithPrevious: overlapOffset,
                         manualOffsetAdjustment: 0,
                         optimalSeamLineY: seamLineY,
+                        matchConfidence: matchConfidence,
                         redactions: [],
                         timestamp: Date()
                     )

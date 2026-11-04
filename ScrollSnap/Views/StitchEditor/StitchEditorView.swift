@@ -83,6 +83,11 @@ public struct StitchEditorView: View {
     @State private var isShowingPaywall: Bool = false
     @State private var isCopiedToClipboardToast: Bool = false
     @State private var toastMessage: String = "长截图已复制到剪贴板，可直接粘贴"
+    @State private var isDismissedConfidenceWarning: Bool = false
+    
+    private var hasLowConfidenceSeams: Bool {
+        session.slices.dropFirst().contains { $0.confidence < 0.35 }
+    }
     
     public init(session: StitchSession) {
         self._session = State(initialValue: session)
@@ -94,8 +99,8 @@ public struct StitchEditorView: View {
                 // Main Interactive Canvas
                 canvasScrollView
                 
-                // Top Floating Telemetry Matrix Capsule (Docked at Top Center)
-                VStack {
+                // Top Floating Telemetry Matrix Capsule & Seam Intelligence Hint
+                VStack(spacing: 6) {
                     FloatingTelemetryIslandView(
                         canvasWidth: Int(session.slices.first?.originalWidth ?? 1170),
                         canvasHeight: Int(session.totalEstimatedHeight),
@@ -103,6 +108,34 @@ public struct StitchEditorView: View {
                         memoryLimitMB: 50.0
                     )
                     .padding(.top, 6)
+                    
+                    if hasLowConfidenceSeams && !isDismissedConfidenceWarning {
+                        HStack(spacing: 8) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                            Text("部分切片重叠较小，已自动无损接续，可旋转下方滚轮微调")
+                                .font(ScrollSnapTheme.FontToken.captionHint)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    isDismissedConfidenceWarning = true
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.orange.opacity(0.35))
+                        .padding(.horizontal, 16)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    }
+                    
                     Spacer()
                 }
                 

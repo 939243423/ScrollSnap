@@ -38,8 +38,13 @@ public struct StitchItem: Codable, Identifiable, Hashable {
         set { manualOffsetAdjustment = newValue }
     }
     public var optimalSeamLineY: CGFloat // Seam cutline relative to slice top
+    public var matchConfidence: Double? // Normalized Cross Correlation (NCC) confidence [0.0 ... 1.0]
     public var redactions: [RedactionRegion]
     public var timestamp: Date
+    
+    public var confidence: Double {
+        matchConfidence ?? 1.0
+    }
     
     public var effectiveOverlap: CGFloat {
         max(0, calculatedOverlapWithPrevious + manualOffsetAdjustment)
@@ -59,6 +64,7 @@ public struct StitchItem: Codable, Identifiable, Hashable {
         calculatedOverlapWithPrevious: CGFloat = 0,
         manualOffsetAdjustment: CGFloat = 0,
         optimalSeamLineY: CGFloat = 0,
+        matchConfidence: Double? = 1.0,
         redactions: [RedactionRegion] = [],
         timestamp: Date = Date()
     ) {
@@ -71,6 +77,7 @@ public struct StitchItem: Codable, Identifiable, Hashable {
         self.calculatedOverlapWithPrevious = calculatedOverlapWithPrevious
         self.manualOffsetAdjustment = manualOffsetAdjustment
         self.optimalSeamLineY = optimalSeamLineY
+        self.matchConfidence = matchConfidence
         self.redactions = redactions
         self.timestamp = timestamp
     }

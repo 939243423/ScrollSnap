@@ -75,8 +75,8 @@ public struct SocialGridStageView: View {
                     }
                 }
             }
-            .padding(10)
-            .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
+            .padding(ScrollSnapTheme.Spacing.sm + 2)
+            .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.pink.opacity(0.25))
             
             // Batch Save Button
             Button {
@@ -90,21 +90,10 @@ public struct SocialGridStageView: View {
                         Image(systemName: "square.and.arrow.down.on.square.fill")
                     }
                     Text("一键将 \(slices.count) 张切片完整存入相册")
-                        .font(.subheadline.bold())
                 }
-                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    LinearGradient(
-                        colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.92, green: 0.45, blue: 0.25)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .clipShape(Capsule())
-                .shadow(color: Color.pink.opacity(0.35), radius: 10, x: 0, y: 5)
             }
+            .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.studioGradient))
             .disabled(isSaving || slices.isEmpty)
         }
     }
