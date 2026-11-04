@@ -95,6 +95,7 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
         let options = PHImageRequestOptions()
         options.isSynchronous = true
         options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
         
         for i in 0..<assets.count {
             let asset = assets.object(at: i)

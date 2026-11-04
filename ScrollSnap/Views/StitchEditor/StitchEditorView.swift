@@ -65,6 +65,8 @@ public struct StitchEditorView: View {
     @State private var isShowingStudioShowroomSheet: Bool = false
     @State private var currentStitchedPreviewImage: UIImage?
     @State private var isShowingComparisonSheet: Bool = false
+    @State private var comparisonBeforeImage: UIImage?
+    @State private var comparisonAfterImage: UIImage?
     
     // Social Slicer State
     @State private var selectedSlicePreset: ImageSlicer.SlicePreset = .nine
@@ -237,8 +239,7 @@ public struct StitchEditorView: View {
                             }
                             Section("视觉体验") {
                                 Button {
-                                    isShowingComparisonSheet = true
-                                    HapticFeedbackManager.shared.triggerSelection()
+                                    prepareAndOpenComparisonSheet()
                                 } label: {
                                     Label("无缝对比双目帘幕", systemImage: "rectangle.split.2x1")
                                 }
@@ -275,7 +276,10 @@ public struct StitchEditorView: View {
                 }
             }
             .sheet(isPresented: $isShowingComparisonSheet) {
-                BeforeAfterComparisonView()
+                BeforeAfterComparisonView(
+                    beforeImage: comparisonBeforeImage,
+                    afterImage: comparisonAfterImage
+                )
             }
             .sheet(isPresented: $isShowingStudioShowroomSheet) {
                 StudioShowroomView(
@@ -1035,6 +1039,34 @@ public struct StitchEditorView: View {
             await MainActor.run {
                 self.currentStitchedPreviewImage = img
                 self.isShowingStudioShowroomSheet = true
+            }
+        }
+    }
+    
+    // Split Curtain Comparison Preparation
+    private func prepareAndOpenComparisonSheet() {
+        HapticFeedbackManager.shared.triggerSelection()
+        Task {
+            let tempAfter = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            try? TiledImageRenderer.renderStitchedImageToFile(
+                session: session,
+                annotations: annotations,
+                outputURL: tempAfter,
+                format: .jpeg,
+                quality: 0.90
+            )
+            let afterImg = UIImage(contentsOfFile: tempAfter.path)
+            
+            var beforeImg: UIImage?
+            if let firstSlice = session.slices.first,
+               let url = SharedStore.shared.resolveFileURL(relativePath: firstSlice.relativeFilePath) {
+                beforeImg = UIImage(contentsOfFile: url.path)
+            }
+            
+            await MainActor.run {
+                self.comparisonBeforeImage = beforeImg
+                self.comparisonAfterImage = afterImg
+                self.isShowingComparisonSheet = true
             }
         }
     }

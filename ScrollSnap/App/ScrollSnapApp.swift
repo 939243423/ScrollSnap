@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct ScrollSnapApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var storeKit = StoreKitManager.shared
     @State private var sessionToken: DarwinNotificationToken?
     
@@ -15,6 +16,13 @@ struct ScrollSnapApp: App {
                 .tint(Color(red: 0.29, green: 0.33, blue: 0.41))
                 .onAppear {
                     setupDarwinObservers()
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .active {
+                        PhotoLibraryObserver.shared.scanRecentScreenshots()
+                        QuotaManager.shared.refreshQuota()
+                        NotificationCenter.default.post(name: NSNotification.Name("RefreshBroadcastSession"), object: nil)
+                    }
                 }
         }
     }
