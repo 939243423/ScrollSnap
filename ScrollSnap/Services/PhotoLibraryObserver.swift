@@ -9,6 +9,7 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
     public static let shared = PhotoLibraryObserver()
     
     @Published public private(set) var recentScreenshotAssets: [PHAsset] = []
+    @Published public private(set) var recentScreenRecordingAsset: PHAsset?
     @Published public private(set) var authorizationStatus: PHAuthorizationStatus = .notDetermined
     private var isObserverRegistered = false
     
@@ -48,22 +49,37 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
     }
     
     public func scanRecentScreenshots(windowMinutes: Double = 5.0) {
-        let fetchOptions = PHFetchOptions()
         let cutoffDate = Date().addingTimeInterval(-windowMinutes * 60)
-        fetchOptions.predicate = NSPredicate(
+        
+        // 1. Scan image screenshots
+        let imageOptions = PHFetchOptions()
+        imageOptions.predicate = NSPredicate(
             format: "mediaType == %d AND creationDate >= %@ AND (mediaSubtypes & %d) != 0",
             PHAssetMediaType.image.rawValue,
             cutoffDate as NSDate,
             PHAssetMediaSubtype.photoScreenshot.rawValue
         )
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        imageOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
         
-        let results = PHAsset.fetchAssets(with: fetchOptions)
+        let results = PHAsset.fetchAssets(with: imageOptions)
         var detected: [PHAsset] = []
         results.enumerateObjects { asset, _, _ in
             detected.append(asset)
         }
         self.recentScreenshotAssets = detected
+        
+        // 2. Scan recent short screen recording video (duration between 1s and 60s)
+        let videoOptions = PHFetchOptions()
+        videoOptions.predicate = NSPredicate(
+            format: "mediaType == %d AND creationDate >= %@ AND duration >= 1.0 AND duration <= 60.0",
+            PHAssetMediaType.video.rawValue,
+            cutoffDate as NSDate
+        )
+        videoOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        videoOptions.fetchLimit = 1
+        
+        let videoResults = PHAsset.fetchAssets(with: videoOptions)
+        self.recentScreenRecordingAsset = videoResults.firstObject
     }
 }
 

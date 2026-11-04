@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import Photos
+import AVFoundation
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
@@ -23,6 +25,7 @@ public struct HomeStitchView: View {
     @State private var activeBroadcastSlices: [String] = []
     @State private var toastMessage: String = ""
     @State private var isShowingToast: Bool = false
+    @State private var detectedClipboardURL: URL?
     
     public init() {}
     
@@ -38,9 +41,19 @@ public struct HomeStitchView: View {
                         activeBroadcastAlertBanner
                     }
                     
+                    // Auto-detected Recent Screen Recording Video (The "Once and For All" 0-screenshot solution!)
+                    if let videoAsset = photoObserver.recentScreenRecordingAsset {
+                        recentScreenRecordingBanner(videoAsset)
+                    }
+                    
                     // Auto-detected Recent Continuous Screenshots
                     if !photoObserver.recentScreenshotAssets.isEmpty {
                         recentDetectedScreenshotsBanner
+                    }
+                    
+                    // Auto-detected Clipboard Web Article URL (0-screenshot 0-recording solution!)
+                    if let url = detectedClipboardURL {
+                        clipboardURLBanner(url)
                     }
                     
                     // Core Actions Grid
@@ -119,6 +132,7 @@ public struct HomeStitchView: View {
             .onAppear {
                 quotaManager.refreshQuota()
                 refreshActiveBroadcastSlices()
+                checkClipboardForURL()
                 if WhatsNewManager.shared.shouldShowWhatsNew() {
                     isShowingWhatsNew = true
                 }
@@ -215,6 +229,159 @@ public struct HomeStitchView: View {
         }
         .padding(14)
         .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.35)
+    }
+    
+    private func checkClipboardForURL() {
+        #if canImport(UIKit)
+        if let url = UIPasteboard.general.url {
+            self.detectedClipboardURL = url
+        } else if let string = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  (string.hasPrefix("http://") || string.hasPrefix("https://")),
+                  let url = URL(string: string) {
+            self.detectedClipboardURL = url
+        } else {
+            self.detectedClipboardURL = nil
+        }
+        #endif
+    }
+    
+    private func clipboardURLBanner(_ url: URL) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.teal.opacity(0.18))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "safari.fill")
+                    .font(.body)
+                    .foregroundStyle(Color.teal)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text("检测到剪贴板文章链接")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    Text("0 截屏")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
+                        .background(Color.teal)
+                        .clipShape(Capsule())
+                }
+                Text(url.host ?? url.absoluteString)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            Button("整页直出") {
+                HapticFeedbackManager.shared.triggerSnap()
+                self.isShowingWebCapture = true
+            }
+            .font(.system(.caption, design: .rounded).weight(.bold))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.teal)
+            .foregroundStyle(.white)
+            .clipShape(Capsule())
+        }
+        .padding(14)
+        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.35)
+    }
+    
+    private func recentScreenRecordingBanner(_ video: PHAsset) -> some View {
+        let durationSec = max(1, Int(video.duration))
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.purple.opacity(0.15))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "video.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.purple)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("录屏秒转长图 · 无需连按截图")
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                            .foregroundStyle(.primary)
+                        
+                        Text("\(durationSec)s 视频")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.purple)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.purple.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    Text("只需顺畅滑动屏幕一次，光流算法自动抽帧去重合成为完整长图")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            
+            VStack(spacing: 10) {
+                Button {
+                    HapticFeedbackManager.shared.triggerSnap()
+                    stitchVideoAsset(video, deleteOriginalVideo: true)
+                } label: {
+                    HStack(spacing: 8) {
+                        if isProcessingStitch {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "film.stack.fill")
+                                .font(.body.weight(.semibold))
+                        }
+                        Text("提取超清长图并清理原录屏")
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        Spacer()
+                        Image(systemName: "trash.slash.fill")
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.purple, Color.indigo],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: Color.purple.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .buttonStyle(.plain)
+                .disabled(isProcessingStitch)
+                
+                Button {
+                    HapticFeedbackManager.shared.triggerSelection()
+                    stitchVideoAsset(video, deleteOriginalVideo: false)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.and.arrow.down")
+                        Text("仅提取长图 (保留录屏视频)")
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(Color.secondary.opacity(0.12))
+                    .foregroundStyle(.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(isProcessingStitch)
+            }
+        }
+        .padding(16)
+        .liquidGlassCard(cornerRadius: 22, strokeOpacity: 0.35)
     }
     
     private var recentDetectedScreenshotsBanner: some View {
@@ -774,6 +941,87 @@ public struct HomeStitchView: View {
             } else {
                 await MainActor.run {
                     self.isProcessingStitch = false
+                }
+            }
+        }
+    }
+    
+    private func stitchVideoAsset(_ asset: PHAsset, deleteOriginalVideo: Bool) {
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            return
+        }
+        
+        isProcessingStitch = true
+        let options = PHVideoRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        
+        PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, _ in
+            guard let avAsset = avAsset else {
+                Task { @MainActor in self.isProcessingStitch = false }
+                return
+            }
+            
+            Task.detached(priority: .userInitiated) {
+                do {
+                    let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset)
+                    guard frames.count >= 2 else {
+                        await MainActor.run {
+                            self.isProcessingStitch = false
+                            self.showToast(message: "视频未能提取到足够的滚动画面")
+                        }
+                        return
+                    }
+                    
+                    var paths: [String] = []
+                    for (index, frame) in frames.enumerated() {
+                        if let data = frame.jpegData(compressionQuality: 0.9),
+                           let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                            paths.append(path)
+                        }
+                    }
+                    
+                    let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
+                    let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_Video_\(Int(Date().timeIntervalSince1970)).jpg")
+                    try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
+                    
+                    #if canImport(UIKit)
+                    guard let image = UIImage(contentsOfFile: tempOutput.path) else {
+                        await MainActor.run { self.isProcessingStitch = false }
+                        return
+                    }
+                    
+                    let isPro = await MainActor.run { self.storeKit.isProUser }
+                    let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: isPro)
+                    
+                    // 1. Save stitched image to photo library
+                    try await PHPhotoLibrary.shared().performChanges {
+                        PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
+                    }
+                    
+                    // 2. If requested, delete raw video
+                    if deleteOriginalVideo {
+                        try? await PHPhotoLibrary.shared().performChanges {
+                            PHAssetChangeRequest.deleteAssets([asset] as NSArray)
+                        }
+                    }
+                    #endif
+                    
+                    await MainActor.run {
+                        self.isProcessingStitch = false
+                        self.quotaManager.recordStitchUsage()
+                        HapticFeedbackManager.shared.triggerSnap()
+                        SoundEffectManager.shared.playShutter()
+                        StoreReviewManager.shared.recordSuccessfulExport()
+                        let msg = deleteOriginalVideo ? "已从录屏秒出长图，并为您清理原视频！" : "已从录屏成功提取高清长图！"
+                        self.showToast(message: msg)
+                        self.photoObserver.scanRecentScreenshots()
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isProcessingStitch = false
+                    }
                 }
             }
         }
