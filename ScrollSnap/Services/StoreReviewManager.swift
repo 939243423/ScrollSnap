@@ -121,7 +121,7 @@ public final class StoreReviewManager: ObservableObject {
         
         
         -----------------------------------
-        请在此行上方输入您的宝贵建议或遇到的问题。
+        请在此行上方输入您的反馈或问题。
         应用版本: \(appVersion) (\(buildNumber))
         系统版本: iOS \(systemVersion)
         设备机型: \(model)

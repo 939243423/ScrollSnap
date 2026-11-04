@@ -5,11 +5,11 @@ import UIKit
 #endif
 
 public enum EditorToolMode: String, CaseIterable, Identifiable {
-    case seamTuner = "棘轮对齐"
+    case seamTuner = "接缝微调"
     case privacyBrush = "隐私涂抹"
-    case annotation = "专业标注"
-    case socialSlicer = "九宫切片"
-    case canvasStudio = "带壳画布"
+    case annotation = "标注"
+    case socialSlicer = "九宫格切片"
+    case canvasStudio = "带壳样机"
     
     public var id: String { rawValue }
     public var iconName: String {
@@ -86,7 +86,7 @@ public struct StitchEditorView: View {
     @State private var isExporting: Bool = false
     @State private var isShowingPaywall: Bool = false
     @State private var isCopiedToClipboardToast: Bool = false
-    @State private var toastMessage: String = "长截图已复制到剪贴板，可直接粘贴"
+    @State private var toastMessage: String = "长图已复制到剪贴板"
     @State private var isDismissedConfidenceWarning: Bool = false
     
     private var hasLowConfidenceSeams: Bool {
@@ -118,7 +118,7 @@ public struct StitchEditorView: View {
                             Image(systemName: "info.circle.fill")
                                 .foregroundStyle(.orange)
                                 .font(.caption)
-                            Text("部分切片重叠较小，已自动无损接续，可旋转下方滚轮微调")
+                            Text("部分截图重叠较少，可转动下方滚轮微调对齐")
                                 .font(ScrollSnapTheme.FontToken.captionHint)
                                 .foregroundStyle(.primary)
                             Spacer()
@@ -249,26 +249,26 @@ public struct StitchEditorView: View {
                         
                         Menu {
                             if !session.sourceAssetIdentifiers.isEmpty {
-                                Section("智能清理") {
+                                Section("清理") {
                                     Button {
                                         saveDirectlyToAlbum(deleteOriginals: true)
                                     } label: {
-                                        Label("存长图并删除原切片", systemImage: "trash.slash")
+                                        Label("存长图并删除原截图", systemImage: "trash.slash")
                                     }
                                 }
                             }
-                            Section("视觉体验") {
+                            Section("对比") {
                                 Button {
                                     prepareAndOpenComparisonSheet()
                                 } label: {
-                                    Label("无缝对比双目帘幕", systemImage: "rectangle.split.2x1")
+                                    Label("对比原图", systemImage: "rectangle.split.2x1")
                                 }
                             }
-                            Section("3D 摄影棚") {
+                            Section("带壳样机") {
                                 Button {
                                     prepareAndOpenStudioShowroom()
                                 } label: {
-                                    Label("3D 悬浮立体制图", systemImage: "cube.transparent")
+                                    Label("生成 3D 样机海报", systemImage: "cube.transparent")
                                 }
                             }
                             Section("更多导出格式") {
@@ -306,7 +306,7 @@ public struct StitchEditorView: View {
                     stitchedImage: currentStitchedPreviewImage,
                     onSavePoster: {
                         isShowingStudioShowroomSheet = false
-                        toastMessage = "3D 摄影棚展示海报已保存至相册"
+                        toastMessage = "样机海报已保存至相册"
                         withAnimation { isCopiedToClipboardToast = true }
                     }
                 )
@@ -329,10 +329,10 @@ public struct StitchEditorView: View {
                 }
                 Button("取消", role: .cancel) {}
             }
-            .alert("已成功保存到系统相册", isPresented: $isShowingSlicesSavedAlert) {
+            .alert("已保存到相册", isPresented: $isShowingSlicesSavedAlert) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text("已将长图拆解为 \(generatedSlices.count) 张高清九宫格切片，现在可直接前往微信或小红书发布。")
+                Text("已将长图拆解为 \(generatedSlices.count) 张切片，可前往微信或小红书发布。")
             }
         }
     }
@@ -840,7 +840,7 @@ public struct StitchEditorView: View {
                         } else {
                             Image(systemName: "shield.checkerboard")
                         }
-                        Text("自动脱敏保护")
+                        Text("自动遮挡隐私")
                             .font(.system(size: 11, weight: .bold))
                     }
                     .padding(.horizontal, 10)
@@ -967,7 +967,7 @@ public struct StitchEditorView: View {
                         } else {
                             Image(systemName: "square.grid.3x3.fill")
                         }
-                        Text("智能断句拆解为 \(selectedSlicePreset.rawValue) 宫格连拍")
+                        Text("拆解为 \(selectedSlicePreset.rawValue) 宫格")
                             .font(.caption.bold())
                     }
                     .foregroundStyle(.white)
@@ -989,14 +989,14 @@ public struct StitchEditorView: View {
         VStack(spacing: 8) {
             HStack(spacing: 12) {
                 Toggle(isOn: $showDeviceFrame.animation()) {
-                    Text("3D钛金属外壳")
+                    Text("手机外壳")
                         .font(.caption.bold())
                 }
                 .toggleStyle(.button)
                 .tint(.accentColor)
                 
                 if showDeviceFrame {
-                    Picker("机型材质", selection: $frameFinish) {
+                    Picker("机身颜色", selection: $frameFinish) {
                         ForEach(DeviceFrameFinish.allCases) { finish in
                             Text(finish.rawValue).tag(finish)
                         }
@@ -1211,10 +1211,10 @@ public struct StitchEditorView: View {
                 let autoMosaics = await privacySanitizer.detectSensitiveRegions(in: image)
                 await MainActor.run {
                     if autoMosaics.isEmpty {
-                        self.toastMessage = "未检测到头像或手机号敏感信息"
+                        self.toastMessage = "未检测到头像或号码等信息"
                     } else {
                         self.annotations.append(contentsOf: autoMosaics)
-                        self.toastMessage = "已自动对 \(autoMosaics.count) 处头像与敏感信息打码！"
+                        self.toastMessage = "已遮挡 \(autoMosaics.count) 处敏感信息"
                     }
                     HapticFeedbackManager.shared.triggerSnap()
                     showToast()
@@ -1390,7 +1390,7 @@ public struct StitchEditorView: View {
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playShutter()
                     StoreReviewManager.shared.recordSuccessfulExport()
-                    self.toastMessage = deleteOriginals ? "已保存长图并清理 \(session.sourceAssetIdentifiers.count) 张原图！" : "已成功保存高清长图至相册！"
+                    self.toastMessage = deleteOriginals ? "已保存长图，并已删除 \(session.sourceAssetIdentifiers.count) 张原截图" : "已保存长图至相册"
                     showToast()
                 }
             } catch {
@@ -1480,13 +1480,13 @@ public struct TextExtractorSheet: View {
                     HapticFeedbackManager.shared.triggerSnap()
                     dismiss()
                 } label: {
-                    Label("复制全部文字并关闭", systemImage: "doc.on.doc.fill")
+                    Label("复制全部文字", systemImage: "doc.on.doc.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
             }
             .padding()
-            .navigationTitle("长图全文提取 (OCR)")
+            .navigationTitle("识别文字")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

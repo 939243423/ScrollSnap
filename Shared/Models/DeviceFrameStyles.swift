@@ -82,11 +82,11 @@ public enum DeviceFrameFinish: String, CaseIterable, Identifiable, Codable {
 }
 
 public enum CanvasBackgroundStyle: String, CaseIterable, Identifiable, Codable {
-    case transparent = "透明无底"
-    case adaptiveBlur = "自适应磨砂玻璃"
-    case appleGradient = "晨曦蓝紫"
-    case studioDark = "极夜深灰"
-    case cleanWhite = "极简冷白"
+    case transparent = "透明背景"
+    case adaptiveBlur = "磨砂玻璃"
+    case appleGradient = "蓝紫渐变"
+    case studioDark = "深灰色"
+    case cleanWhite = "纯白色"
     
     public var id: String { rawValue }
 }

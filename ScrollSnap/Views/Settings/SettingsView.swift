@@ -35,10 +35,10 @@ public struct SettingsView: View {
                             )
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(storeKit.isProUser ? "已激活 ¥1 永久特权" : "纯粹效率 · 1元永久买断")
+                                Text(storeKit.isProUser ? "已激活永久特权" : "ScrollSnap Pro 永久买断")
                                     .font(ScrollSnapTheme.FontToken.itemTitle)
                                     .foregroundStyle(.primary)
-                                Text(storeKit.isProUser ? "享有无限制拼图、隐私脱敏保护与9宫格切片" : "每日免费 2 次 · ¥1.00 永久买断")
+                                Text(storeKit.isProUser ? "无限制拼图、隐私涂抹与九宫切片" : "每日免费 2 次 · ¥1.00 永久解锁")
                                     .font(ScrollSnapTheme.FontToken.captionHint)
                                     .foregroundStyle(.secondary)
                             }
@@ -110,13 +110,13 @@ public struct SettingsView: View {
                 }
                 
                 // Version & Highlights Section
-                Section("版本更新与特性") {
+                Section("版本信息") {
                     Button {
                         isShowingWhatsNew = true
                     } label: {
                         HStack {
                             Label {
-                                Text("新功能介绍与升级日志")
+                                Text("新功能介绍")
                                     .foregroundStyle(.primary)
                             } icon: {
                                 Image(systemName: "newspaper.fill")
@@ -149,7 +149,7 @@ public struct SettingsView: View {
                     Toggle(isOn: $isWatermarkEnabled) {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
-                                Text("极简品牌水印")
+                                Text("导出水印")
                                     .font(.body)
                                 if !storeKit.isProUser {
                                     Text("PRO")
@@ -161,7 +161,7 @@ public struct SettingsView: View {
                                         .clipShape(Capsule())
                                 }
                             }
-                            Text("长图底部附带极简无扰签名，帮助传播发现")
+                            Text("在长截图底部保留 ScrollSnap 标识")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -178,9 +178,9 @@ public struct SettingsView: View {
                     
                     Toggle(isOn: $isSoundEnabled) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("机械棘轮与相机音效")
+                            Text("按键与操作音效")
                                 .font(.body)
-                            Text("转动微调旋钮与保存拼合时播放清脆声效")
+                            Text("转动微调滚轮与保存图片时播放声音")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -221,9 +221,9 @@ public struct SettingsView: View {
                 }
                 
                 // Privacy & Architecture
-                Section("隐私与架构安全") {
+                Section("隐私与安全") {
                     HStack {
-                        Text("端侧离线计算")
+                        Text("离线处理")
                         Spacer()
                         Text("100% 本地运算")
                             .font(.subheadline)
@@ -231,15 +231,15 @@ public struct SettingsView: View {
                     }
                     
                     HStack {
-                        Text("隐私上报")
+                        Text("数据收集")
                         Spacer()
-                        Text("零数据收集")
+                        Text("无任何上传")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     
                     HStack {
-                        Text("算法内核")
+                        Text("图像对齐引擎")
                         Spacer()
                         Text("CoreGraphics NCC + Metal")
                             .font(.subheadline.monospacedDigit())
@@ -248,7 +248,7 @@ public struct SettingsView: View {
                 }
                 
                 // Legal Section
-                Section("法律协议与合规") {
+                Section("条款与政策") {
                     Link(destination: URL(string: "https://939243423.github.io/protocol__ScrollSnap/privacy.html")!) {
                         HStack {
                             Text("隐私政策 (Privacy Policy)")
@@ -301,7 +301,7 @@ public struct SettingsView: View {
             .sheet(isPresented: $isShowingShareAppSheet) {
                 #if canImport(UIKit)
                 if let shareURL = URL(string: "https://apps.apple.com/app/id\(StoreReviewManager.appStoreAppId)") {
-                    ShareSheetView(activityItems: ["推荐一款纯端侧高颜值的长截图神器：ScrollSnap 滚动画布", shareURL])
+                    ShareSheetView(activityItems: ["推荐一款好用的长截图应用 ScrollSnap：", shareURL])
                 }
                 #endif
             }

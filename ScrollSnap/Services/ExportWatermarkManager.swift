@@ -70,7 +70,7 @@ public final class ExportWatermarkManager {
             .paragraphStyle: paragraphStyle
         ]
         
-        let watermarkText = "Captured with ScrollSnap · 滚动画布"
+        let watermarkText = "由 ScrollSnap 拼接"
         let textRect = CGRect(x: 0, y: originalHeight + 18, width: originalWidth, height: 20)
         (watermarkText as NSString).draw(in: textRect, withAttributes: attributes)
         

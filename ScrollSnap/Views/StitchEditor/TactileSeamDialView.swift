@@ -40,7 +40,7 @@ public struct TactileSeamDialView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform.path.ecg")
                         .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
-                    Text("接缝对齐能量谱")
+                    Text("接缝对齐波形")
                         .font(.caption.bold())
                 }
                 
@@ -213,7 +213,7 @@ public struct TactileSeamDialView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "target")
-                        Text("最佳缝合点")
+                        Text("自动对齐")
                     }
                     .font(.caption2.bold())
                     .foregroundStyle(Color.green)

@@ -106,7 +106,7 @@ public struct LiquidBrushRedactionView: View {
                 
                 Spacer()
                 
-                Text("\(strokes.count) 处涂抹遮蔽")
+                Text("\(strokes.count) 处遮挡")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
             }

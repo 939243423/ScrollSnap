@@ -36,11 +36,11 @@ public struct SocialGridStageView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "square.grid.3x3.fill")
                         .foregroundStyle(Color.pink)
-                    Text("小红书 3:4 黄金画幅切片")
+                    Text("3:4 比例切片")
                         .font(.caption.bold())
                 }
                 Spacer()
-                Text("\(slices.count) 屏高清分块")
+                Text("共 \(slices.count) 张")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
@@ -94,7 +94,7 @@ public struct SocialGridStageView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.counterclockwise")
-                            Text("重设分块")
+                            Text("重选")
                         }
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .padding(.horizontal, 14)
@@ -117,7 +117,7 @@ public struct SocialGridStageView: View {
                         } else {
                             Image(systemName: "square.and.arrow.down.on.square.fill")
                         }
-                        Text("一键存 \(slices.count) 张切片")
+                        Text("保存 \(slices.count) 张切片")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)

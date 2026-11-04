@@ -2,9 +2,9 @@ import Foundation
 import CoreGraphics
 
 public enum RedactionBrushType: String, Codable, CaseIterable, Identifiable, Sendable {
-    case frostedGlass = "极光毛玻璃"
-    case pixelateMosaic = "像素马赛克"
-    case confidentialInk = "机密墨水笔"
+    case frostedGlass = "毛玻璃"
+    case pixelateMosaic = "马赛克"
+    case confidentialInk = "涂抹笔"
     
     public var id: String { rawValue }
     

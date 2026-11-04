@@ -30,7 +30,7 @@ public struct CopyRecentStitchIntent: AppIntent {
             #if canImport(WidgetKit)
             WidgetCenter.shared.reloadTimelines(ofKind: "RecentStitchWidget")
             #endif
-            return .result(value: "已将最新长截图复制到剪贴板！")
+            return .result(value: "已复制最新长截图")
         }
         #endif
         
@@ -38,11 +38,11 @@ public struct CopyRecentStitchIntent: AppIntent {
     }
 }
 
-// MARK: - 2. 智能拼合最近连续截屏 (支持操作按钮 Action Button & 轻点背面 Back Tap)
+// MARK: - 2. 拼接最近连续截屏 (支持操作按钮 Action Button & 轻点背面 Back Tap)
 
 public struct QuickStitchRecentScreenshotsIntent: AppIntent {
-    public static var title: LocalizedStringResource = "智能拼合最近截图并复制"
-    public static var description = IntentDescription("自动扫描 5 分钟内的连续截屏，完成智能拼接并直接存入剪贴板")
+    public static var title: LocalizedStringResource = "拼接最近截图并复制"
+    public static var description = IntentDescription("扫描 5 分钟内的连续截图，拼接成长图并存入相册与剪贴板")
     
     public static var openAppWhenRun: Bool = false
     
@@ -75,7 +75,7 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
                 }
                 SharedStore.shared.resetActiveBroadcastSession()
                 SharedStore.shared.notifyWidgetReloadDebounced()
-                return .result(dialog: "已自动拼合 \(broadcastSlices.count) 屏录屏内容，已保存至系统相册并复制到剪贴板！")
+                return .result(dialog: "已拼接 \(broadcastSlices.count) 屏录屏内容，并保存至相册与剪贴板")
             }
         }
         
@@ -92,7 +92,7 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
         
         let assets = PHAsset.fetchAssets(with: fetchOptions)
         guard assets.count >= 2 else {
-            return .result(dialog: "未检测到 5 分钟内的多张连续截图，请先截屏后再试。")
+            return .result(dialog: "未找到 5 分钟内的连续截图，请先截屏后再试")
         }
         
         var paths: [String] = []
@@ -113,7 +113,7 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
         }
         
         guard paths.count >= 2 else {
-            return .result(dialog: "切片提取失败，请检查相册访问权限。")
+            return .result(dialog: "读取截图失败，请检查相册访问权限")
         }
         
         let session = try await StitchEngine.shared.stitchSlices(
@@ -137,7 +137,7 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
                 #endif
             }
             SharedStore.shared.notifyWidgetReloadDebounced()
-            return .result(dialog: "已智能拼合 \(paths.count) 张截屏，已保存至系统相册并存入剪贴板！")
+            return .result(dialog: "已拼接 \(paths.count) 张截图，并保存至相册与剪贴板")
         }
         #endif
         
@@ -169,11 +169,11 @@ public struct ScrollSnapShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: QuickStitchRecentScreenshotsIntent(),
             phrases: [
-                "用 \(.applicationName) 智能拼合长截图",
+                "用 \(.applicationName) 拼接长截图",
                 "用 \(.applicationName) 拼合最近截图",
                 "拼合最近长截图"
             ],
-            shortTitle: "一键拼合长截图",
+            shortTitle: "拼接长截图",
             systemImageName: "camera.viewfinder"
         )
         AppShortcut(

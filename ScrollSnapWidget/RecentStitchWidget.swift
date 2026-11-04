@@ -110,8 +110,8 @@ public struct RecentStitchWidget: Widget {
         StaticConfiguration(kind: kind, provider: RecentStitchProvider()) { entry in
             RecentStitchWidgetView(entry: entry)
         }
-        .configurationDisplayName("最新截图快捷操作")
-        .description("在桌面上快速查看与一键复制最近拼接的长截图")
+        .configurationDisplayName("最新长截图")
+        .description("快速查看或复制最近拼接的长截图。")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

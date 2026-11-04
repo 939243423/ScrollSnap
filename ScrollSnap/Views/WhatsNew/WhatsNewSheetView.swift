@@ -23,12 +23,12 @@ public struct WhatsNewSheetView: View {
                             .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
                         
                         VStack(spacing: 4) {
-                            Text("全新功能与特性")
+                            Text("新功能介绍")
                                 .font(.system(.title2, design: .rounded).weight(.bold))
                                 .foregroundStyle(.primary)
                             
                             HStack(spacing: 6) {
-                                Text("滚动画布 ScrollSnap")
+                                Text("ScrollSnap")
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.secondary)
                                 
@@ -84,7 +84,7 @@ public struct WhatsNewSheetView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "lock.shield")
                         .font(.caption2)
-                    Text("100% 纯端侧离线运算 · 零网络追踪")
+                    Text("本地离线处理 · 不上传数据")
                         .font(.caption2)
                 }
                 .foregroundStyle(.tertiary)

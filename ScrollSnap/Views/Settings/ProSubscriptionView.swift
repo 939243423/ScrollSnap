@@ -47,10 +47,10 @@ public struct ProSubscriptionView: View {
                         }
                         #endif
                         
-                        Text("纯粹效率 · 1元永久买断")
+                        Text("ScrollSnap Pro 永久买断")
                             .font(.system(.title2, design: .rounded).weight(.bold))
                         
-                        Text("每天免费提供 2 次完整长截图。支付 ¥1.00 即可永久解锁全部效率特权，承诺无任何月费与订阅。")
+                        Text("每天免费提供 2 次拼图额度。支付 ¥1.00 永久解锁全部功能，无任何订阅费。")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -85,38 +85,38 @@ public struct ProSubscriptionView: View {
                         perkRow(
                             icon: "dial.low",
                             tint: .green,
-                            title: "微米级机械棘轮微调与接缝能量谱",
-                            detail: "滑动物理齿轮旋钮，NCC 互相关波形触觉磁吸最佳接缝"
+                            title: "接缝微调与放大镜",
+                            detail: "滑动刻度滚轮精确微调接缝，配合 2.2x 放大镜精准对齐"
                         )
                         perkRow(
                             icon: "paintbrush.pointed.fill",
                             tint: .cyan,
-                            title: "极光毛玻璃“隐私刮刮乐”涂抹",
-                            detail: "告别粗暴黑块，指尖自由刮涂苹果级高斯毛玻璃与像素马赛克"
+                            title: "毛玻璃与隐私涂抹",
+                            detail: "自由手绘毛玻璃与像素马赛克，自然遮挡敏感信息"
                         )
                         perkRow(
                             icon: "shield.lefthalf.filled",
                             tint: .yellow,
-                            title: "灵动监控岛与微信防糊哨兵",
-                            detail: "画幅超万像素智能预警，一键 9 宫格切片拆分防微信压缩"
+                            title: "超长图预警与九宫格切片",
+                            detail: "画幅超长时自动预警，一键拆分为九宫格避免微信画质压缩"
                         )
                         perkRow(
                             icon: "cube.transparent",
                             tint: .purple,
-                            title: "3D 摄影棚悬浮展示海报直出",
-                            detail: "钛金属机身 3D 空间倾角旋转，四款棚拍光影一键出社交大片"
+                            title: "3D 样机海报制作",
+                            detail: "为长截图套上金属机壳与立体光影，一键导出展示海报"
                         )
                         perkRow(
                             icon: "text.viewfinder",
                             tint: .indigo,
-                            title: "端侧 Vision 视觉引擎与 OCR 离线提取",
-                            detail: "Neural Engine 毫秒级离线识别头像与手机号，时序提取全文"
+                            title: "文字识别与敏感信息保护",
+                            detail: "本地自动识别头像、手机号并支持一键提取全文文本"
                         )
                         perkRow(
                             icon: "iphone.radiowaves.left.and.right",
                             tint: .blue,
-                            title: "15 Pro 操作按钮与轻点背面秒拼",
-                            detail: "连按截屏后双击手机背面，0.3 秒无感拼好直接存入剪贴板"
+                            title: "操作按钮与轻点背面快捷拼图",
+                            detail: "连按截屏后轻敲手机背面，自动拼接并存入相册与剪贴板"
                         )
                     }
                     .padding(ScrollSnapTheme.Spacing.lg + 2)
@@ -128,7 +128,7 @@ public struct ProSubscriptionView: View {
                             HStack {
                                 Image(systemName: "checkmark.seal.fill")
                                     .foregroundStyle(.green)
-                                Text("你已是永久会员，享有全部效率特权")
+                                Text("已解锁全部功能")
                                     .font(.subheadline.bold())
                             }
                             .padding(.vertical, 8)
@@ -178,7 +178,7 @@ public struct ProSubscriptionView: View {
                 .padding(20)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("效率特权")
+            .navigationTitle("ScrollSnap Pro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

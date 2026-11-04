@@ -14,13 +14,13 @@ public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
     public var title: String {
         switch self {
         case .smartAuto:
-            return "智能识别"
+            return "自动识别"
         case .chatRecord:
             return "微信聊天"
         case .webArticle:
             return "网页文章"
         case .continuousFeed:
-            return "信息瀑布流"
+            return "长图滚动"
         case .movieSubtitles:
             return "电影台词"
         case .horizontalCompare:
@@ -100,7 +100,7 @@ public struct StitchSession: Codable, Identifiable {
         source: StitchCaptureSource = .photoLibrary,
         presetMode: StitchPresetMode = .chatRecord,
         slices: [StitchItem] = [],
-        title: String = "Stitched Screenshot",
+        title: String = "长截图",
         deviceScreenWidth: CGFloat = 393,
         deviceScreenScale: CGFloat = 3.0,
         hasAppliedDeviceFrame: Bool = false,

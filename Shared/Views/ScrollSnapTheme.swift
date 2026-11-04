@@ -36,10 +36,10 @@ public enum ScrollSnapTheme {
     
     // MARK: - Typography Tokens (语义排版层次)
     public enum FontToken {
-        /// 页面主标题 (例如 "长截图工坊")
+        /// 页面主标题 (例如 "长截图")
         public static let heroTitle: Font = .system(.title2, design: .rounded).weight(.bold)
         
-        /// 分组与模态标题 (例如 "即开即拼 · 智能感知")
+        /// 分组与模态标题
         public static let sectionTitle: Font = .system(.headline, design: .rounded).weight(.bold)
         
         /// 卡片主文案与主按钮
@@ -51,7 +51,7 @@ public enum ScrollSnapTheme {
         /// 正文阅读
         public static let bodyText: Font = .system(.footnote, design: .default)
         
-        /// 辅助说明与次要提示 (例如 "自适应光流追帧，0.08s 捕捉不匀速快滑")
+        /// 辅助说明与次要提示
         public static let captionHint: Font = .system(.caption2, design: .default)
         
         /// 胶囊状态徽章 (例如 "4s 视频", "刚刚截取")
@@ -91,7 +91,7 @@ public enum ScrollSnapTheme {
             endPoint: .trailing
         )
         
-        /// 3D 摄影棚渐变 (玫红 -> 紫色)
+        /// 样机海报渐变 (玫红 -> 紫色)
         public static let studioGradient = LinearGradient(
             colors: [Color.pink, Color.purple],
             startPoint: .topLeading,

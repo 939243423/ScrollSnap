@@ -248,10 +248,10 @@ public struct HomeStitchView: View {
     private var headerBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text("长截图工坊")
+                Text("长截图")
                     .font(.system(.title2, design: .rounded).weight(.bold))
                     .foregroundStyle(.primary)
-                Text("端侧无损连续拼接 · 支持操作按钮与轻点背面")
+                Text("自动拼接长截图 · 支持轻点背面与快捷指令")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -421,14 +421,14 @@ public struct HomeStitchView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("录屏秒转长图")
+                        Text("录屏转长图")
                             .font(ScrollSnapTheme.FontToken.cardTitle)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         
                         ScrollSnapBadge("\(durationSec)s 视频", tint: .purple)
                     }
-                    Text("自适应光流追帧，捕捉快滑并自动去除重复")
+                    Text("从滑动录屏提取画面，自动去除重复内容")
                         .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -460,7 +460,7 @@ public struct HomeStitchView: View {
                             Image(systemName: "film.stack.fill")
                                 .font(.body.weight(.semibold))
                         }
-                        Text("提取超清长图并清理原录屏")
+                        Text("保存长图并删除原录屏")
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                         Spacer()
@@ -525,14 +525,14 @@ public struct HomeStitchView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("连续截图感知")
+                        Text("检测到连续截屏")
                             .font(ScrollSnapTheme.FontToken.cardTitle)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                         
                         ScrollSnapBadge("\(count) 张截图", tint: .accentColor)
                     }
-                    Text("检测到刚截取的连续画面，已为您准备好无缝拼合")
+                    Text("已按时间排好顺序，可直接拼成长图")
                         .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -566,7 +566,7 @@ public struct HomeStitchView: View {
                             Image(systemName: "arrow.down.circle.fill")
                                 .font(.body.weight(.semibold))
                         }
-                        Text("保存长图并清理 \(count) 张原截图")
+                        Text("保存长图并删除 \(count) 张原截图")
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                         Spacer()
@@ -641,8 +641,8 @@ public struct HomeStitchView: View {
                     photoLibrary: .shared()
                 ) {
                     actionCard(
-                        title: "截图拼长图",
-                        subtitle: "相册批量智能去重",
+                        title: "照片拼长图",
+                        subtitle: "选多张截图自动拼接",
                         iconName: "photo.stack.fill",
                         tint: Color.indigo,
                         tag: "常用"
@@ -657,11 +657,11 @@ public struct HomeStitchView: View {
                     photoLibrary: .shared()
                 ) {
                     actionCard(
-                        title: "视频转长图",
-                        subtitle: "自适应光流追帧",
+                        title: "录屏转长图",
+                        subtitle: "自动识别滑动内容",
                         iconName: "film.stack.fill",
                         tint: Color.purple,
-                        tag: "免连按"
+                        tag: "视频"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -678,11 +678,11 @@ public struct HomeStitchView: View {
                     isShowingWebCapture = true
                 } label: {
                     actionCard(
-                        title: "网页全页截",
-                        subtitle: "0截屏链接直出",
+                        title: "网页截图",
+                        subtitle: "输入网址保存整页",
                         iconName: "safari.fill",
                         tint: Color.teal,
-                        tag: "整页直出"
+                        tag: "网页"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -693,11 +693,11 @@ public struct HomeStitchView: View {
                     isShowingStudioShowroom = true
                 } label: {
                     actionCard(
-                        title: "3D 摄影棚",
-                        subtitle: "原色钛悬浮海报",
+                        title: "带壳截图",
+                        subtitle: "生成手机样机海报",
                         iconName: "cube.transparent.fill",
                         tint: Color.pink,
-                        tag: "4K制图"
+                        tag: "样机"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -778,16 +778,16 @@ public struct HomeStitchView: View {
                                 cornerRadius: ScrollSnapTheme.Radius.sm
                             )
                             Spacer()
-                            ScrollSnapBadge("0.3s", tint: .blue, font: ScrollSnapTheme.FontToken.monoMetric)
+                            ScrollSnapBadge("快捷", tint: .blue)
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("轻敲背面 / 侧键")
+                            Text("轻点背面 / 操作按钮")
                                 .font(ScrollSnapTheme.FontToken.itemTitle)
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
-                            Text("截屏轻敲即拼好")
+                            Text("截屏后轻按直接拼图")
                                 .font(ScrollSnapTheme.FontToken.captionHint)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -833,7 +833,7 @@ public struct HomeStitchView: View {
                                 .foregroundStyle(.primary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
-                            Text("微信后台匀速录制")
+                            Text("边滑边录自动拼长图")
                                 .font(ScrollSnapTheme.FontToken.captionHint)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -852,7 +852,7 @@ public struct HomeStitchView: View {
     
     private var recentStitchesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("历史长截图展台 (3D 拟物视角)")
+            Text("历史长截图")
                 .font(.system(.footnote, design: .rounded).weight(.bold))
                 .foregroundStyle(.secondary)
             
@@ -950,7 +950,7 @@ public struct HomeStitchView: View {
                     .frame(height: 250)
                     .padding(.vertical, 4)
                     
-                    Text("左右滑动 3D 展台 · 轻触任意示例卡片开启全功能测试")
+                    Text("左右滑动浏览示例 · 点击卡片体验编辑器")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -972,7 +972,7 @@ public struct HomeStitchView: View {
             return
         }
         guard !activeBroadcastSlices.isEmpty else { return }
-        processingStatusMessage = "正在拼合录屏广播切片..."
+        processingStatusMessage = "正在拼接录屏画面..."
         isProcessingStitch = true
         
         Task {
@@ -1004,7 +1004,7 @@ public struct HomeStitchView: View {
             return
         }
         
-        processingStatusMessage = "正在读取并拼接相册切片..."
+        processingStatusMessage = "正在读取并拼接截图..."
         isProcessingStitch = true
         Task {
             var paths: [String] = []
@@ -1042,7 +1042,7 @@ public struct HomeStitchView: View {
             return
         }
         
-        processingStatusMessage = "自适应光流分析抽帧中..."
+        processingStatusMessage = "正在提取视频画面..."
         isProcessingStitch = true
         Task {
             var tempURL: URL?
@@ -1109,7 +1109,7 @@ public struct HomeStitchView: View {
             return
         }
         
-        processingStatusMessage = "正在读取并拼合 \(assets.count) 张原截图..."
+        processingStatusMessage = "正在读取并拼接 \(assets.count) 张截图..."
         isProcessingStitch = true
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
@@ -1171,7 +1171,7 @@ public struct HomeStitchView: View {
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playShutter()
                     StoreReviewManager.shared.recordSuccessfulExport()
-                    let msg = deleteOriginals ? "已保存长图并清理 \(sortedAssets.count) 张原截图！" : "已成功保存高清长图至相册！"
+                    let msg = deleteOriginals ? "已保存长图，并已删除 \(sortedAssets.count) 张原截图" : "已保存长图至相册"
                     self.showToast(message: msg)
                     self.photoObserver.scanRecentScreenshots()
                 }
@@ -1189,7 +1189,7 @@ public struct HomeStitchView: View {
             return
         }
         
-        processingStatusMessage = "正在无缝拼接相册截图..."
+        processingStatusMessage = "正在拼接截图..."
         isProcessingStitch = true
         let imageManager = PHImageManager.default()
         let requestOptions = PHImageRequestOptions()
@@ -1240,7 +1240,7 @@ public struct HomeStitchView: View {
             return
         }
         
-        processingStatusMessage = "自适应光流追帧合成中..."
+        processingStatusMessage = "正在提取并合成长图..."
         isProcessingStitch = true
         let options = PHVideoRequestOptions()
         options.isNetworkAccessAllowed = true
@@ -1324,7 +1324,7 @@ public struct HomeStitchView: View {
                         HapticFeedbackManager.shared.triggerSnap()
                         SoundEffectManager.shared.playShutter()
                         StoreReviewManager.shared.recordSuccessfulExport()
-                        let msg = deleteOriginalVideo ? "已从录屏秒出长图，并为您清理原视频！" : "已从录屏成功提取高清长图！"
+                        let msg = deleteOriginalVideo ? "已从录屏生成长图，并已删除原视频" : "已从录屏生成长图并保存至相册"
                         self.showToast(message: msg)
                         self.photoObserver.scanRecentScreenshots()
                     }
@@ -1341,7 +1341,7 @@ public struct HomeStitchView: View {
             ShowcaseStitchCard(
                 id: "sample_chat",
                 title: "微信研发群长对话",
-                category: "聊天记录 · 智能去重",
+                category: "聊天记录拼接",
                 pixelHeight: "3,420 px",
                 gradientColors: [Color(red: 0.12, green: 0.28, blue: 0.20), Color(red: 0.05, green: 0.14, blue: 0.10)],
                 icon: "message.badge.filled.fill",
@@ -1350,7 +1350,7 @@ public struct HomeStitchView: View {
             ShowcaseStitchCard(
                 id: "sample_social",
                 title: "小红书秋季穿搭清单",
-                category: "九宫格切片 · 朋友圈直发",
+                category: "九宫格切片",
                 pixelHeight: "4,860 px",
                 gradientColors: [Color(red: 0.35, green: 0.12, blue: 0.22), Color(red: 0.18, green: 0.05, blue: 0.12)],
                 icon: "square.grid.3x3.fill",
@@ -1359,7 +1359,7 @@ public struct HomeStitchView: View {
             ShowcaseStitchCard(
                 id: "sample_web",
                 title: "Safari 苹果空间计算专栏",
-                category: "长文去顶栏 · 原色钛带壳",
+                category: "长文去顶栏 · 带壳展示",
                 pixelHeight: "14,890 px",
                 gradientColors: [Color(red: 0.10, green: 0.16, blue: 0.32), Color(red: 0.05, green: 0.08, blue: 0.18)],
                 icon: "safari.fill",
@@ -1476,7 +1476,7 @@ public struct HomeStitchView: View {
                 let itemTitle = "\(subtitle) · 示例切片 \(part)-\(i + 1)"
                 (itemTitle as NSString).draw(at: CGPoint(x: 175, y: cardY + 45), withAttributes: titleAttrs)
                 
-                let body = "ScrollSnap 纯端侧长截图工坊。支持无感无缝连续对齐、接缝触觉磁吸旋钮微调、智能隐私脱敏与 3D 摄影棚海报直出。"
+                let body = "ScrollSnap 离线长截图工具。支持自动对齐、接缝滚轮微调、隐私涂抹保护与带壳样机海报。"
                 let bodyRect = CGRect(x: 80, y: cardY + 130, width: size.width - 160, height: 160)
                 (body as NSString).draw(in: bodyRect, withAttributes: bodyAttrs)
             }
@@ -1548,10 +1548,10 @@ private struct BroadcastGuideSheet: View {
                             size: 54,
                             cornerRadius: ScrollSnapTheme.Radius.md
                         )
-                        Text("滚动录屏 · 自动拼接长图")
+                        Text("滚动录屏拼接长图")
                             .font(.system(.title3, design: .rounded).weight(.bold))
                             .foregroundStyle(.primary)
-                        Text("利用 iOS 系统录屏广播，在微信、小红书等任意 App 内直接匀速滑动，无需多次截屏与切回，长图自动合成为高清文件。")
+                        Text("在微信、小红书或任意应用内匀速向下滑动屏幕，系统录屏将在后台自动提取画面并拼接成长图，无需多次截屏。")
                             .font(ScrollSnapTheme.FontToken.captionHint)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -1573,7 +1573,7 @@ private struct BroadcastGuideSheet: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "record.circle.fill")
                                     .foregroundStyle(.orange)
-                                Text("点击启动 ScrollSnap 录屏切片")
+                                Text("启动 ScrollSnap 录屏")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
                                     .foregroundStyle(.orange)
                             }
@@ -1595,29 +1595,29 @@ private struct BroadcastGuideSheet: View {
                     VStack(spacing: 12) {
                         guideStepCard(
                             stepNumber: "1",
-                            title: "添加或长按控制中心录屏",
-                            description: "在 iPhone 控制中心长按「屏幕录制」图标，在弹出列表中勾选「ScrollSnap 录屏拼图」并轻触「开始直播」。",
+                            title: "长按控制中心的录屏按钮",
+                            description: "打开控制中心，长按录屏图标，勾选「ScrollSnap」后点击「开始直播」。",
                             iconName: "hand.tap.fill",
                             tint: .blue
                         )
                         guideStepCard(
                             stepNumber: "2",
-                            title: "切换到任意目标 App",
-                            description: "切回微信聊天记录、小红书长文、网页或社交动态页面，等待 3 秒倒计时结束。",
+                            title: "切换到目标应用",
+                            description: "切回微信、网页或聊天记录等需要长截图的界面，等待 3 秒倒计时结束。",
                             iconName: "app.badge.fill",
                             tint: .purple
                         )
                         guideStepCard(
                             stepNumber: "3",
-                            title: "匀速平缓单向向下滚动",
-                            description: "以自然舒适的匀速手势向下滑动屏幕，系统将在后台自动进行光流对齐与帧去重，无需停顿。",
+                            title: "匀速向下滑动",
+                            description: "平稳向下滑动屏幕，系统会在后台自动去除重合部分。",
                             iconName: "arrow.down.circle.fill",
                             tint: .orange
                         )
                         guideStepCard(
                             stepNumber: "4",
-                            title: "轻点灵动岛红点停止",
-                            description: "滑动完毕后，点击顶部红色药丸或灵动岛停止录制，切回本 App 即可直接存相册或精修！",
+                            title: "点击顶部红点停止录屏",
+                            description: "滑完后点击灵动岛或状态栏红点停止录制，打开 ScrollSnap 即可查看长图。",
                             iconName: "checkmark.seal.fill",
                             tint: .green
                         )
@@ -1629,10 +1629,10 @@ private struct BroadcastGuideSheet: View {
                             .font(.title3)
                             .foregroundStyle(.teal)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("100% 离线端侧处理 · 隐私零上传")
+                            Text("本地离线处理 · 不上传网络")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.primary)
-                            Text("所有录屏帧均直接在 iPhone 内存与安全沙盒中完成拼接，不经过任何云端服务器。")
+                            Text("所有录屏画面均在手机本地处理，不经过任何外部服务器。")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                         }
@@ -1703,10 +1703,10 @@ private struct ActionShortcutGuideSheet: View {
                             size: 54,
                             cornerRadius: ScrollSnapTheme.Radius.md
                         )
-                        Text("操作按钮与轻点背面极速拼图")
+                        Text("轻点背面与操作按钮拼图")
                             .font(.system(.title3, design: .rounded).weight(.bold))
                             .foregroundStyle(.primary)
-                        Text("截屏后轻敲手机背面两下，或长按 iPhone 侧边操作按钮，系统在后台瞬间将最近 5 分钟内的截图无缝拼合存入相册与剪贴板！")
+                        Text("截屏后轻点手机背面两下，或长按侧边操作按钮，自动将最近截取的图片拼成长图并存入相册。")
                             .font(ScrollSnapTheme.FontToken.captionHint)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -1767,7 +1767,7 @@ private struct ActionShortcutGuideSheet: View {
                                 Spacer()
                                 Text("最推荐").font(.caption2.bold()).foregroundStyle(.indigo)
                             }
-                            Text("轻点背面两下自动拼长图")
+                            Text("轻点背面两下拼长图")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                             
                             VStack(alignment: .leading, spacing: 6) {
@@ -1797,7 +1797,7 @@ private struct ActionShortcutGuideSheet: View {
                                 Text("1. 打开系统「设置」->「操作按钮」；")
                                 Text("2. 左右划动转盘，选择「快捷指令」；")
                                 Text("3. 点击选取，选择「ScrollSnap: 一键拼合长截图」；")
-                                Text("4. 以后连按截屏后，直接长按侧键即可完成拼合！")
+                                Text("4. 截屏后长按操作按钮，自动完成拼接。")
                             }
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
@@ -1812,10 +1812,10 @@ private struct ActionShortcutGuideSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: "sparkles")
                                 .foregroundStyle(.orange)
-                            Text("实际使用体验")
+                            Text("使用示例")
                                 .font(.system(size: 13, weight: .bold))
                         }
-                        Text("在微信聊天界面连续截 3 张图 -> 随手轻敲手机背面两下 -> 听到清脆快门声 -> 返回聊天输入框直接「粘贴」发送！整个过程甚至不需要打开 ScrollSnap App，行云流水！")
+                        Text("在微信中连续截几张图，轻敲手机背面两下听到快门提示音，回到聊天输入框长按粘贴即可发送。无需手动打开应用。")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1827,7 +1827,7 @@ private struct ActionShortcutGuideSheet: View {
                 .padding(.bottom, 24)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("硬件触发配置")
+            .navigationTitle("快捷拼图设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -3,8 +3,8 @@ import SwiftUI
 import UIKit
 #endif
 
-/// 极度优雅的无缝拼合双目对比帘幕 (Interactive Before/After Split Curtain)
-/// 支持手指左右滑动玻璃游标，直观对比「原始重叠分散截屏」与「ScrollSnap 算法去重拼合结果」
+/// 拼图前后对比视图 (Interactive Before/After Split Curtain)
+/// 支持左右拖动滑块，对比原始截图与拼接效果
 public struct BeforeAfterComparisonView: View {
     public let beforeImage: UIImage?
     public let afterImage: UIImage?
@@ -36,8 +36,8 @@ public struct BeforeAfterComparisonView: View {
                                 .frame(width: size.width, height: size.height)
                         } else {
                             placeholderView(
-                                title: "ScrollSnap 算法无缝长图",
-                                subtitle: "吸顶/吸底全自动去重 · 智能接缝无裂痕",
+                                title: "拼接长图",
+                                subtitle: "自动去除重合部分",
                                 color: .indigo
                             )
                             .frame(width: size.width, height: size.height)
@@ -52,8 +52,8 @@ public struct BeforeAfterComparisonView: View {
                                     .frame(width: size.width, height: size.height)
                             } else {
                                 placeholderView(
-                                    title: "原始多张截图",
-                                    subtitle: "存在大量重复顶栏与错位气泡",
+                                    title: "原始截图",
+                                    subtitle: "包含重叠部分",
                                     color: .orange
                                 )
                                 .frame(width: size.width, height: size.height)
@@ -92,8 +92,8 @@ public struct BeforeAfterComparisonView: View {
                         .scaleEffect(isDragging ? 1.15 : 1.0)
                         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("对比帘幕推拉游标")
-                        .accessibilityValue("当前左侧原图显示 \(Int(splitRatio * 100))%，右侧拼合图显示 \(Int((1 - splitRatio) * 100))%")
+                        .accessibilityLabel("对比滑块")
+                        .accessibilityValue("左侧原图显示 \(Int(splitRatio * 100))%，右侧拼接图显示 \(Int((1 - splitRatio) * 100))%")
                         .accessibilityAdjustableAction { direction in
                             switch direction {
                             case .increment:
@@ -131,12 +131,12 @@ public struct BeforeAfterComparisonView: View {
                     HStack {
                         HStack(spacing: 4) {
                             Circle().fill(Color.orange).frame(width: 6, height: 6)
-                            Text("左：原始分散截图")
+                            Text("左：原始截图")
                         }
                         Spacer()
                         HStack(spacing: 4) {
                             Circle().fill(Color.indigo).frame(width: 6, height: 6)
-                            Text("右：ScrollSnap 无缝长图")
+                            Text("右：拼接长图")
                         }
                     }
                     .font(.caption2.bold())
@@ -147,7 +147,7 @@ public struct BeforeAfterComparisonView: View {
                     .padding(.bottom, 20)
                 }
             }
-            .navigationTitle("无缝拼合对比帘幕")
+            .navigationTitle("拼图对比")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

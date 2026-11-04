@@ -80,7 +80,7 @@ public struct FloatingTelemetryIslandView: View {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 9))
                                 .foregroundStyle(Color.yellow)
-                            Text("微信防糊")
+                            Text("长图提示")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(Color.yellow)
                         }
@@ -105,11 +105,11 @@ public struct FloatingTelemetryIslandView: View {
                     // Memory Progress Bar
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("离线渲染内存安全水位")
+                            Text("内存占用")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Text(String(format: "%.1f / %.0f MB (安全)", memoryUsageMB, memoryLimitMB))
+                            Text(String(format: "%.1f / %.0f MB", memoryUsageMB, memoryLimitMB))
                                 .font(.caption2.monospacedDigit())
                                 .foregroundStyle(memoryColor)
                         }
@@ -121,9 +121,9 @@ public struct FloatingTelemetryIslandView: View {
                                 RoundedRectangle(cornerRadius: 3)
                                     .fill(
                                         LinearGradient(
-                                            colors: [memoryColor.opacity(0.7), memoryColor],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
+                                             colors: [memoryColor.opacity(0.7), memoryColor],
+                                             startPoint: .leading,
+                                             endPoint: .trailing
                                         )
                                     )
                                     .frame(width: barProxy.size.width * memoryRatio)
@@ -142,9 +142,9 @@ public struct FloatingTelemetryIslandView: View {
                                 .font(.title3)
                             
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("微信超长图压缩预警")
+                                Text("超长图片提示")
                                     .font(.caption.bold())
-                                Text("画幅超过 10,000px，微信直接发送会自动二压导致文字模糊。建议启用智能分片或限制长边。")
+                                Text("高度超过 10,000 像素，微信发送时可能会压缩变糊。建议使用九宫格切片发送。")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -164,7 +164,7 @@ public struct FloatingTelemetryIslandView: View {
                     HStack(spacing: 16) {
                         specItem(title: "色彩空间", value: "Display P3")
                         specItem(title: "渲染瓦片", value: "\(Int(ceil(Double(canvasHeight) / 2048.0))) 块切片")
-                        specItem(title: "无损保真", value: "100% 本地")
+                        specItem(title: "处理方式", value: "本地离线")
                     }
                 }
                 .padding(14)

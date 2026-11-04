@@ -62,7 +62,7 @@ public struct StitchActivityWidget: Widget {
                         
                         Spacer()
                         
-                        Text("录屏结束后打开 App 自动拼合")
+                        Text("录屏结束后打开应用自动拼接")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -119,7 +119,7 @@ private struct LockScreenActivityView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(context.state.frameCount)")
                         .font(.system(.title2, design: .rounded).weight(.bold).monospacedDigit())
-                    Text("切片")
+                    Text("屏")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

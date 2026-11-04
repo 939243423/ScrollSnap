@@ -6,11 +6,11 @@ import UIKit
 #endif
 
 public enum StudioLightingTheme: String, CaseIterable, Identifiable {
-    case cupertinoSunset = "加州暖霞"
-    case auroraCyan = "极光青蓝"
-    case spaceObsidian = "极夜黑曜"
-    case studioClean = "棚拍纯白"
-    case transparentAlpha = "透明无底"
+    case cupertinoSunset = "暖橙色"
+    case auroraCyan = "青蓝色"
+    case spaceObsidian = "深黑色"
+    case studioClean = "纯白色"
+    case transparentAlpha = "透明背景"
     
     public var id: String { rawValue }
     
@@ -139,7 +139,7 @@ public struct StudioShowroomView: View {
                     VStack(spacing: 12) {
                         // Lighting Themes
                         HStack {
-                            Text("摄影棚氛围")
+                            Text("背景样式")
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -173,7 +173,7 @@ public struct StudioShowroomView: View {
                         
                         // Device Bezel Finishes Bar
                         HStack {
-                            Text("机身工艺")
+                            Text("外壳颜色")
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -205,7 +205,7 @@ public struct StudioShowroomView: View {
                         
                         // Aspect Ratio Bar
                         HStack {
-                            Text("海报画幅")
+                            Text("图片比例")
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -238,14 +238,14 @@ public struct StudioShowroomView: View {
                                 if isExporting {
                                     ProgressView()
                                         .tint(.black)
-                                    Text("正在生成超清 3D 海报...")
+                                    Text("正在生成样机海报...")
                                         .font(.headline.weight(.semibold))
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.85)
                                 } else {
                                     Image(systemName: "arrow.down.circle.fill")
                                         .font(.headline)
-                                    Text("一键导出 \(selectedRatio.rawValue) 海报")
+                                    Text("保存 \(selectedRatio.rawValue) 海报")
                                         .font(.headline.weight(.semibold))
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.85)
@@ -267,7 +267,7 @@ public struct StudioShowroomView: View {
                     .padding(.bottom, 8)
                 }
             }
-            .navigationTitle("3D 摄影棚制图")
+            .navigationTitle("3D 样机海报")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -342,9 +342,9 @@ public struct StudioShowroomView: View {
                             VStack(spacing: 12) {
                                 Image(systemName: "photo.badge.plus")
                                     .font(.system(size: 38))
-                                Text("轻触选择长截图或相片")
+                                Text("选择图片")
                                     .font(.headline.weight(.semibold))
-                                Text("载入 3D 原色钛金属悬浮展台")
+                                Text("展示为 3D 手机样机")
                                     .font(.caption2)
                                     .foregroundStyle(.white.opacity(0.8))
                             }
@@ -429,7 +429,7 @@ public struct StudioShowroomView: View {
                     SoundEffectManager.shared.playShutter()
                     StoreReviewManager.shared.recordSuccessfulExport()
                     self.onSavePoster()
-                    self.toastMessage = "3D 摄影棚海报已保存至相册！"
+                    self.toastMessage = "样机海报已保存至相册"
                     withAnimation { self.isShowingToast = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                         withAnimation { self.isShowingToast = false }
