@@ -29,10 +29,10 @@ public final class ImageSlicer: Sendable {
         
         public var description: String {
             switch self {
-            case .three: return "适合微信公众号长图拆解"
-            case .four: return "适合微博/小红书图文并茂"
-            case .six: return "适合知乎长回答切片"
-            case .nine: return "小红书爆款 9 宫格首选"
+            case .three: return "适合长图拆解"
+            case .four: return "适合图文展示"
+            case .six: return "适合问答长文"
+            case .nine: return "适合九宫格发布"
             }
         }
     }

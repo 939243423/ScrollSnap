@@ -18,6 +18,11 @@ let package = Package(
         .target(
             name: "ScrollSnapCore",
             path: "Shared"
+        ),
+        .testTarget(
+            name: "ScrollSnapCoreTests",
+            dependencies: ["ScrollSnapCore"],
+            path: "Tests/ScrollSnapCoreTests"
         )
     ]
 )
