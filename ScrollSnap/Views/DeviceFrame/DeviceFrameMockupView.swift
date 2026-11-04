@@ -8,6 +8,15 @@ public enum DeviceFrameFinish: String, CaseIterable, Identifiable {
     
     public var id: String { rawValue }
     
+    public var shortName: String {
+        switch self {
+        case .desertTitanium: return "沙漠钛"
+        case .naturalTitanium: return "原色钛"
+        case .spaceBlack: return "深空黑"
+        case .silverWhite: return "银白色"
+        }
+    }
+    
     public var bezelGradient: [Color] {
         switch self {
         case .desertTitanium:

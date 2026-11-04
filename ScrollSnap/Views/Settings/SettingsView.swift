@@ -212,10 +212,12 @@ public struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     
-                    Button("重置免费拼图额度 (测试使用)") {
+                    #if DEBUG
+                    Button("重置免费拼图额度 (开发调试)") {
                         QuotaManager.shared.resetQuotaForTesting()
                         HapticFeedbackManager.shared.triggerSuccess()
                     }
+                    #endif
                 }
                 
                 // Privacy & Architecture

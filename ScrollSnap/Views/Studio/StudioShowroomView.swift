@@ -148,49 +148,58 @@ public struct StudioShowroomView: View {
                             }
                         }
                         
-                        // Finish & Aspect Ratio Bar
-                        HStack(spacing: 16) {
-                            // Device Bezel Finishes
+                        // Device Bezel Finishes Bar
+                        HStack {
+                            Text("机身工艺")
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                            Spacer()
                             HStack(spacing: 6) {
                                 ForEach(DeviceFrameFinish.allCases) { finish in
                                     Button {
                                         selectedFinish = finish
                                         HapticFeedbackManager.shared.triggerSelection()
                                     } label: {
-                                        HStack(spacing: 3) {
+                                        HStack(spacing: 4) {
                                             Circle()
                                                 .fill(finish.bezelGradient.first ?? Color.gray)
                                                 .frame(width: 8, height: 8)
-                                            Text(finish.rawValue)
-                                                .font(.system(size: 10))
+                                            Text(finish.shortName)
+                                                .font(.system(size: 11, weight: selectedFinish == finish ? .bold : .medium))
+                                                .lineLimit(1)
                                         }
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 5)
                                         .background(
                                             Capsule()
-                                                .fill(selectedFinish == finish ? Color.white.opacity(0.2) : Color.clear)
+                                                .fill(selectedFinish == finish ? Color.white.opacity(0.25) : Color.white.opacity(0.08))
                                         )
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
-                            
+                        }
+                        
+                        // Aspect Ratio Bar
+                        HStack {
+                            Text("海报画幅")
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
                             Spacer()
-                            
-                            // Aspect Ratio Picker
-                            HStack(spacing: 4) {
+                            HStack(spacing: 6) {
                                 ForEach(StudioAspectRatio.allCases) { ratio in
                                     Button {
                                         selectedRatio = ratio
                                         HapticFeedbackManager.shared.triggerSelection()
                                     } label: {
                                         Text(ratio.rawValue)
-                                            .font(.system(size: 10, weight: selectedRatio == ratio ? .bold : .regular))
-                                            .padding(.horizontal, 7)
-                                            .padding(.vertical, 4)
+                                            .font(.system(size: 11, weight: selectedRatio == ratio ? .bold : .medium))
+                                            .lineLimit(1)
+                                            .padding(.horizontal, 9)
+                                            .padding(.vertical, 5)
                                             .background(
                                                 Capsule()
-                                                    .fill(selectedRatio == ratio ? Color.white.opacity(0.25) : Color.clear)
+                                                    .fill(selectedRatio == ratio ? Color.white.opacity(0.25) : Color.white.opacity(0.08))
                                             )
                                     }
                                     .buttonStyle(.plain)
@@ -208,11 +217,15 @@ public struct StudioShowroomView: View {
                                         .tint(.black)
                                     Text("正在生成超清 3D 海报...")
                                         .font(.headline.weight(.semibold))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 } else {
                                     Image(systemName: "arrow.down.circle.fill")
                                         .font(.headline)
                                     Text("一键导出 \(selectedRatio.rawValue) 海报")
                                         .font(.headline.weight(.semibold))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 }
                             }
                             .frame(maxWidth: .infinity)

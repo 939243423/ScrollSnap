@@ -187,11 +187,15 @@ public struct WebCaptureView: View {
                             .tint(.white)
                         Text(captureStatusHint.isEmpty ? "渲染中..." : captureStatusHint)
                             .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     } else {
                         Image(systemName: "camera.viewfinder")
                             .font(.system(size: 14, weight: .bold))
                         Text("一键整页直出")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                 }
                 .foregroundStyle(.white)

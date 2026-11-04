@@ -247,9 +247,11 @@ public struct HomeStitchView: View {
                 Text("长截图工坊")
                     .font(.system(.title2, design: .rounded).weight(.bold))
                     .foregroundStyle(.primary)
-                Text("端侧无损连续拼接 · 支持 15 Pro 操作按钮与双击背面")
+                Text("端侧无损连续拼接 · 支持操作按钮与轻点背面")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             Spacer()
         }
@@ -270,9 +272,11 @@ public struct HomeStitchView: View {
                 Text("需要相册访问权限")
                     .font(ScrollSnapTheme.FontToken.itemTitle)
                     .foregroundStyle(.primary)
-                Text("请在系统设置中允许访问相册，以智能感知截图与导出高清长图")
+                    .lineLimit(1)
+                Text("请在系统设置允许访问相册，以智能感知截屏与保存长图")
                     .font(ScrollSnapTheme.FontToken.captionHint)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             
             Spacer()
@@ -358,8 +362,10 @@ public struct HomeStitchView: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
-                    Text("检测到剪贴板文章链接")
+                    Text("剪贴板文章链接")
                         .font(ScrollSnapTheme.FontToken.itemTitle)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                     ScrollSnapBadge("0 截屏", tint: .teal)
                 }
                 Text(url.host ?? url.absoluteString)
@@ -375,6 +381,8 @@ public struct HomeStitchView: View {
                 self.isShowingWebCapture = true
             }
             .font(.system(.caption, design: .rounded).weight(.bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
             .padding(.horizontal, ScrollSnapTheme.Spacing.md)
             .padding(.vertical, ScrollSnapTheme.Spacing.xs)
             .background(Color.teal)
@@ -409,15 +417,18 @@ public struct HomeStitchView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("录屏秒转长图 · 无需连按截图")
+                        Text("录屏秒转长图")
                             .font(ScrollSnapTheme.FontToken.cardTitle)
                             .foregroundStyle(.primary)
+                            .lineLimit(1)
                         
                         ScrollSnapBadge("\(durationSec)s 视频", tint: .purple)
                     }
-                    Text("自适应光流追帧，0.08s 捕捉不匀速快滑，去重合成为长图")
+                    Text("自适应光流追帧，捕捉快滑并自动去除重复")
                         .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
                 Spacer()
                 
@@ -446,6 +457,8 @@ public struct HomeStitchView: View {
                                 .font(.body.weight(.semibold))
                         }
                         Text("提取超清长图并清理原录屏")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         Spacer()
                         Image(systemName: "trash.slash.fill")
                             .font(.caption)
@@ -463,6 +476,8 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
                             Text("仅存长图")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -476,6 +491,8 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "slider.horizontal.3")
                             Text("工作台精修")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -504,15 +521,18 @@ public struct HomeStitchView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("即开即拼 · 智能感知")
+                        Text("连续截图感知")
                             .font(ScrollSnapTheme.FontToken.cardTitle)
                             .foregroundStyle(.primary)
+                            .lineLimit(1)
                         
-                        ScrollSnapBadge("刚刚截取", tint: .accentColor)
+                        ScrollSnapBadge("\(count) 张截图", tint: .accentColor)
                     }
-                    Text("检测到相册中有 \(count) 张连续截图，已为您准备好无缝拼合")
+                    Text("检测到刚截取的连续画面，已为您准备好无缝拼合")
                         .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
                 Spacer()
                 
@@ -543,6 +563,8 @@ public struct HomeStitchView: View {
                                 .font(.body.weight(.semibold))
                         }
                         Text("保存长图并清理 \(count) 张原截图")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         Spacer()
                         Image(systemName: "trash.slash.fill")
                             .font(.caption)
@@ -562,6 +584,8 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
                             Text("仅存长图")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -576,6 +600,8 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "slider.horizontal.3")
                             Text("工作台精修")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -708,10 +734,13 @@ public struct HomeStitchView: View {
                     Text(title)
                         .font(ScrollSnapTheme.FontToken.itemTitle)
                         .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                     Text(subtitle)
                         .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
             }
             .padding(13)
@@ -728,29 +757,44 @@ public struct HomeStitchView: View {
                 HapticFeedbackManager.shared.triggerSelection()
                 isShowingActionShortcutGuide = true
             } label: {
-                HStack(spacing: 10) {
-                    LiquidGlassIconPod(
-                        systemName: "iphone.radiowaves.left.and.right",
-                        tint: Color.blue,
-                        size: 38,
-                        cornerRadius: ScrollSnapTheme.Radius.sm
+                ZStack(alignment: .topTrailing) {
+                    RadialGradient(
+                        colors: [Color.blue.opacity(0.12), Color.clear],
+                        center: .topTrailing,
+                        startRadius: 8,
+                        endRadius: 90
                     )
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Text("侧键 / 轻敲背面")
-                                .font(ScrollSnapTheme.FontToken.itemTitle)
-                                .foregroundStyle(.primary)
+                    
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .top) {
+                            LiquidGlassIconPod(
+                                systemName: "iphone.radiowaves.left.and.right",
+                                tint: Color.blue,
+                                size: 38,
+                                cornerRadius: ScrollSnapTheme.Radius.sm
+                            )
+                            Spacer()
                             ScrollSnapBadge("0.3s", tint: .blue, font: ScrollSnapTheme.FontToken.monoMetric)
                         }
-                        Text("截屏后轻敲两下直接拼好")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("轻敲背面 / 侧键")
+                                .font(ScrollSnapTheme.FontToken.itemTitle)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                            Text("截屏轻敲即拼好")
+                                .font(ScrollSnapTheme.FontToken.captionHint)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                        }
                     }
-                    Spacer()
+                    .padding(13)
                 }
-                .padding(ScrollSnapTheme.Spacing.md)
-                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.blue.opacity(0.25))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 108)
+                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.blue.opacity(0.28))
             }
             .buttonStyle(ScrollSnapButtonStyle.bouncy)
             
@@ -759,38 +803,49 @@ public struct HomeStitchView: View {
                 HapticFeedbackManager.shared.triggerSelection()
                 isShowingBroadcastGuide = true
             } label: {
-                HStack(spacing: 10) {
-                    LiquidGlassIconPod(
-                        systemName: "record.circle.fill",
-                        tint: Color.orange,
-                        size: 38,
-                        cornerRadius: ScrollSnapTheme.Radius.sm
+                ZStack(alignment: .topTrailing) {
+                    RadialGradient(
+                        colors: [Color.orange.opacity(0.12), Color.clear],
+                        center: .topTrailing,
+                        startRadius: 8,
+                        endRadius: 90
                     )
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 4) {
+                    
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .top) {
+                            LiquidGlassIconPod(
+                                systemName: "record.circle.fill",
+                                tint: Color.orange,
+                                size: 38,
+                                cornerRadius: ScrollSnapTheme.Radius.sm
+                            )
+                            Spacer()
+                            #if canImport(ReplayKit)
+                            BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
+                                .frame(width: 28, height: 28)
+                            #else
+                            ScrollSnapBadge("免切回", tint: .orange)
+                            #endif
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("滚动录屏截取")
                                 .font(ScrollSnapTheme.FontToken.itemTitle)
                                 .foregroundStyle(.primary)
-                            ScrollSnapBadge("免切回", tint: .orange)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                            Text("微信后台匀速录制")
+                                .font(ScrollSnapTheme.FontToken.captionHint)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
-                        Text("微信后台匀速录制")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
                     }
-                    Spacer()
-                    
-                    #if canImport(ReplayKit)
-                    BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
-                        .frame(width: 36, height: 36)
-                    #else
-                    Image(systemName: "chevron.right")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                    #endif
+                    .padding(13)
                 }
-                .padding(ScrollSnapTheme.Spacing.md)
-                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.orange.opacity(0.25))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 108)
+                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.orange.opacity(0.28))
             }
             .buttonStyle(ScrollSnapButtonStyle.bouncy)
         }
@@ -896,9 +951,11 @@ public struct HomeStitchView: View {
                     .frame(height: 250)
                     .padding(.vertical, 4)
                     
-                    Text("左滑滑动 3D 展台 · 轻触任意示例卡片开启全功能测试")
+                    Text("左右滑动 3D 展台 · 轻触任意示例卡片开启全功能测试")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
             }
         }

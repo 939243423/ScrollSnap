@@ -8,7 +8,7 @@ public enum EditorToolMode: String, CaseIterable, Identifiable {
     case seamTuner = "棘轮对齐"
     case privacyBrush = "隐私涂抹"
     case annotation = "专业标注"
-    case socialSlicer = "九宫格切片"
+    case socialSlicer = "九宫切片"
     case canvasStudio = "带壳画布"
     
     public var id: String { rawValue }
@@ -692,8 +692,8 @@ public struct StitchEditorView: View {
                 canvasStudioPanel
             }
             
-            // Primary 4-Tab Liquid Glass Bar
-            HStack(spacing: 12) {
+            // Primary 5-Tab Liquid Glass Bar
+            HStack(spacing: 8) {
                 ForEach(EditorToolMode.allCases) { mode in
                     Button {
                         HapticFeedbackManager.shared.triggerSelection()
@@ -706,6 +706,8 @@ public struct StitchEditorView: View {
                                 .font(.system(size: 16, weight: activeToolMode == mode ? .bold : .medium))
                             Text(mode.rawValue)
                                 .font(.system(size: 10, weight: activeToolMode == mode ? .semibold : .regular))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                         }
                         .foregroundStyle(activeToolMode == mode ? Color.accentColor : Color.secondary)
                         .frame(maxWidth: .infinity)
@@ -720,7 +722,7 @@ public struct StitchEditorView: View {
                     .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, 8)
             .liquidGlassCard(cornerRadius: 24, strokeOpacity: 0.32)
         }

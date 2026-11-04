@@ -90,6 +90,8 @@ public struct SocialGridStageView: View {
                         Image(systemName: "square.and.arrow.down.on.square.fill")
                     }
                     Text("一键将 \(slices.count) 张切片完整存入相册")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
                 .frame(maxWidth: .infinity)
             }
