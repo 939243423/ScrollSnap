@@ -26,6 +26,7 @@ public struct HomeStitchView: View {
     @State private var toastMessage: String = ""
     @State private var isShowingToast: Bool = false
     @State private var detectedClipboardURL: URL?
+    @State private var lastSavedImage: UIImage?
     
     public init() {}
     
@@ -152,12 +153,55 @@ public struct HomeStitchView: View {
     }
     
     private var toastOverlayView: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-            Text(toastMessage)
-                .font(.footnote.bold())
-                .foregroundStyle(.primary)
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text(toastMessage)
+                    .font(.footnote.bold())
+                    .foregroundStyle(.primary)
+            }
+            
+            #if canImport(UIKit)
+            if let img = lastSavedImage {
+                HStack(spacing: 8) {
+                    Button {
+                        UIPasteboard.general.image = img
+                        HapticFeedbackManager.shared.triggerSnap()
+                        self.toastMessage = "长截图已复制到剪贴板！"
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc")
+                            Text("复制长图")
+                        }
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.secondary.opacity(0.18))
+                        .foregroundStyle(.primary)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button {
+                        isShowingStudioShowroom = true
+                        HapticFeedbackManager.shared.triggerSelection()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "cube.transparent")
+                            Text("套3D机壳")
+                        }
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.purple.opacity(0.18))
+                        .foregroundStyle(Color.purple)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            #endif
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -894,6 +938,7 @@ public struct HomeStitchView: View {
                 await MainActor.run {
                     self.isProcessingStitch = false
                     self.quotaManager.recordStitchUsage()
+                    self.lastSavedImage = watermarked
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playShutter()
                     StoreReviewManager.shared.recordSuccessfulExport()
@@ -1011,6 +1056,7 @@ public struct HomeStitchView: View {
                     await MainActor.run {
                         self.isProcessingStitch = false
                         self.quotaManager.recordStitchUsage()
+                        self.lastSavedImage = watermarked
                         HapticFeedbackManager.shared.triggerSnap()
                         SoundEffectManager.shared.playShutter()
                         StoreReviewManager.shared.recordSuccessfulExport()
