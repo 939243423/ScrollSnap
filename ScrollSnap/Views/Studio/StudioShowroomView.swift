@@ -30,6 +30,22 @@ public enum StudioLightingTheme: String, CaseIterable, Identifiable {
     }
 }
 
+public enum StudioAspectRatio: String, CaseIterable, Identifiable {
+    case ratio3x4 = "3:4 经典"
+    case ratio9x16 = "9:16 全屏"
+    case ratio1x1 = "1:1 方形"
+    
+    public var id: String { rawValue }
+    
+    public var canvasSize: CGSize {
+        switch self {
+        case .ratio3x4: return CGSize(width: 420, height: 560)
+        case .ratio9x16: return CGSize(width: 390, height: 693)
+        case .ratio1x1: return CGSize(width: 480, height: 480)
+        }
+    }
+}
+
 public struct StudioShowroomView: View {
     public let stitchedImage: UIImage?
     public let onSavePoster: () -> Void
@@ -40,6 +56,7 @@ public struct StudioShowroomView: View {
     
     @State private var selectedTheme: StudioLightingTheme = .cupertinoSunset
     @State private var selectedFinish: DeviceFrameFinish = .naturalTitanium
+    @State private var selectedRatio: StudioAspectRatio = .ratio3x4
     @State private var dragRotationX: CGFloat = -14.0
     @State private var dragRotationY: CGFloat = 18.0
     @State private var showShadow: Bool = true
@@ -96,7 +113,7 @@ public struct StudioShowroomView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     
                     // Bottom Customizer Tray
-                    VStack(spacing: 14) {
+                    VStack(spacing: 12) {
                         // Lighting Themes
                         HStack {
                             Text("摄影棚氛围")
@@ -131,35 +148,54 @@ public struct StudioShowroomView: View {
                             }
                         }
                         
-                        // Device Bezel Finishes
-                        HStack(spacing: 12) {
-                            Text("边框工艺")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            
-                            ForEach(DeviceFrameFinish.allCases) { finish in
-                                Button {
-                                    selectedFinish = finish
-                                    HapticFeedbackManager.shared.triggerSelection()
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Circle()
-                                            .fill(finish.bezelGradient.first ?? Color.gray)
-                                            .frame(width: 10, height: 10)
-                                        Text(finish.rawValue)
-                                            .font(.caption2)
+                        // Finish & Aspect Ratio Bar
+                        HStack(spacing: 16) {
+                            // Device Bezel Finishes
+                            HStack(spacing: 6) {
+                                ForEach(DeviceFrameFinish.allCases) { finish in
+                                    Button {
+                                        selectedFinish = finish
+                                        HapticFeedbackManager.shared.triggerSelection()
+                                    } label: {
+                                        HStack(spacing: 3) {
+                                            Circle()
+                                                .fill(finish.bezelGradient.first ?? Color.gray)
+                                                .frame(width: 8, height: 8)
+                                            Text(finish.rawValue)
+                                                .font(.system(size: 10))
+                                        }
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(selectedFinish == finish ? Color.white.opacity(0.2) : Color.clear)
+                                        )
                                     }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        Capsule()
-                                            .fill(selectedFinish == finish ? Color.white.opacity(0.2) : Color.clear)
-                                    )
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
                             
                             Spacer()
+                            
+                            // Aspect Ratio Picker
+                            HStack(spacing: 4) {
+                                ForEach(StudioAspectRatio.allCases) { ratio in
+                                    Button {
+                                        selectedRatio = ratio
+                                        HapticFeedbackManager.shared.triggerSelection()
+                                    } label: {
+                                        Text(ratio.rawValue)
+                                            .font(.system(size: 10, weight: selectedRatio == ratio ? .bold : .regular))
+                                            .padding(.horizontal, 7)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                Capsule()
+                                                    .fill(selectedRatio == ratio ? Color.white.opacity(0.25) : Color.clear)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         }
                         
                         // Action Button
@@ -175,7 +211,7 @@ public struct StudioShowroomView: View {
                                 } else {
                                     Image(systemName: "arrow.down.circle.fill")
                                         .font(.headline)
-                                    Text("一键导出 3D 悬浮海报")
+                                    Text("一键导出 \(selectedRatio.rawValue) 海报")
                                         .font(.headline.weight(.semibold))
                                 }
                             }
@@ -186,11 +222,11 @@ public struct StudioShowroomView: View {
                             .shadow(color: Color.black.opacity(0.25), radius: 10, y: 4)
                         }
                         .disabled(isExporting)
-                        .buttonStyle(.plain)
+                        .buttonStyle(ScrollSnapButtonStyle.bouncy)
                     }
-                    .padding(20)
+                    .padding(18)
                     .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                     .padding(.horizontal, 12)
                     .padding(.bottom, 8)
                 }
@@ -326,7 +362,7 @@ public struct StudioShowroomView: View {
             
             deviceStageView
         }
-        .frame(width: 420, height: 640)
+        .frame(width: selectedRatio.canvasSize.width, height: selectedRatio.canvasSize.height)
     }
     
     @MainActor

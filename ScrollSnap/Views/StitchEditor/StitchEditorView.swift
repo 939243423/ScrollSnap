@@ -194,19 +194,36 @@ public struct StitchEditorView: View {
                             copyDirectlyToClipboard()
                         } label: {
                             Image(systemName: "doc.on.doc")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(6)
+                                .background(Color.secondary.opacity(0.12))
+                                .clipShape(Circle())
                         }
+                        .buttonStyle(ScrollSnapButtonStyle.bouncy)
                         
                         Button {
                             saveDirectlyToAlbum()
                         } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.down.to.line.circle.fill")
+                            HStack(spacing: 5) {
+                                if isExporting {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                }
                                 Text("存相册")
-                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
                             }
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 5.5)
+                            .background(ScrollSnapTheme.Colors.primaryGradient)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
                         }
                         .disabled(isExporting)
+                        .buttonStyle(ScrollSnapButtonStyle.bouncy)
                         
                         Menu {
                             if !session.sourceAssetIdentifiers.isEmpty {
@@ -247,11 +264,13 @@ public struct StitchEditorView: View {
                             if isExporting {
                                 ProgressView().controlSize(.small)
                             } else {
-                                Image(systemName: "ellipsis.circle")
-                                    .font(.system(size: 17, weight: .semibold))
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .padding(6)
+                                    .background(Color.secondary.opacity(0.12))
+                                    .clipShape(Circle())
                             }
                         }
-                        .disabled(isExporting)
                     }
                 }
             }
@@ -694,6 +713,7 @@ public struct StitchEditorView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
+                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 }
             }
             .padding(.horizontal, 10)

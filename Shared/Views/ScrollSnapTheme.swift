@@ -202,6 +202,23 @@ public struct DismissCircleButtonStyle: ButtonStyle {
     }
 }
 
+public struct BouncyPressStyle: ButtonStyle {
+    public var scale: CGFloat
+    public var opacity: CGFloat
+    
+    public init(scale: CGFloat = 0.97, opacity: CGFloat = 0.92) {
+        self.scale = scale
+        self.opacity = opacity
+    }
+    
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .opacity(configuration.isPressed ? opacity : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
 public enum ScrollSnapButtonStyle {
     public static func heroPrimary(gradient: LinearGradient = ScrollSnapTheme.Colors.primaryGradient) -> PrimaryHeroButtonStyle {
         PrimaryHeroButtonStyle(gradient: gradient)
@@ -211,6 +228,9 @@ public enum ScrollSnapButtonStyle {
     }
     public static var circleDismiss: DismissCircleButtonStyle {
         DismissCircleButtonStyle()
+    }
+    public static var bouncy: BouncyPressStyle {
+        BouncyPressStyle()
     }
 }
 
