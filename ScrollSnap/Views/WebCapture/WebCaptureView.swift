@@ -306,41 +306,54 @@ public struct WebCaptureView: View {
             self.captureStatusHint = "光栅化超清切片..."
             
             webView.takeSnapshot(with: config) { image, error in
-                guard let image = image, let data = image.jpegData(compressionQuality: 0.92) else {
-                    isCapturing = false
-                    return
-                }
-                
-                if let path = SharedStore.shared.writeBroadcastSlice(data: data, index: 0) {
-                    let item = StitchItem(
-                        relativeFilePath: path,
-                        originalWidth: image.size.width * image.scale,
-                        originalHeight: image.size.height * image.scale,
-                        calculatedOverlapWithPrevious: 0,
-                        manualOffsetAdjustment: 0,
-                        optimalSeamLineY: 0
-                    )
-                    
-                    let titleClean = pageTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let session = StitchSession(
-                        presetMode: .webArticle,
-                        source: .webViewFullPage,
-                        slices: [item],
-                        title: titleClean.isEmpty ? "网页长截图_\(Int(Date().timeIntervalSince1970))" : titleClean
-                    )
-                    
-                    HapticFeedbackManager.shared.triggerSuccess()
-                    SoundEffectManager.shared.playShutter()
-                    
-                    // Smooth sequence: dismiss sheet first, then present editor cleanly
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        onCaptured(session)
+                if let image = image, let data = image.jpegData(compressionQuality: 0.92) {
+                    self.finishWebCapture(image: image, data: data)
+                } else {
+                    // Fallback: If full-page snapshot exceeded WebKit texture limits, capture visible content
+                    let fallbackConfig = WKSnapshotConfiguration()
+                    fallbackConfig.afterScreenUpdates = true
+                    self.webView.takeSnapshot(with: fallbackConfig) { fallbackImg, _ in
+                        if let fallbackImg = fallbackImg, let fallbackData = fallbackImg.jpegData(compressionQuality: 0.92) {
+                            self.finishWebCapture(image: fallbackImg, data: fallbackData)
+                        } else {
+                            self.isCapturing = false
+                            self.captureStatusHint = "截图失败，请刷新后重试"
+                            HapticFeedbackManager.shared.triggerWarning()
+                        }
                     }
                 }
-                isCapturing = false
             }
         }
+    }
+    
+    private func finishWebCapture(image: UIImage, data: Data) {
+        if let path = SharedStore.shared.writeBroadcastSlice(data: data, index: 0) {
+            let item = StitchItem(
+                relativeFilePath: path,
+                originalWidth: image.size.width * image.scale,
+                originalHeight: image.size.height * image.scale,
+                calculatedOverlapWithPrevious: 0,
+                manualOffsetAdjustment: 0,
+                optimalSeamLineY: 0
+            )
+            
+            let titleClean = pageTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let session = StitchSession(
+                presetMode: .webArticle,
+                source: .webViewFullPage,
+                slices: [item],
+                title: titleClean.isEmpty ? "网页长截图_\(Int(Date().timeIntervalSince1970))" : titleClean
+            )
+            
+            HapticFeedbackManager.shared.triggerSuccess()
+            SoundEffectManager.shared.playShutter()
+            
+            dismiss()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                onCaptured(session)
+            }
+        }
+        isCapturing = false
     }
 }
 

@@ -26,6 +26,7 @@ public final class TiledImageRenderer {
     public static func renderStitchedImageToFile(
         session: StitchSession,
         annotations: [AnnotationItem] = [],
+        brushStrokes: [RedactionStroke] = [],
         outputURL: URL,
         format: ExportFormat = .jpeg,
         quality: CGFloat = 0.94
@@ -36,7 +37,7 @@ public final class TiledImageRenderer {
         
         #if canImport(UIKit)
         if format == .pdf {
-            try renderStitchedPDFToFile(session: session, annotations: annotations, outputURL: outputURL)
+            try renderStitchedPDFToFile(session: session, annotations: annotations, brushStrokes: brushStrokes, outputURL: outputURL)
             return
         }
         
@@ -109,6 +110,9 @@ public final class TiledImageRenderer {
             
             // Draw all annotations onto the full stitched canvas
             drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: originalTotalHeight))
+            
+            // Draw all privacy brush strokes onto the full stitched canvas
+            drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: originalTotalHeight))
         }
         
         let data: Data
@@ -128,6 +132,7 @@ public final class TiledImageRenderer {
     public static func renderStitchedPDFToFile(
         session: StitchSession,
         annotations: [AnnotationItem],
+        brushStrokes: [RedactionStroke] = [],
         outputURL: URL
     ) throws {
         let canvasWidth = session.slices.first?.originalWidth ?? 393
@@ -186,12 +191,16 @@ public final class TiledImageRenderer {
                 // Draw annotations positioned on this page
                 drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
                 
+                // Draw brush strokes positioned on this page
+                drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: canvasWidth, height: totalHeight))
+                
                 cgContext.restoreGState()
             }
         }
     }
     
     private static func drawAnnotations(annotations: [AnnotationItem], in context: CGContext, canvasSize: CGSize) {
+        let baseScale = max(1.0, canvasSize.width / 393.0)
         for item in annotations {
             let start = CGPoint(x: item.startPoint.x * canvasSize.width, y: item.startPoint.y * canvasSize.height)
             let end = CGPoint(x: item.endPoint.x * canvasSize.width, y: item.endPoint.y * canvasSize.height)
@@ -200,7 +209,7 @@ public final class TiledImageRenderer {
             context.saveGState()
             context.setStrokeColor(strokeColor)
             context.setFillColor(strokeColor)
-            context.setLineWidth(item.lineWidth)
+            context.setLineWidth(item.lineWidth * baseScale)
             context.setLineCap(.round)
             context.setLineJoin(.round)
             
@@ -209,10 +218,10 @@ public final class TiledImageRenderer {
                 let rect = CGRect(
                     x: min(start.x, end.x),
                     y: min(start.y, end.y),
-                    width: abs(end.x - start.x),
-                    height: abs(end.y - start.y)
+                    width: max(4 * baseScale, abs(end.x - start.x)),
+                    height: max(4 * baseScale, abs(end.y - start.y))
                 )
-                let path = UIBezierPath(roundedRect: rect, cornerRadius: 8)
+                let path = UIBezierPath(roundedRect: rect, cornerRadius: 8 * baseScale)
                 context.addPath(path.cgPath)
                 context.strokePath()
                 
@@ -221,9 +230,9 @@ public final class TiledImageRenderer {
                 context.addLine(to: end)
                 context.strokePath()
                 
-                // Draw arrowhead
+                // Draw arrowhead scaled proportionally
                 let angle = atan2(end.y - start.y, end.x - start.x)
-                let arrowLength: CGFloat = 16.0
+                let arrowLength: CGFloat = 16.0 * baseScale
                 let arrowAngle: CGFloat = .pi / 6.0
                 
                 let p1 = CGPoint(
@@ -244,11 +253,11 @@ public final class TiledImageRenderer {
                 context.fillPath()
                 
             case .stepBadge:
-                let radius: CGFloat = 16.0
+                let radius: CGFloat = 16.0 * baseScale
                 context.fillEllipse(in: CGRect(x: start.x - radius, y: start.y - radius, width: radius * 2, height: radius * 2))
                 
                 let numStr = "\(item.stepNumber)" as NSString
-                let font = UIFont.systemFont(ofSize: 15, weight: .bold)
+                let font = UIFont.systemFont(ofSize: 15 * baseScale, weight: .bold)
                 let textAttrs: [NSAttributedString.Key: Any] = [
                     .font: font,
                     .foregroundColor: UIColor.white
@@ -262,7 +271,7 @@ public final class TiledImageRenderer {
             case .highlighter:
                 context.setBlendMode(.multiply)
                 context.setStrokeColor(strokeColor.copy(alpha: 0.4) ?? strokeColor)
-                context.setLineWidth(item.lineWidth * 4)
+                context.setLineWidth(item.lineWidth * 4 * baseScale)
                 
                 if item.freehandPoints.count > 1 {
                     let first = CGPoint(x: item.freehandPoints[0].x * canvasSize.width, y: item.freehandPoints[0].y * canvasSize.height)
@@ -277,14 +286,14 @@ public final class TiledImageRenderer {
             case .textNote:
                 guard !item.textContent.isEmpty else { break }
                 let text = item.textContent as NSString
-                let font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+                let font = UIFont.systemFont(ofSize: 14 * baseScale, weight: .semibold)
                 let attrs: [NSAttributedString.Key: Any] = [
                     .font: font,
                     .foregroundColor: UIColor.white
                 ]
                 let size = text.size(withAttributes: attrs)
-                let bgRect = CGRect(x: start.x - 6, y: start.y - 4, width: size.width + 12, height: size.height + 8)
-                let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: 6)
+                let bgRect = CGRect(x: start.x - 6 * baseScale, y: start.y - 4 * baseScale, width: size.width + 12 * baseScale, height: size.height + 8 * baseScale)
+                let bgPath = UIBezierPath(roundedRect: bgRect, cornerRadius: 6 * baseScale)
                 context.setFillColor(UIColor.black.withAlphaComponent(0.75).cgColor)
                 context.addPath(bgPath.cgPath)
                 context.fillPath()
@@ -294,10 +303,53 @@ public final class TiledImageRenderer {
                 let rect = CGRect(
                     x: min(start.x, end.x),
                     y: min(start.y, end.y),
-                    width: abs(end.x - start.x),
-                    height: abs(end.y - start.y)
+                    width: max(4 * baseScale, abs(end.x - start.x)),
+                    height: max(4 * baseScale, abs(end.y - start.y))
                 )
                 applyRedaction(in: context, rect: rect, style: item.isBlackout ? .blackout : .pixelatedMosaic)
+            }
+            
+            context.restoreGState()
+        }
+    }
+    
+    private static func drawBrushStrokes(brushStrokes: [RedactionStroke], in context: CGContext, canvasSize: CGSize) {
+        guard !brushStrokes.isEmpty else { return }
+        let scale = canvasSize.width / 393.0
+        
+        for stroke in brushStrokes {
+            guard let first = stroke.points.first else { continue }
+            let scaledLineWidth = stroke.lineWidth * scale
+            
+            context.saveGState()
+            context.setLineWidth(scaledLineWidth)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: first.x * scale, y: first.y * scale))
+            for pt in stroke.points.dropFirst() {
+                path.addLine(to: CGPoint(x: pt.x * scale, y: pt.y * scale))
+            }
+            
+            switch stroke.brushType {
+            case .confidentialInk:
+                context.setStrokeColor(UIColor(white: 0.12, alpha: 1.0).cgColor)
+                context.addPath(path)
+                context.strokePath()
+                
+            case .frostedGlass:
+                context.setStrokeColor(UIColor.white.withAlphaComponent(0.88).cgColor)
+                context.setShadow(offset: .zero, blur: 8.0 * scale, color: UIColor.white.withAlphaComponent(0.6).cgColor)
+                context.addPath(path)
+                context.strokePath()
+                
+            case .pixelateMosaic:
+                context.setStrokeColor(UIColor.gray.withAlphaComponent(0.90).cgColor)
+                context.setLineDash(phase: 0, lengths: [6.0 * scale, 6.0 * scale])
+                context.setLineCap(.square)
+                context.addPath(path)
+                context.strokePath()
             }
             
             context.restoreGState()

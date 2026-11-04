@@ -668,13 +668,23 @@ public struct StitchEditorView: View {
             switch activeToolMode {
             case .seamTuner:
                 TactileSeamDialView(
-                    offset: $seamDialOffset,
+                    offset: Binding<CGFloat>(
+                        get: {
+                            guard selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count else { return 0 }
+                            return session.slices[selectedSliceIndex].manualOffsetAdjustment
+                        },
+                        set: { newOffset in
+                            guard selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count else { return }
+                            session.slices[selectedSliceIndex].manualOffsetAdjustment = newOffset
+                        }
+                    ),
                     optimalOffset: 0.0,
-                    range: -35...35,
+                    range: -50...50,
                     onSnapToOptimal: {
-                        if selectedSliceIndex < session.slices.count {
-                            adjustSliceOverlap(sliceIndex: selectedSliceIndex, delta: -seamDialOffset)
-                            seamDialOffset = 0.0
+                        if selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                session.slices[selectedSliceIndex].manualOffsetAdjustment = 0
+                            }
                         }
                     }
                 )
@@ -1033,6 +1043,7 @@ public struct StitchEditorView: View {
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 annotations: annotations,
+                brushStrokes: brushStrokes,
                 outputURL: tempOutput,
                 format: .jpeg,
                 quality: 0.85
@@ -1053,17 +1064,35 @@ public struct StitchEditorView: View {
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 annotations: annotations,
+                brushStrokes: brushStrokes,
                 outputURL: tempAfter,
                 format: .jpeg,
                 quality: 0.90
             )
             let afterImg = UIImage(contentsOfFile: tempAfter.path)
             
+            // Generate real un-cropped stacked "Before" image to visually demonstrate duplicate nav bar removal
             var beforeImg: UIImage?
-            if let firstSlice = session.slices.first,
-               let url = SharedStore.shared.resolveFileURL(relativePath: firstSlice.relativeFilePath) {
-                beforeImg = UIImage(contentsOfFile: url.path)
+            #if canImport(UIKit)
+            let canvasWidth = session.slices.first?.originalWidth ?? 393
+            var rawTotalHeight: CGFloat = 0
+            for slice in session.slices {
+                rawTotalHeight += slice.originalHeight
             }
+            let rawMaxHeight = min(rawTotalHeight, 20480.0)
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasWidth, height: rawMaxHeight))
+            let rawStackedData = renderer.jpegData(withCompressionQuality: 0.85) { ctx in
+                var yOffset: CGFloat = 0
+                for slice in session.slices {
+                    guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                          let img = UIImage(contentsOfFile: fileURL.path) else { continue }
+                    img.draw(in: CGRect(x: 0, y: yOffset, width: canvasWidth, height: slice.originalHeight))
+                    yOffset += slice.originalHeight
+                    if yOffset >= rawMaxHeight { break }
+                }
+            }
+            beforeImg = UIImage(data: rawStackedData)
+            #endif
             
             await MainActor.run {
                 self.comparisonBeforeImage = beforeImg
@@ -1086,9 +1115,13 @@ public struct StitchEditorView: View {
             if let image = UIImage(contentsOfFile: tempOutput.path) {
                 let autoMosaics = await privacySanitizer.detectSensitiveRegions(in: image)
                 await MainActor.run {
-                    self.annotations.append(contentsOf: autoMosaics)
+                    if autoMosaics.isEmpty {
+                        self.toastMessage = "未检测到头像或手机号敏感信息"
+                    } else {
+                        self.annotations.append(contentsOf: autoMosaics)
+                        self.toastMessage = "已自动对 \(autoMosaics.count) 处头像与敏感信息打码！"
+                    }
                     HapticFeedbackManager.shared.triggerSnap()
-                    self.toastMessage = "已自动对头像与敏感信息打码脱敏！"
                     showToast()
                 }
             }
@@ -1126,6 +1159,7 @@ public struct StitchEditorView: View {
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 annotations: annotations,
+                brushStrokes: brushStrokes,
                 outputURL: tempOutput,
                 format: .jpeg
             )
@@ -1169,6 +1203,7 @@ public struct StitchEditorView: View {
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 annotations: annotations,
+                brushStrokes: brushStrokes,
                 outputURL: tempOutput,
                 format: .jpeg
             )
@@ -1214,6 +1249,7 @@ public struct StitchEditorView: View {
                 try TiledImageRenderer.renderStitchedImageToFile(
                     session: session,
                     annotations: annotations,
+                    brushStrokes: brushStrokes,
                     outputURL: tempOutput,
                     format: .jpeg,
                     quality: 0.95
@@ -1279,6 +1315,7 @@ public struct StitchEditorView: View {
                 try TiledImageRenderer.renderStitchedImageToFile(
                     session: session,
                     annotations: annotations,
+                    brushStrokes: brushStrokes,
                     outputURL: outputURL,
                     format: selectedExportFormat
                 )

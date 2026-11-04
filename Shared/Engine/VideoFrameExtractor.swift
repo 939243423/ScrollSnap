@@ -46,9 +46,13 @@ public final class VideoFrameExtractor {
         var candidates: [(time: CMTime, profile: [Double])] = []
         
         for cmTime in candidateTimes {
-            if let cgImage = try? generator.copyCGImage(at: cmTime, actualTime: nil) {
-                let profile = calculate1DLuminanceProfile(cgImage: cgImage)
-                candidates.append((time: cmTime, profile: profile))
+            autoreleasepool {
+                if let cgImage = try? generator.copyCGImage(at: cmTime, actualTime: nil) {
+                    let profile = calculate1DLuminanceProfile(cgImage: cgImage)
+                    if !profile.isEmpty {
+                        candidates.append((time: cmTime, profile: profile))
+                    }
+                }
             }
         }
         
@@ -61,9 +65,8 @@ public final class VideoFrameExtractor {
         selectedTimes.append(currentCandidate.time)
         
         let probeHeight = 360.0
-        let minDisplacement = probeHeight * 0.28 // Need at least 28% scroll movement
-        let targetDisplacement = probeHeight * 0.50 // Ideal 50% scroll movement (50% overlap)
-        let maxDisplacement = probeHeight * 0.72 // Upper ceiling before overlap is lost
+        let targetDisplacement = probeHeight * 0.45 // Ideal 45% scroll movement (55% overlap)
+        let maxDisplacement = probeHeight * 0.70    // Upper limit before overlap is broken
         
         var i = 1
         while i < candidates.count && selectedTimes.count < maxKeyframes {
@@ -71,19 +74,19 @@ public final class VideoFrameExtractor {
             let shift = estimateVerticalShift(
                 profileA: currentCandidate.profile,
                 profileB: cand.profile,
-                height: Int(probeHeight)
+                probeHeight: probeHeight
             )
             
-            // If user flicked rapidly or reached target displacement window
-            if shift >= targetDisplacement || (shift >= minDisplacement && i == candidates.count - 1) {
-                selectedTimes.append(cand.time)
-                currentCandidate = cand
-            } else if shift >= maxDisplacement {
-                // Flick was so fast that candidate i exceeded max displacement:
-                // Pick candidate i - 1 or candidate i immediately to preserve seam
-                let chosen = (i > 0 && i - 1 < candidates.count) ? candidates[i - 1] : cand
+            if shift >= maxDisplacement {
+                // Scroll was so fast that candidate i exceeded the safe seam window:
+                // If candidate (i - 1) exists and moved, choose it first to preserve continuous overlap!
+                let chosen = (i > 1 && candidates[i - 1].time != currentCandidate.time) ? candidates[i - 1] : cand
                 selectedTimes.append(chosen.time)
                 currentCandidate = chosen
+            } else if shift >= targetDisplacement {
+                // Reached sweet spot (45% - 70% displacement)
+                selectedTimes.append(cand.time)
+                currentCandidate = cand
             }
             i += 1
         }
@@ -98,10 +101,12 @@ public final class VideoFrameExtractor {
         var keyframes: [UIImage] = []
         
         for (index, time) in selectedTimes.enumerated() {
-            if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
-                let uiImage = UIImage(cgImage: cgImage)
-                keyframes.append(uiImage)
-                onProgress?(index + 1, selectedTimes.count)
+            autoreleasepool {
+                if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
+                    let uiImage = UIImage(cgImage: cgImage)
+                    keyframes.append(uiImage)
+                    onProgress?(index + 1, selectedTimes.count)
+                }
             }
         }
         
@@ -114,22 +119,27 @@ public final class VideoFrameExtractor {
     // MARK: - Fast 1D Luminance Profile & Vertical Shift Estimation (<0.2ms per comparison)
     
     private func calculate1DLuminanceProfile(cgImage: CGImage) -> [Double] {
-        let height = min(cgImage.height, 600)
+        let fullHeight = min(cgImage.height, 600)
         let width = min(cgImage.width, 160)
         
         guard let data = cgImage.dataProvider?.data,
               let ptr = CFDataGetBytePtr(data) else {
-            return Array(repeating: 0.5, count: height)
+            return []
         }
         
         let bpr = cgImage.bytesPerRow
         let bpp = cgImage.bitsPerPixel / 8
-        let stepY = max(1, cgImage.height / height)
+        let stepY = max(1, cgImage.height / fullHeight)
         let stepX = max(1, cgImage.width / width)
         
-        var profile = [Double](repeating: 0.0, count: height)
+        // Exclude static status bar (top 15%) and home indicator (bottom 10%)
+        let startY = Int(Double(fullHeight) * 0.15)
+        let endY = Int(Double(fullHeight) * 0.90)
+        let activeRows = max(1, endY - startY)
         
-        for yIdx in 0..<height {
+        var profile = [Double](repeating: 0.0, count: activeRows)
+        
+        for (idx, yIdx) in (startY..<endY).enumerated() {
             let actualY = min(yIdx * stepY, cgImage.height - 1)
             let rowOffset = actualY * bpr
             var rowSum: Double = 0.0
@@ -141,29 +151,27 @@ public final class VideoFrameExtractor {
                 let r = Double(ptr[pixelOffset])
                 let g = Double(ptr[pixelOffset + 1])
                 let b = Double(ptr[pixelOffset + 2])
-                // Standard Rec. 601 luminance
                 let lum = 0.299 * r + 0.587 * g + 0.114 * b
                 rowSum += lum
                 sampleCount += 1
             }
-            profile[yIdx] = sampleCount > 0 ? (rowSum / Double(sampleCount)) : 128.0
+            profile[idx] = sampleCount > 0 ? (rowSum / Double(sampleCount)) : 128.0
         }
         
         return profile
     }
     
-    private func estimateVerticalShift(profileA: [Double], profileB: [Double], height: Int) -> Double {
+    private func estimateVerticalShift(profileA: [Double], profileB: [Double], probeHeight: Double) -> Double {
         let len = min(profileA.count, profileB.count)
         guard len > 40 else { return 0 }
         
-        // Scan vertical shifts from 0 to 75% of height
         let maxShift = Int(Double(len) * 0.75)
         var bestShift = 0
         var minDiff: Double = .greatestFiniteMagnitude
         
-        for shift in stride(from: 0, through: maxShift, by: 4) {
+        for shift in stride(from: 0, through: maxShift, by: 2) {
             let overlapLen = len - shift
-            guard overlapLen > 20 else { break }
+            guard overlapLen > 25 else { break }
             
             var diffSum: Double = 0
             for y in 0..<overlapLen {
@@ -177,8 +185,7 @@ public final class VideoFrameExtractor {
             }
         }
         
-        // Scale downsampled profile shift back to full original image coordinates
-        let scale = Double(height) / Double(len)
+        let scale = probeHeight / Double(len)
         return Double(bestShift) * scale
     }
     

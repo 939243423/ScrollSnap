@@ -389,6 +389,8 @@ public struct StudioShowroomView: View {
         
         guard let posterImage = renderer.uiImage else {
             isExporting = false
+            self.toastMessage = "海报渲染失败，请重试"
+            withAnimation { self.isShowingToast = true }
             return
         }
         

@@ -1249,7 +1249,10 @@ public struct HomeStitchView: View {
         
         PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, _ in
             guard let avAsset = avAsset else {
-                Task { @MainActor in self.isProcessingStitch = false }
+                Task { @MainActor in
+                    self.isProcessingStitch = false
+                    self.showToast(message: "无法读取视频，可能正在从 iCloud 下载")
+                }
                 return
             }
             

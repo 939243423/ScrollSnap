@@ -1,28 +1,5 @@
 import SwiftUI
 
-public enum RedactionBrushType: String, CaseIterable, Identifiable {
-    case frostedGlass = "极光毛玻璃"
-    case pixelateMosaic = "像素马赛克"
-    case confidentialInk = "机密墨水笔"
-    
-    public var id: String { rawValue }
-    
-    public var iconName: String {
-        switch self {
-        case .frostedGlass: return "drop.fill"
-        case .pixelateMosaic: return "checkerboard.rectangle"
-        case .confidentialInk: return "paintbrush.pointed.fill"
-        }
-    }
-}
-
-public struct RedactionStroke: Identifiable {
-    public let id = UUID()
-    public var points: [CGPoint]
-    public var brushType: RedactionBrushType
-    public var lineWidth: CGFloat
-}
-
 public struct LiquidBrushRedactionView: View {
     @Binding public var strokes: [RedactionStroke]
     @Binding public var activeBrush: RedactionBrushType
