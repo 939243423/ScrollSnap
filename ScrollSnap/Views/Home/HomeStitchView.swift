@@ -824,12 +824,7 @@ public struct HomeStitchView: View {
                                 cornerRadius: ScrollSnapTheme.Radius.sm
                             )
                             Spacer()
-                            #if canImport(ReplayKit)
-                            BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
-                                .frame(width: 28, height: 28)
-                            #else
                             ScrollSnapBadge("免切回", tint: .orange)
-                            #endif
                         }
                         
                         VStack(alignment: .leading, spacing: 2) {
@@ -1543,49 +1538,301 @@ private struct BroadcastGuideSheet: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Text("如何在微信中滚动截长图")
-                    .font(.headline)
-                Text("1. 在控制中心添加「屏幕录制」按钮；\n2. 长按录制按钮选择「ScrollSnap 录屏拼图」；\n3. 切回微信匀速滑动聊天记录；\n4. 点击灵动岛红点停止录制，长截图自动拼好。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .padding()
-                Spacer()
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header Hero
+                    VStack(spacing: 8) {
+                        LiquidGlassIconPod(
+                            systemName: "record.circle.fill",
+                            tint: .orange,
+                            size: 54,
+                            cornerRadius: ScrollSnapTheme.Radius.md
+                        )
+                        Text("滚动录屏 · 自动拼接长图")
+                            .font(.system(.title3, design: .rounded).weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text("利用 iOS 系统录屏广播，在微信、小红书等任意 App 内直接匀速滑动，无需多次截屏与切回，长图自动合成为高清文件。")
+                            .font(ScrollSnapTheme.FontToken.captionHint)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                    }
+                    .padding(.top, 8)
+                    
+                    #if canImport(ReplayKit)
+                    // Quick Launch Action Box
+                    VStack(spacing: 8) {
+                        Text("快捷启动")
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.orange.opacity(0.15))
+                            
+                            HStack(spacing: 8) {
+                                Image(systemName: "record.circle.fill")
+                                    .foregroundStyle(.orange)
+                                Text("点击启动 ScrollSnap 录屏切片")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.orange)
+                            }
+                            
+                            // ReplayKit Broadcast Picker covering the button to receive tap
+                            BroadcastPickerViewRepresentable(preferredExtension: "com.scrollsnap.broadcast")
+                                .opacity(0.015)
+                        }
+                        .frame(height: 50)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.orange.opacity(0.4), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal, 4)
+                    #endif
+                    
+                    // 4 Step-by-Step Flow Cards
+                    VStack(spacing: 12) {
+                        guideStepCard(
+                            stepNumber: "1",
+                            title: "添加或长按控制中心录屏",
+                            description: "在 iPhone 控制中心长按「屏幕录制」图标，在弹出列表中勾选「ScrollSnap 录屏拼图」并轻触「开始直播」。",
+                            iconName: "hand.tap.fill",
+                            tint: .blue
+                        )
+                        guideStepCard(
+                            stepNumber: "2",
+                            title: "切换到任意目标 App",
+                            description: "切回微信聊天记录、小红书长文、网页或社交动态页面，等待 3 秒倒计时结束。",
+                            iconName: "app.badge.fill",
+                            tint: .purple
+                        )
+                        guideStepCard(
+                            stepNumber: "3",
+                            title: "匀速平缓单向向下滚动",
+                            description: "以自然舒适的匀速手势向下滑动屏幕，系统将在后台自动进行光流对齐与帧去重，无需停顿。",
+                            iconName: "arrow.down.circle.fill",
+                            tint: .orange
+                        )
+                        guideStepCard(
+                            stepNumber: "4",
+                            title: "轻点灵动岛红点停止",
+                            description: "滑动完毕后，点击顶部红色药丸或灵动岛停止录制，切回本 App 即可直接存相册或精修！",
+                            iconName: "checkmark.seal.fill",
+                            tint: .green
+                        )
+                    }
+                    
+                    // Privacy & Performance Guarantee
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.title3)
+                            .foregroundStyle(.teal)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("100% 离线端侧处理 · 隐私零上传")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.primary)
+                            Text("所有录屏帧均直接在 iPhone 内存与安全沙盒中完成拼接，不经过任何云端服务器。")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(14)
+                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.teal.opacity(0.3))
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
-            .padding()
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("滚动录屏指南")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("知道了") { dismiss() }
+                    Button("完成") { dismiss() }
+                        .font(.body.weight(.bold))
                 }
             }
         }
+    }
+    
+    private func guideStepCard(stepNumber: String, title: String, description: String, iconName: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.18))
+                    .frame(width: 36, height: 36)
+                Text(stepNumber)
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .foregroundStyle(tint)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: iconName)
+                        .font(.caption)
+                        .foregroundStyle(tint)
+                }
+                Text(description)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: tint.opacity(0.25))
     }
 }
 
 private struct ActionShortcutGuideSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var isCopiedShortcutName = false
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Text("配置 15 Pro 操作按钮与双击背面")
-                    .font(.headline)
-                Text("1. 打开系统「设置」->「操作按钮」（或「辅助功能」->「触控」->「轻点背面」）；\n2. 选择「快捷指令」；\n3. 找到并勾选「ScrollSnap: 一键拼合最近截屏」；\n4. 以后在任意 App 截取多张图后，直接按侧键或敲击手机背面两下，系统后台自动拼合长图并存入剪贴板！")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .padding()
-                Spacer()
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header Hero
+                    VStack(spacing: 8) {
+                        LiquidGlassIconPod(
+                            systemName: "iphone.radiowaves.left.and.right",
+                            tint: .blue,
+                            size: 54,
+                            cornerRadius: ScrollSnapTheme.Radius.md
+                        )
+                        Text("操作按钮与轻点背面极速拼图")
+                            .font(.system(.title3, design: .rounded).weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text("截屏后轻敲手机背面两下，或长按 iPhone 侧边操作按钮，系统在后台瞬间将最近 5 分钟内的截图无缝拼合存入相册与剪贴板！")
+                            .font(ScrollSnapTheme.FontToken.captionHint)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                    }
+                    .padding(.top, 8)
+                    
+                    // Quick Action Strip
+                    HStack(spacing: 12) {
+                        Button {
+                            #if canImport(UIKit)
+                            UIPasteboard.general.string = "一键拼合长截图"
+                            HapticFeedbackManager.shared.triggerSnap()
+                            withAnimation { isCopiedShortcutName = true }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                withAnimation { isCopiedShortcutName = false }
+                            }
+                            #endif
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: isCopiedShortcutName ? "checkmark" : "doc.on.doc.fill")
+                                Text(isCopiedShortcutName ? "已复制指令名" : "复制快捷指令名称")
+                            }
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.blue.opacity(0.18))
+                            .foregroundStyle(Color.blue)
+                            .clipShape(Capsule())
+                        }
+                        
+                        Button {
+                            #if canImport(UIKit)
+                            if let url = URL(string: "shortcuts://") {
+                                UIApplication.shared.open(url)
+                            }
+                            #endif
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.up.right.square")
+                                Text("打开快捷指令 App")
+                            }
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.primary.opacity(0.08))
+                            .foregroundStyle(.primary)
+                            .clipShape(Capsule())
+                        }
+                    }
+                    
+                    // 2 Core Setup Methods
+                    VStack(spacing: 14) {
+                        // Method 1: Back Tap (Every iPhone)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                ScrollSnapBadge("方案 A · 所有 iPhone 通用", tint: .indigo)
+                                Spacer()
+                                Text("最推荐").font(.caption2.bold()).foregroundStyle(.indigo)
+                            }
+                            Text("轻点背面两下自动拼长图")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("1. 打开系统「设置」->「辅助功能」->「触控」；")
+                                Text("2. 滑到最底部，点击「轻点背面」；")
+                                Text("3. 选择「轻点两下」（或轻点三下）；")
+                                Text("4. 在快捷指令列表勾选「ScrollSnap: 一键拼合长截图」。")
+                            }
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(16)
+                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.indigo.opacity(0.3))
+                        
+                        // Method 2: Action Button (15 Pro / 16)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                ScrollSnapBadge("方案 B · iPhone 15 Pro / 16", tint: .blue)
+                                Spacer()
+                                Text("侧键直出").font(.caption2.bold()).foregroundStyle(.blue)
+                            }
+                            Text("长按操作按钮 (Action Button)")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("1. 打开系统「设置」->「操作按钮」；")
+                                Text("2. 左右划动转盘，选择「快捷指令」；")
+                                Text("3. 点击选取，选择「ScrollSnap: 一键拼合长截图」；")
+                                Text("4. 以后连按截屏后，直接长按侧键即可完成拼合！")
+                            }
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(16)
+                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.blue.opacity(0.3))
+                    }
+                    
+                    // Usage Scenario Callout
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(.orange)
+                            Text("实际使用体验")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        Text("在微信聊天界面连续截 3 张图 -> 随手轻敲手机背面两下 -> 听到清脆快门声 -> 返回聊天输入框直接「粘贴」发送！整个过程甚至不需要打开 ScrollSnap App，行云流水！")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.orange.opacity(0.25))
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
-            .padding()
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("硬件触发配置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("完成") { dismiss() }
+                        .font(.body.weight(.bold))
                 }
             }
         }

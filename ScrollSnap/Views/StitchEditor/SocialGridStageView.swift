@@ -6,13 +6,20 @@ import UIKit
 public struct SocialGridStageView: View {
     public let slices: [UIImage]
     public let onSaveToAlbum: () -> Void
+    public let onReset: (() -> Void)?
     public let isSaving: Bool
     
     @State private var hoveredCardIndex: Int? = nil
     
-    public init(slices: [UIImage], onSaveToAlbum: @escaping () -> Void, isSaving: Bool = false) {
+    public init(
+        slices: [UIImage],
+        onSaveToAlbum: @escaping () -> Void,
+        onReset: (() -> Void)? = nil,
+        isSaving: Bool = false
+    ) {
         self.slices = slices
         self.onSaveToAlbum = onSaveToAlbum
+        self.onReset = onReset
         self.isSaving = isSaving
     }
     
@@ -78,25 +85,49 @@ public struct SocialGridStageView: View {
             .padding(ScrollSnapTheme.Spacing.sm + 2)
             .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.pink.opacity(0.25))
             
-            // Batch Save Button
-            Button {
-                HapticFeedbackManager.shared.triggerSnap()
-                onSaveToAlbum()
-            } label: {
-                HStack(spacing: 8) {
-                    if isSaving {
-                        ProgressView().controlSize(.small).tint(.white)
-                    } else {
-                        Image(systemName: "square.and.arrow.down.on.square.fill")
+            // Actions Row
+            HStack(spacing: 10) {
+                if let onReset = onReset {
+                    Button {
+                        HapticFeedbackManager.shared.triggerSelection()
+                        onReset()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("重设分块")
+                        }
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color.secondary.opacity(0.15))
+                        .foregroundStyle(.primary)
+                        .clipShape(Capsule())
                     }
-                    Text("一键将 \(slices.count) 张切片完整存入相册")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 }
-                .frame(maxWidth: .infinity)
+                
+                // Batch Save Button
+                Button {
+                    HapticFeedbackManager.shared.triggerSnap()
+                    onSaveToAlbum()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSaving {
+                            ProgressView().controlSize(.small).tint(.white)
+                        } else {
+                            Image(systemName: "square.and.arrow.down.on.square.fill")
+                        }
+                        Text("一键存 \(slices.count) 张切片")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.studioGradient))
+                .disabled(isSaving || slices.isEmpty)
             }
-            .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.studioGradient))
-            .disabled(isSaving || slices.isEmpty)
         }
     }
 }

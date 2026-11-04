@@ -194,8 +194,15 @@ public struct StitchEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("完成") {
+                    Button {
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .padding(7)
+                            .background(Color.secondary.opacity(0.12))
+                            .clipShape(Circle())
                     }
                 }
                 
@@ -921,9 +928,18 @@ public struct StitchEditorView: View {
     private var socialSlicerPanel: some View {
         VStack(spacing: 8) {
             if !generatedSlices.isEmpty {
-                SocialGridStageView(slices: generatedSlices, onSaveToAlbum: {
-                    saveGeneratedSlicesToAlbum()
-                }, isSaving: isSlicing)
+                SocialGridStageView(
+                    slices: generatedSlices,
+                    onSaveToAlbum: {
+                        saveGeneratedSlicesToAlbum()
+                    },
+                    onReset: {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) {
+                            generatedSlices.removeAll()
+                        }
+                    },
+                    isSaving: isSlicing
+                )
             } else {
                 HStack(spacing: 12) {
                     ForEach(ImageSlicer.SlicePreset.allCases) { preset in
@@ -1023,7 +1039,7 @@ public struct StitchEditorView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .liquidGlassPill()
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.move(edge: .bottom).combined(with: .scale(scale: 0.9)).combined(with: .opacity))
         .padding(.bottom, 120)
     }
     
