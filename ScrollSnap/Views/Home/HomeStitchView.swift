@@ -2,9 +2,29 @@ import SwiftUI
 import PhotosUI
 import Photos
 import AVFoundation
+#if canImport(UniformTypeIdentifiers)
+import UniformTypeIdentifiers
+#endif
 #if canImport(ReplayKit)
 import ReplayKit
 #endif
+
+private struct MovieFile: Transferable {
+    let url: URL
+    
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let copy = FileManager.default.temporaryDirectory.appendingPathComponent("imported_\(UUID().uuidString).\(received.file.pathExtension.isEmpty ? "mov" : received.file.pathExtension)")
+            if FileManager.default.fileExists(atPath: copy.path) {
+                try? FileManager.default.removeItem(at: copy)
+            }
+            try FileManager.default.copyItem(at: received.file, to: copy)
+            return Self(url: copy)
+        }
+    }
+}
 
 public struct HomeStitchView: View {
     @StateObject private var photoObserver = PhotoLibraryObserver.shared
@@ -41,6 +61,11 @@ public struct HomeStitchView: View {
                 VStack(spacing: 18) {
                     // Header Bar with Quota Pill
                     headerBar
+                    
+                    // Photo Permission Denied / Restricted Warning Banner
+                    if photoObserver.authorizationStatus == .denied || photoObserver.authorizationStatus == .restricted {
+                        photoPermissionDeniedBanner
+                    }
                     
                     // Unfinished ReplayKit Broadcast Session Alert Banner
                     if !activeBroadcastSlices.isEmpty {
@@ -246,6 +271,45 @@ public struct HomeStitchView: View {
             Spacer()
         }
         .padding(.vertical, 2)
+    }
+    
+    private var photoPermissionDeniedBanner: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.red.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.red)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("需要相册访问权限")
+                    .font(ScrollSnapTheme.FontToken.itemTitle)
+                    .foregroundStyle(.primary)
+                Text("请在系统设置中允许访问相册，以智能感知截图与导出高清长图")
+                    .font(ScrollSnapTheme.FontToken.captionHint)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            Button("去开启") {
+                #if canImport(UIKit)
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+                #endif
+            }
+            .font(.system(.caption, design: .rounded).weight(.bold))
+            .padding(.horizontal, ScrollSnapTheme.Spacing.md)
+            .padding(.vertical, ScrollSnapTheme.Spacing.xs)
+            .background(Color.red)
+            .foregroundStyle(.white)
+            .clipShape(Capsule())
+        }
+        .padding(ScrollSnapTheme.Spacing.md)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.red.opacity(0.35))
     }
     
     private var activeBroadcastAlertBanner: some View {
@@ -899,51 +963,59 @@ public struct HomeStitchView: View {
         processingStatusMessage = "自适应光流分析抽帧中..."
         isProcessingStitch = true
         Task {
-            if let movieData = try? await item.loadTransferable(type: Data.self) {
-                let tempDir = FileManager.default.temporaryDirectory
-                let tempURL = tempDir.appendingPathComponent("imported_\(UUID().uuidString).mov")
-                try? movieData.write(to: tempURL)
-                
-                let avAsset = AVAsset(url: tempURL)
-                do {
-                    let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset) { current, total in
-                        Task { @MainActor in
-                            HapticFeedbackManager.shared.triggerDialDetent()
-                        }
-                    }
-                    guard frames.count >= 2 else {
-                        await MainActor.run {
-                            self.isProcessingStitch = false
-                            self.selectedVideoPickerItems.removeAll()
-                            self.showToast(message: "视频中未检测到足够的滑动画面")
-                        }
-                        return
-                    }
-                    
-                    var paths: [String] = []
-                    for (index, frame) in frames.enumerated() {
-                        if let data = frame.jpegData(compressionQuality: 0.9),
-                           let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
-                            paths.append(path)
-                        }
-                    }
-                    
-                    let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
-                    await MainActor.run {
-                        self.activeSessionToEdit = session
-                        self.isProcessingStitch = false
-                        self.selectedVideoPickerItems.removeAll()
-                    }
-                } catch {
-                    await MainActor.run {
-                        self.isProcessingStitch = false
-                        self.selectedVideoPickerItems.removeAll()
-                    }
-                }
-            } else {
+            var tempURL: URL?
+            if let movie = try? await item.loadTransferable(type: MovieFile.self) {
+                tempURL = movie.url
+            } else if let movieData = try? await item.loadTransferable(type: Data.self) {
+                let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("imported_\(UUID().uuidString).mov")
+                try? movieData.write(to: fallback)
+                tempURL = fallback
+            }
+            
+            guard let videoURL = tempURL else {
                 await MainActor.run {
                     self.isProcessingStitch = false
                     self.selectedVideoPickerItems.removeAll()
+                    self.showToast(message: "无法直接读取选中的视频，请确认相册权限或重试")
+                }
+                return
+            }
+            
+            let avAsset = AVAsset(url: videoURL)
+            do {
+                let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset) { current, total in
+                    Task { @MainActor in
+                        HapticFeedbackManager.shared.triggerDialDetent()
+                    }
+                }
+                guard frames.count >= 2 else {
+                    await MainActor.run {
+                        self.isProcessingStitch = false
+                        self.selectedVideoPickerItems.removeAll()
+                        self.showToast(message: "视频中未检测到足够的滑动画面")
+                    }
+                    return
+                }
+                
+                var paths: [String] = []
+                for (index, frame) in frames.enumerated() {
+                    if let data = frame.jpegData(compressionQuality: 0.9),
+                       let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                        paths.append(path)
+                    }
+                }
+                
+                let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
+                await MainActor.run {
+                    self.activeSessionToEdit = session
+                    self.isProcessingStitch = false
+                    self.selectedVideoPickerItems.removeAll()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.selectedVideoPickerItems.removeAll()
+                    self.showToast(message: "视频抽帧拼接失败: \(error.localizedDescription)")
                 }
             }
         }
@@ -961,6 +1033,7 @@ public struct HomeStitchView: View {
         let requestOptions = PHImageRequestOptions()
         requestOptions.isSynchronous = true
         requestOptions.deliveryMode = .highQualityFormat
+        requestOptions.isNetworkAccessAllowed = true
         
         Task.detached(priority: .userInitiated) {
             var paths: [String] = []
@@ -975,7 +1048,10 @@ public struct HomeStitchView: View {
             }
             
             guard paths.count >= 2 else {
-                await MainActor.run { self.isProcessingStitch = false }
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.showToast(message: "相册未能获取到完整截图数据，请检查网络或重新选取")
+                }
                 return
             }
             
@@ -1037,6 +1113,7 @@ public struct HomeStitchView: View {
         let requestOptions = PHImageRequestOptions()
         requestOptions.isSynchronous = true
         requestOptions.deliveryMode = .highQualityFormat
+        requestOptions.isNetworkAccessAllowed = true
         
         Task.detached(priority: .userInitiated) {
             var paths: [String] = []
@@ -1048,6 +1125,14 @@ public struct HomeStitchView: View {
                         paths.append(path)
                     }
                 }
+            }
+            
+            guard paths.count >= 2 else {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.showToast(message: "相册未能获取到完整截图数据，请检查网络或重新选取")
+                }
+                return
             }
             
             if let session = try? await StitchEngine.shared.stitchSlices(
@@ -1199,8 +1284,9 @@ public struct HomeStitchView: View {
     }
     
     private func openSampleShowcaseEditor(_ card: ShowcaseStitchCard) {
+        let paths = ensureSampleSlicesExist(card: card)
         let slice1 = StitchItem(
-            relativeFilePath: "sample_1.png",
+            relativeFilePath: paths[0],
             originalWidth: 1170,
             originalHeight: 1800,
             topCropInset: card.preset.defaultTopCropInset,
@@ -1210,7 +1296,7 @@ public struct HomeStitchView: View {
             optimalSeamLineY: 1700
         )
         let slice2 = StitchItem(
-            relativeFilePath: "sample_2.png",
+            relativeFilePath: paths[1],
             originalWidth: 1170,
             originalHeight: 1920,
             topCropInset: card.preset.defaultTopCropInset,
@@ -1228,6 +1314,90 @@ public struct HomeStitchView: View {
         )
         self.activeSessionToEdit = sampleSession
     }
+    
+    private func ensureSampleSlicesExist(card: ShowcaseStitchCard) -> [String] {
+        let name1 = "sample_\(card.id)_1.jpg"
+        let name2 = "sample_\(card.id)_2.jpg"
+        let rel1 = "active_session/\(name1)"
+        let rel2 = "active_session/\(name2)"
+        
+        let url1 = SharedStore.shared.resolveFileURL(relativePath: rel1)
+        let url2 = SharedStore.shared.resolveFileURL(relativePath: rel2)
+        
+        if let u1 = url1, FileManager.default.fileExists(atPath: u1.path),
+           let u2 = url2, FileManager.default.fileExists(atPath: u2.path) {
+            return [rel1, rel2]
+        }
+        
+        #if canImport(UIKit)
+        let img1 = createSampleSliceImage(title: card.title, subtitle: card.category, part: 1)
+        let img2 = createSampleSliceImage(title: card.title, subtitle: card.category, part: 2)
+        
+        if let d1 = img1.jpegData(compressionQuality: 0.9) {
+            _ = SharedStore.shared.writeBroadcastSlice(data: d1, index: 101)
+        }
+        if let d2 = img2.jpegData(compressionQuality: 0.9) {
+            _ = SharedStore.shared.writeBroadcastSlice(data: d2, index: 102)
+        }
+        return ["active_session/slice_101.jpg", "active_session/slice_102.jpg"]
+        #else
+        return ["sample_1.png", "sample_2.png"]
+        #endif
+    }
+    
+    #if canImport(UIKit)
+    private func createSampleSliceImage(title: String, subtitle: String, part: Int) -> UIImage {
+        let size = CGSize(width: 1170, height: 1800)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            // Dark elegant canvas background
+            UIColor(red: 0.08, green: 0.09, blue: 0.11, alpha: 1.0).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            
+            // Top Navigation Bar Mockup
+            let navRect = CGRect(x: 0, y: 0, width: size.width, height: 160)
+            UIColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1.0).setFill()
+            ctx.fill(navRect)
+            
+            let titleAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 42, weight: .bold),
+                .foregroundColor: UIColor.white
+            ]
+            let subAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 26, weight: .regular),
+                .foregroundColor: UIColor.systemGray2
+            ]
+            let bodyAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 30, weight: .medium),
+                .foregroundColor: UIColor.white.withAlphaComponent(0.92)
+            ]
+            
+            (title as NSString).draw(at: CGPoint(x: 60, y: 64), withAttributes: titleAttrs)
+            
+            // Content Cards
+            for i in 0..<4 {
+                let cardY = CGFloat(200 + i * 360)
+                let cardRect = CGRect(x: 50, y: cardY, width: size.width - 100, height: 320)
+                let path = UIBezierPath(roundedRect: cardRect, cornerRadius: 28)
+                UIColor(red: 0.15, green: 0.16, blue: 0.20, alpha: 1.0).setFill()
+                path.fill()
+                
+                // Avatar Pod
+                let avatarRect = CGRect(x: 80, y: cardY + 30, width: 70, height: 70)
+                let avatarPath = UIBezierPath(ovalIn: avatarRect)
+                (i % 2 == 0 ? UIColor.systemIndigo : UIColor.systemTeal).setFill()
+                avatarPath.fill()
+                
+                let itemTitle = "\(subtitle) · 示例切片 \(part)-\(i + 1)"
+                (itemTitle as NSString).draw(at: CGPoint(x: 175, y: cardY + 45), withAttributes: titleAttrs)
+                
+                let body = "ScrollSnap 纯端侧长截图工坊。支持无感无缝连续对齐、接缝触觉磁吸旋钮微调、智能隐私脱敏与 3D 摄影棚海报直出。"
+                let bodyRect = CGRect(x: 80, y: cardY + 130, width: size.width - 160, height: 160)
+                (body as NSString).draw(in: bodyRect, withAttributes: bodyAttrs)
+            }
+        }
+    }
+    #endif
     
     private func openCompletedStitch(_ item: CompletedStitchItem) {
         if let image = UIImage(contentsOfFile: item.url.path) {

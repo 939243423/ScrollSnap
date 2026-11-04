@@ -191,7 +191,7 @@ public struct SettingsView: View {
                 }
                 
                 // Cache & Storage Section
-                Section("缓存与存储") {
+                Section("缓存与配额") {
                     HStack {
                         Text("长截图临时缓存")
                         Spacer()
@@ -202,6 +202,19 @@ public struct SettingsView: View {
                     
                     Button("清理全部切片缓存", role: .destructive) {
                         clearCache()
+                    }
+                    
+                    HStack {
+                        Text("今日免费配额")
+                        Spacer()
+                        Text("\(QuotaManager.shared.remainingDailyFreeStitches) / \(QuotaManager.defaultDailyLimit) 次")
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Button("重置免费拼图额度 (测试使用)") {
+                        QuotaManager.shared.resetQuotaForTesting()
+                        HapticFeedbackManager.shared.triggerSuccess()
                     }
                 }
                 

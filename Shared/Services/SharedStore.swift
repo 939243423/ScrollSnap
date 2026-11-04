@@ -16,7 +16,7 @@ public final class SharedStore {
     }
     
     private func ensureDirectoriesExist() {
-        guard let container = AppGroupConstants.containerURL else { return }
+        let container = AppGroupConstants.containerURL
         let sessionDir = container.appendingPathComponent("active_session", isDirectory: true)
         let completeDir = container.appendingPathComponent("completed_stitches", isDirectory: true)
         
@@ -27,27 +27,29 @@ public final class SharedStore {
     // MARK: - Active Broadcast Slices Management
     
     public func resetActiveBroadcastSession() {
-        guard let dir = AppGroupConstants.activeSessionDirectory else { return }
+        let dir = AppGroupConstants.activeSessionDirectory
         try? fileManager.removeItem(at: dir)
         try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
     }
     
     public func writeBroadcastSlice(data: Data, index: Int) -> String? {
-        guard let dir = AppGroupConstants.activeSessionDirectory else { return nil }
+        let dir = AppGroupConstants.activeSessionDirectory
         let fileName = String(format: "slice_%04d.jpg", index)
         let fileURL = dir.appendingPathComponent(fileName)
         
         do {
+            try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
             try data.write(to: fileURL, options: .atomic)
             return "active_session/\(fileName)"
         } catch {
+            print("[SharedStore] writeBroadcastSlice failed: \(error)")
             return nil
         }
     }
     
     public func listActiveBroadcastSlicePaths() -> [String] {
-        guard let dir = AppGroupConstants.activeSessionDirectory,
-              let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+        let dir = AppGroupConstants.activeSessionDirectory
+        guard let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
             return []
         }
         
@@ -61,7 +63,7 @@ public final class SharedStore {
     // MARK: - Disk File Resolution
     
     public func resolveFileURL(relativePath: String) -> URL? {
-        guard let container = AppGroupConstants.containerURL else { return nil }
+        let container = AppGroupConstants.containerURL
         return container.appendingPathComponent(relativePath)
     }
     

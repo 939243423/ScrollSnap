@@ -30,6 +30,10 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
         if status == .authorized || status == .limited {
             registerObserverIfNeeded()
             scanRecentScreenshots()
+        } else if status == .notDetermined {
+            Task {
+                await requestAuthorization()
+            }
         }
     }
     
@@ -48,10 +52,10 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
         isObserverRegistered = true
     }
     
-    public func scanRecentScreenshots(windowMinutes: Double = 5.0) {
+    public func scanRecentScreenshots(windowMinutes: Double = 60.0) {
         let cutoffDate = Date().addingTimeInterval(-windowMinutes * 60)
         
-        // 1. Scan image screenshots
+        // 1. Scan image screenshots (within past hour)
         let imageOptions = PHFetchOptions()
         imageOptions.predicate = NSPredicate(
             format: "mediaType == %d AND creationDate >= %@ AND (mediaSubtypes & %d) != 0",
@@ -68,10 +72,10 @@ public final class PhotoLibraryObserver: NSObject, ObservableObject {
         }
         self.recentScreenshotAssets = detected
         
-        // 2. Scan recent short screen recording video (duration between 1s and 60s)
+        // 2. Scan recent short screen recording video (duration between 1s and 180s within past hour)
         let videoOptions = PHFetchOptions()
         videoOptions.predicate = NSPredicate(
-            format: "mediaType == %d AND creationDate >= %@ AND duration >= 1.0 AND duration <= 60.0",
+            format: "mediaType == %d AND creationDate >= %@ AND duration >= 1.0 AND duration <= 180.0",
             PHAssetMediaType.video.rawValue,
             cutoffDate as NSDate
         )

@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import Photos
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -31,23 +33,26 @@ public enum StudioLightingTheme: String, CaseIterable, Identifiable {
 public struct StudioShowroomView: View {
     public let stitchedImage: UIImage?
     public let onSavePoster: () -> Void
-    public let isSaving: Bool
     
     @Environment(\.dismiss) private var dismiss
+    @State private var currentImage: UIImage?
+    @State private var selectedAlbumItem: PhotosPickerItem?
+    
     @State private var selectedTheme: StudioLightingTheme = .cupertinoSunset
     @State private var selectedFinish: DeviceFrameFinish = .naturalTitanium
     @State private var dragRotationX: CGFloat = -14.0
     @State private var dragRotationY: CGFloat = 18.0
     @State private var showShadow: Bool = true
+    @State private var isExporting: Bool = false
+    @State private var toastMessage: String = ""
+    @State private var isShowingToast: Bool = false
     
     public init(
         stitchedImage: UIImage? = nil,
-        onSavePoster: @escaping () -> Void = {},
-        isSaving: Bool = false
+        onSavePoster: @escaping () -> Void = {}
     ) {
         self.stitchedImage = stitchedImage
         self.onSavePoster = onSavePoster
-        self.isSaving = isSaving
     }
     
     public var body: some View {
@@ -73,69 +78,20 @@ public struct StudioShowroomView: View {
                         )
                         
                         // 3D Floating Device
-                        VStack(spacing: 0) {
-                            if let img = stitchedImage {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxHeight: 460)
-                            } else {
-                                // Fallback mock placeholder
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(LinearGradient(colors: [.indigo, .purple], startPoint: .top, endPoint: .bottom))
-                                    .frame(width: 220, height: 440)
-                                    .overlay(
-                                        VStack(spacing: 8) {
-                                            Image(systemName: "photo.on.rectangle.angled")
-                                                .font(.largeTitle)
-                                            Text("ScrollSnap 超清长图")
-                                                .font(.headline)
-                                        }
-                                        .foregroundStyle(.white)
-                                    )
-                            }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-                        // Outer Titanium Bezel
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: selectedFinish.bezelGradient,
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 4
-                                )
-                        )
-                        // Specular Rim
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 36, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
-                        )
-                        // Drop shadow
-                        .shadow(
-                            color: Color.black.opacity(showShadow ? 0.45 : 0.0),
-                            radius: 30,
-                            x: dragRotationY * 0.8,
-                            y: 20
-                        )
-                        // 3D Perspective Rotation
-                        .rotation3DEffect(.degrees(Double(dragRotationY)), axis: (x: 0, y: 1, z: 0))
-                        .rotation3DEffect(.degrees(Double(dragRotationX)), axis: (x: 1, y: 0, z: 0))
-                        .gesture(
-                            DragGesture()
-                                .onChanged { val in
-                                    dragRotationY = min(max(val.translation.width * 0.15 + 18, -35), 35)
-                                    dragRotationX = min(max(-val.translation.height * 0.15 - 14, -30), 20)
-                                }
-                                .onEnded { _ in
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                                        dragRotationX = -14.0
-                                        dragRotationY = 18.0
+                        deviceStageView
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { val in
+                                        dragRotationY = min(max(val.translation.width * 0.15 + 18, -35), 35)
+                                        dragRotationX = min(max(-val.translation.height * 0.15 - 14, -30), 20)
                                     }
-                                }
-                        )
+                                    .onEnded { _ in
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            dragRotationX = -14.0
+                                            dragRotationY = 18.0
+                                        }
+                                    }
+                            )
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     
@@ -208,15 +164,14 @@ public struct StudioShowroomView: View {
                         
                         // Action Button
                         Button {
-                            HapticFeedbackManager.shared.triggerSuccess()
-                            SoundEffectManager.shared.playShutter()
-                            StoreReviewManager.shared.recordSuccessfulExport()
-                            onSavePoster()
+                            exportPosterToAlbum()
                         } label: {
                             HStack(spacing: 8) {
-                                if isSaving {
+                                if isExporting {
                                     ProgressView()
                                         .tint(.black)
+                                    Text("正在生成超清 3D 海报...")
+                                        .font(.headline.weight(.semibold))
                                 } else {
                                     Image(systemName: "arrow.down.circle.fill")
                                         .font(.headline)
@@ -226,14 +181,11 @@ public struct StudioShowroomView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white)
-                            )
+                            .background(Capsule().fill(Color.white))
                             .foregroundStyle(Color.black)
                             .shadow(color: Color.black.opacity(0.25), radius: 10, y: 4)
                         }
-                        .disabled(isSaving)
+                        .disabled(isExporting)
                         .buttonStyle(.plain)
                     }
                     .padding(20)
@@ -252,7 +204,173 @@ public struct StudioShowroomView: View {
                     }
                     .font(.body.weight(.medium))
                 }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    PhotosPicker(selection: $selectedAlbumItem, matching: .images) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "photo.badge.plus")
+                            Text("换图")
+                                .font(.caption.bold())
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(Capsule())
+                    }
+                }
+            }
+            .onAppear {
+                if let initial = stitchedImage {
+                    self.currentImage = initial
+                }
+            }
+            .onChange(of: selectedAlbumItem) { _, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let img = UIImage(data: data) {
+                        await MainActor.run {
+                            self.currentImage = img
+                            HapticFeedbackManager.shared.triggerSnap()
+                        }
+                    }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if isShowingToast {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text(toastMessage)
+                            .font(.footnote.bold())
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .liquidGlassPill()
+                    .padding(.bottom, 100)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
+    }
+    
+    private var deviceStageView: some View {
+        VStack(spacing: 0) {
+            if let img = currentImage {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 460)
+            } else {
+                // Interactive Album Picker Placeholder
+                PhotosPicker(selection: $selectedAlbumItem, matching: .images) {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(LinearGradient(colors: [.indigo, .purple], startPoint: .top, endPoint: .bottom))
+                        .frame(width: 220, height: 440)
+                        .overlay(
+                            VStack(spacing: 12) {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.system(size: 38))
+                                Text("轻触选择长截图或相片")
+                                    .font(.headline.weight(.semibold))
+                                Text("载入 3D 原色钛金属悬浮展台")
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.8))
+                            }
+                            .foregroundStyle(.white)
+                            .padding()
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: selectedFinish.bezelGradient,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 4
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(
+            color: Color.black.opacity(showShadow ? 0.45 : 0.0),
+            radius: 30,
+            x: dragRotationY * 0.8,
+            y: 20
+        )
+        .rotation3DEffect(.degrees(Double(dragRotationY)), axis: (x: 0, y: 1, z: 0))
+        .rotation3DEffect(.degrees(Double(dragRotationX)), axis: (x: 1, y: 0, z: 0))
+    }
+    
+    private var posterExportCanvas: some View {
+        ZStack {
+            LinearGradient(
+                colors: selectedTheme.backgroundGradient,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            RadialGradient(
+                colors: [Color.white.opacity(0.15), Color.clear],
+                center: .center,
+                startRadius: 20,
+                endRadius: 360
+            )
+            
+            deviceStageView
+        }
+        .frame(width: 420, height: 640)
+    }
+    
+    @MainActor
+    private func exportPosterToAlbum() {
+        isExporting = true
+        HapticFeedbackManager.shared.triggerSnap()
+        
+        #if canImport(UIKit)
+        let renderer = ImageRenderer(content: posterExportCanvas)
+        renderer.scale = 2.0
+        
+        guard let posterImage = renderer.uiImage else {
+            isExporting = false
+            return
+        }
+        
+        Task {
+            do {
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: posterImage)
+                }
+                
+                await MainActor.run {
+                    self.isExporting = false
+                    HapticFeedbackManager.shared.triggerSuccess()
+                    SoundEffectManager.shared.playShutter()
+                    StoreReviewManager.shared.recordSuccessfulExport()
+                    self.onSavePoster()
+                    self.toastMessage = "3D 摄影棚海报已保存至相册！"
+                    withAnimation { self.isShowingToast = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation { self.isShowingToast = false }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isExporting = false
+                    self.toastMessage = "保存失败: \(error.localizedDescription)"
+                    withAnimation { self.isShowingToast = true }
+                }
+            }
+        }
+        #else
+        isExporting = false
+        #endif
     }
 }

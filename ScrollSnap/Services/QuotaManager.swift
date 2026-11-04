@@ -42,11 +42,23 @@ public final class QuotaManager: ObservableObject {
     }
     
     public func canStitch() -> Bool {
+        #if DEBUG
+        return true
+        #else
         if StoreKitManager.shared.isProUser {
             return true
         }
         refreshQuota()
         return remainingDailyFreeStitches > 0
+        #endif
+    }
+    
+    public func resetQuotaForTesting() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: keyUsageDate)
+        defaults.removeObject(forKey: keyDailyStitchCount)
+        self.dailyStitchesUsed = 0
+        self.remainingDailyFreeStitches = Self.defaultDailyLimit
     }
     
     public func recordStitchUsage() {

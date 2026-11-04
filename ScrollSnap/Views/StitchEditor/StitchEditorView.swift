@@ -63,6 +63,7 @@ public struct StitchEditorView: View {
     @State private var canvasPadding: CGFloat = 20.0
     @State private var currentScrollOffset: CGFloat = 0.0
     @State private var isShowingStudioShowroomSheet: Bool = false
+    @State private var currentStitchedPreviewImage: UIImage?
     @State private var isShowingComparisonSheet: Bool = false
     
     // Social Slicer State
@@ -227,8 +228,7 @@ public struct StitchEditorView: View {
                             }
                             Section("3D 摄影棚") {
                                 Button {
-                                    isShowingStudioShowroomSheet = true
-                                    HapticFeedbackManager.shared.triggerSelection()
+                                    prepareAndOpenStudioShowroom()
                                 } label: {
                                     Label("3D 悬浮立体制图", systemImage: "cube.transparent")
                                 }
@@ -260,7 +260,7 @@ public struct StitchEditorView: View {
             }
             .sheet(isPresented: $isShowingStudioShowroomSheet) {
                 StudioShowroomView(
-                    stitchedImage: nil,
+                    stitchedImage: currentStitchedPreviewImage,
                     onSavePoster: {
                         isShowingStudioShowroomSheet = false
                         toastMessage = "3D 摄影棚展示海报已保存至相册"
@@ -996,6 +996,26 @@ public struct StitchEditorView: View {
             HapticFeedbackManager.shared.triggerSnap()
         } else {
             HapticFeedbackManager.shared.triggerSelection()
+        }
+    }
+    
+    // 3D Studio Preparation
+    private func prepareAndOpenStudioShowroom() {
+        HapticFeedbackManager.shared.triggerSelection()
+        Task {
+            let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            try? TiledImageRenderer.renderStitchedImageToFile(
+                session: session,
+                annotations: annotations,
+                outputURL: tempOutput,
+                format: .jpeg,
+                quality: 0.85
+            )
+            let img = UIImage(contentsOfFile: tempOutput.path)
+            await MainActor.run {
+                self.currentStitchedPreviewImage = img
+                self.isShowingStudioShowroomSheet = true
+            }
         }
     }
     

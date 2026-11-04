@@ -128,8 +128,10 @@ public struct WebCaptureView: View {
                     )
                     
                     HapticFeedbackManager.shared.triggerSuccess()
-                    onCaptured(session)
                     dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        onCaptured(session)
+                    }
                 }
                 isCapturing = false
             }
