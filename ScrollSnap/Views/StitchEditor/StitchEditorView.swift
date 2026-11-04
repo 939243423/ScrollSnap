@@ -1255,6 +1255,8 @@ public struct StitchEditorView: View {
                 session: session,
                 annotations: annotations,
                 brushStrokes: brushStrokes,
+                deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
+                canvasBackground: showDeviceFrame ? canvasBackground : nil,
                 outputURL: tempOutput,
                 format: .jpeg
             )
@@ -1299,6 +1301,8 @@ public struct StitchEditorView: View {
                 session: session,
                 annotations: annotations,
                 brushStrokes: brushStrokes,
+                deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
+                canvasBackground: showDeviceFrame ? canvasBackground : nil,
                 outputURL: tempOutput,
                 format: .jpeg
             )
@@ -1345,6 +1349,8 @@ public struct StitchEditorView: View {
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
+                    deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
+                    canvasBackground: showDeviceFrame ? canvasBackground : nil,
                     outputURL: tempOutput,
                     format: .jpeg,
                     quality: 0.95
@@ -1411,6 +1417,8 @@ public struct StitchEditorView: View {
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
+                    deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
+                    canvasBackground: showDeviceFrame ? canvasBackground : nil,
                     outputURL: outputURL,
                     format: selectedExportFormat
                 )

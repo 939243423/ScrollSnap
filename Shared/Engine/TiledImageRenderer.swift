@@ -27,6 +27,8 @@ public final class TiledImageRenderer {
         session: StitchSession,
         annotations: [AnnotationItem] = [],
         brushStrokes: [RedactionStroke] = [],
+        deviceFrameFinish: DeviceFrameFinish? = nil,
+        canvasBackground: CanvasBackgroundStyle? = nil,
         outputURL: URL,
         format: ExportFormat = .jpeg,
         quality: CGFloat = 0.94
@@ -38,6 +40,20 @@ public final class TiledImageRenderer {
         #if canImport(UIKit)
         if format == .pdf {
             try renderStitchedPDFToFile(session: session, annotations: annotations, brushStrokes: brushStrokes, outputURL: outputURL)
+            return
+        }
+        
+        if let finish = deviceFrameFinish, let bgStyle = canvasBackground {
+            try renderMockupFrameToFile(
+                session: session,
+                annotations: annotations,
+                brushStrokes: brushStrokes,
+                finish: finish,
+                bgStyle: bgStyle,
+                outputURL: outputURL,
+                format: format,
+                quality: quality
+            )
             return
         }
         
@@ -428,6 +444,200 @@ public final class TiledImageRenderer {
             
             drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: totalWidth, height: targetHeight))
             drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: totalWidth, height: targetHeight))
+        }
+        
+        let data: Data
+        if format == .png {
+            data = renderer.pngData(actions: drawBlock)
+        } else {
+            data = renderer.jpegData(withCompressionQuality: quality, actions: drawBlock)
+        }
+        
+        try data.write(to: outputURL, options: .atomic)
+    }
+
+    private static func renderMockupFrameToFile(
+        session: StitchSession,
+        annotations: [AnnotationItem],
+        brushStrokes: [RedactionStroke],
+        finish: DeviceFrameFinish,
+        bgStyle: CanvasBackgroundStyle,
+        outputURL: URL,
+        format: ExportFormat,
+        quality: CGFloat
+    ) throws {
+        let originalContentWidth = session.slices.first?.originalWidth ?? 393.0
+        let originalContentHeight = session.totalEstimatedHeight
+        let scale = originalContentWidth / 393.0
+        let padding: CGFloat = 80.0 * scale
+        
+        var totalMockupWidth = originalContentWidth + padding * 2.0
+        var totalMockupHeight = originalContentHeight + padding * 2.0
+        var scaleFactor: CGFloat = 1.0
+        
+        let maxAllowedHeight: CGFloat = 20480.0
+        if totalMockupHeight > maxAllowedHeight {
+            scaleFactor = maxAllowedHeight / totalMockupHeight
+            totalMockupWidth *= scaleFactor
+            totalMockupHeight = maxAllowedHeight
+        }
+        
+        let rendererFormat = UIGraphicsImageRendererFormat.default()
+        rendererFormat.scale = 1.0
+        rendererFormat.opaque = (format == .jpeg && bgStyle != .transparent)
+        
+        let renderer = UIGraphicsImageRenderer(
+            size: CGSize(width: totalMockupWidth, height: totalMockupHeight),
+            format: rendererFormat
+        )
+        
+        let drawBlock: (UIGraphicsImageRendererContext) -> Void = { context in
+            let cgContext = context.cgContext
+            if scaleFactor != 1.0 {
+                cgContext.scaleBy(x: scaleFactor, y: scaleFactor)
+            }
+            
+            let unscaledMockupW = originalContentWidth + padding * 2.0
+            let unscaledMockupH = originalContentHeight + padding * 2.0
+            
+            // 1. Draw Canvas Background
+            switch bgStyle {
+            case .transparent:
+                break
+            case .appleGradient:
+                let colorSpace = CGColorSpaceCreateDeviceRGB()
+                let c1 = UIColor(red: 0.38, green: 0.42, blue: 0.94, alpha: 1.0).cgColor
+                let c2 = UIColor(red: 0.65, green: 0.38, blue: 0.88, alpha: 1.0).cgColor
+                if let gradient = CGGradient(colorsSpace: colorSpace, colors: [c1, c2] as CFArray, locations: [0.0, 1.0]) {
+                    cgContext.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 0), end: CGPoint(x: unscaledMockupW, y: unscaledMockupH), options: [])
+                }
+            case .studioDark:
+                cgContext.setFillColor(UIColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0).cgColor)
+                cgContext.fill(CGRect(x: 0, y: 0, width: unscaledMockupW, height: unscaledMockupH))
+            case .cleanWhite:
+                cgContext.setFillColor(UIColor(red: 0.96, green: 0.96, blue: 0.98, alpha: 1.0).cgColor)
+                cgContext.fill(CGRect(x: 0, y: 0, width: unscaledMockupW, height: unscaledMockupH))
+            case .adaptiveBlur:
+                cgContext.setFillColor(UIColor(white: 0.92, alpha: 1.0).cgColor)
+                cgContext.fill(CGRect(x: 0, y: 0, width: unscaledMockupW, height: unscaledMockupH))
+            }
+            
+            // 2. Draw Soft Drop Shadow around Device
+            let phoneRect = CGRect(x: padding, y: padding, width: originalContentWidth, height: originalContentHeight)
+            let cornerRadius: CGFloat = 46.0 * scale
+            
+            cgContext.saveGState()
+            cgContext.setShadow(
+                offset: CGSize(width: 0, height: 16.0 * scale),
+                blur: 32.0 * scale,
+                color: UIColor.black.withAlphaComponent(0.35).cgColor
+            )
+            let shadowPath = UIBezierPath(roundedRect: phoneRect, cornerRadius: cornerRadius)
+            cgContext.setFillColor(UIColor.black.cgColor)
+            shadowPath.fill()
+            cgContext.restoreGState()
+            
+            // 3. Clip and Draw Content Inside Phone Screen
+            cgContext.saveGState()
+            let clipPath = UIBezierPath(roundedRect: phoneRect, cornerRadius: cornerRadius)
+            clipPath.addClip()
+            
+            var currentY = phoneRect.minY
+            for (index, slice) in session.slices.enumerated() {
+                guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                      let image = UIImage(contentsOfFile: fileURL.path) else {
+                    continue
+                }
+                
+                let visibleHeight = slice.visibleHeight
+                let drawRect = CGRect(x: phoneRect.minX, y: currentY, width: originalContentWidth, height: visibleHeight)
+                
+                cgContext.saveGState()
+                cgContext.clip(to: drawRect)
+                
+                let imageDrawRect = CGRect(
+                    x: phoneRect.minX,
+                    y: currentY - slice.topCropInset,
+                    width: originalContentWidth,
+                    height: slice.originalHeight
+                )
+                image.draw(in: imageDrawRect)
+                
+                for redaction in slice.redactions {
+                    let rX = drawRect.minX + redaction.relativeRect.minX * drawRect.width
+                    let rY = drawRect.minY + redaction.relativeRect.minY * drawRect.height
+                    let rW = redaction.relativeRect.width * drawRect.width
+                    let rH = redaction.relativeRect.height * drawRect.height
+                    let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
+                    applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
+                }
+                
+                cgContext.restoreGState()
+                
+                let nextOverlap: CGFloat = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
+                currentY += (visibleHeight - nextOverlap)
+            }
+            
+            // Annotations and Brush Strokes
+            cgContext.saveGState()
+            cgContext.translateBy(x: phoneRect.minX, y: phoneRect.minY)
+            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: originalContentWidth, height: originalContentHeight))
+            drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: originalContentWidth, height: originalContentHeight))
+            cgContext.restoreGState()
+            cgContext.restoreGState()
+            
+            // 4. Titanium Bezel Outer Frame
+            cgContext.saveGState()
+            let bezelPath = UIBezierPath(roundedRect: phoneRect, cornerRadius: cornerRadius)
+            let colors = finish.uiColors
+            cgContext.setLineWidth(5.5 * scale)
+            cgContext.setStrokeColor((colors.first ?? UIColor.gray).cgColor)
+            bezelPath.stroke()
+            
+            // Specular Highlight Rim
+            cgContext.setLineWidth(1.5 * scale)
+            cgContext.setStrokeColor(UIColor.white.withAlphaComponent(0.45).cgColor)
+            bezelPath.stroke()
+            cgContext.restoreGState()
+            
+            // 5. Dynamic Island Pill
+            let islandW: CGFloat = 110.0 * scale
+            let islandH: CGFloat = 30.0 * scale
+            let islandRect = CGRect(
+                x: phoneRect.midX - islandW / 2.0,
+                y: phoneRect.minY + 12.0 * scale,
+                width: islandW,
+                height: islandH
+            )
+            let islandPath = UIBezierPath(roundedRect: islandRect, cornerRadius: islandH / 2.0)
+            cgContext.saveGState()
+            cgContext.setFillColor(UIColor.black.cgColor)
+            islandPath.fill()
+            
+            // Subtle camera cutout dot inside island
+            let lensRect = CGRect(
+                x: islandRect.maxX - 22.0 * scale,
+                y: islandRect.midY - 6.0 * scale,
+                width: 12.0 * scale,
+                height: 12.0 * scale
+            )
+            cgContext.setFillColor(UIColor(white: 0.15, alpha: 1.0).cgColor)
+            UIBezierPath(ovalIn: lensRect).fill()
+            cgContext.restoreGState()
+            
+            // 6. Home Indicator Pill
+            let homeW: CGFloat = 120.0 * scale
+            let homeH: CGFloat = 4.5 * scale
+            let homeRect = CGRect(
+                x: phoneRect.midX - homeW / 2.0,
+                y: phoneRect.maxY - 14.0 * scale,
+                width: homeW,
+                height: homeH
+            )
+            cgContext.saveGState()
+            cgContext.setFillColor(UIColor.white.withAlphaComponent(0.55).cgColor)
+            UIBezierPath(roundedRect: homeRect, cornerRadius: homeH / 2.0).fill()
+            cgContext.restoreGState()
         }
         
         let data: Data
