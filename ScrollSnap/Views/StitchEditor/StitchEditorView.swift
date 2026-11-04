@@ -501,7 +501,7 @@ public struct StitchEditorView: View {
                             .overlay(
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.up.and.down")
-                                    Text("接缝 #\(index): \(Int(slice.effectiveOverlap))pt (触觉磁吸)")
+                                    Text("接缝 #\(index): \(Int(slice.effectiveOverlap)) px")
                                 }
                                 .font(.caption2.bold().monospacedDigit())
                                 .padding(.horizontal, 9)

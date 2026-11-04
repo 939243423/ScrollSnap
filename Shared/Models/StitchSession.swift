@@ -1,6 +1,26 @@
 import Foundation
 import CoreGraphics
 
+public enum StitchError: LocalizedError {
+    case emptySlices
+    case renderFailed
+    case fileWriteFailed
+    case invalidDimensions
+    
+    public var errorDescription: String? {
+        switch self {
+        case .emptySlices:
+            return "没有可供拼接的截图或视频画面"
+        case .renderFailed:
+            return "长截图渲染失败"
+        case .fileWriteFailed:
+            return "保存图片文件失败，请检查存储空间"
+        case .invalidDimensions:
+            return "图片尺寸异常"
+        }
+    }
+}
+
 public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
     case smartAuto       // 自动识别吸顶导航栏与吸底固定栏
     case chatRecord      // 微信/聊天模式 (保留首图顶栏与尾图底栏，切除中间图的重叠顶栏与输入框)

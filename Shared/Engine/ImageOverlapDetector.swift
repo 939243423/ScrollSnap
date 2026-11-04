@@ -1,5 +1,8 @@
 import Foundation
 import CoreGraphics
+#if canImport(Accelerate)
+import Accelerate
+#endif
 
 public struct OverlapMatchResult {
     public let offset: CGFloat
@@ -103,37 +106,67 @@ public final class ImageOverlapDetector {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        // Extract template from bottomSlice immediately below its top crop inset
         let templateStart = Int(topCropInset)
-        let template = Array(bottomLuminance[templateStart..<(templateStart + templateLen)])
-        let meanT = template.reduce(0.0, +) / Double(templateLen)
-        var varT: Double = 0.0
-        for val in template {
-            let diff = val - meanT
-            varT += diff * diff
+        let invTemplateLen = 1.0 / Double(templateLen)
+        
+        // Fast O(N) Prefix Sum Tables for S (topLuminance) and S^2
+        var sumS = [Double](repeating: 0.0, count: topLuminance.count + 1)
+        var sumSqS = [Double](repeating: 0.0, count: topLuminance.count + 1)
+        for i in 0..<topLuminance.count {
+            let v = topLuminance[i]
+            sumS[i + 1] = sumS[i] + v
+            sumSqS[i + 1] = sumSqS[i] + v * v
         }
         
-        // Slide template along search window of topSlice
-        for offset in stride(from: minOffset, through: maxOffset, by: 2) {
-            guard offset + templateLen <= validTopEnd else { break }
-            let sub = Array(topLuminance[offset..<(offset + templateLen)])
-            let meanS = sub.reduce(0.0, +) / Double(templateLen)
-            
-            var numerator: Double = 0.0
-            var varS: Double = 0.0
-            for i in 0..<templateLen {
-                let diffS = sub[i] - meanS
-                let diffT = template[i] - meanT
-                numerator += diffS * diffT
-                varS += diffS * diffS
-            }
-            
-            let denominator = sqrt(varS * varT)
-            if denominator > 0.0001 {
-                let r = numerator / denominator
-                if r > maxCorrelation {
-                    maxCorrelation = r
-                    bestOffset = offset
+        // Template statistical baseline
+        var sumT = 0.0
+        var sumSqT = 0.0
+        for i in 0..<templateLen {
+            let v = bottomLuminance[templateStart + i]
+            sumT += v
+            sumSqT += v * v
+        }
+        let varT = max(0.0, sumSqT - (sumT * sumT) * invTemplateLen)
+        guard varT > 0.0001 else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        // Vectorized SIMD dot-product sliding correlation with zero intermediate heap allocations
+        topLuminance.withUnsafeBufferPointer { topPtr in
+            bottomLuminance.withUnsafeBufferPointer { botPtr in
+                guard let topBase = topPtr.baseAddress,
+                      let botBase = botPtr.baseAddress else { return }
+                
+                let tBase = botBase + templateStart
+                
+                for offset in stride(from: minOffset, through: maxOffset, by: 2) {
+                    guard offset + templateLen <= validTopEnd else { break }
+                    
+                    let sSum = sumS[offset + templateLen] - sumS[offset]
+                    let sSqSum = sumSqS[offset + templateLen] - sumSqS[offset]
+                    let varS = max(0.0, sSqSum - (sSum * sSum) * invTemplateLen)
+                    guard varS > 0.0001 else { continue }
+                    
+                    let sBase = topBase + offset
+                    var dot = 0.0
+                    
+                    #if canImport(Accelerate)
+                    vDSP_dotprD(sBase, 1, tBase, 1, &dot, vDSP_Length(templateLen))
+                    #else
+                    for i in 0..<templateLen {
+                        dot += sBase[i] * tBase[i]
+                    }
+                    #endif
+                    
+                    let numerator = dot - (sSum * sumT) * invTemplateLen
+                    let denominator = sqrt(varS * varT)
+                    if denominator > 0.0001 {
+                        let r = numerator / denominator
+                        if r > maxCorrelation {
+                            maxCorrelation = r
+                            bestOffset = offset
+                        }
+                    }
                 }
             }
         }
