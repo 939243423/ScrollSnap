@@ -27,21 +27,19 @@ public struct SettingsView: View {
                         isShowingProPaywall = true
                     } label: {
                         HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.accentColor.opacity(0.12))
-                                    .frame(width: 36, height: 36)
-                                Image(systemName: "crown.fill")
-                                    .symbolRenderingMode(.hierarchical)
-                                    .foregroundStyle(Color.accentColor)
-                            }
+                            LiquidGlassIconPod(
+                                systemName: "crown.fill",
+                                tint: .accentColor,
+                                size: 36,
+                                cornerRadius: ScrollSnapTheme.Radius.sm
+                            )
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(storeKit.isProUser ? "已激活 ¥1 永久特权" : "纯粹效率 · 1元永久买断")
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                    .font(ScrollSnapTheme.FontToken.itemTitle)
                                     .foregroundStyle(.primary)
                                 Text(storeKit.isProUser ? "享有无限制拼图、隐私脱敏保护与9宫格切片" : "每日免费 2 次 · ¥1.00 永久买断")
-                                    .font(.caption2)
+                                    .font(ScrollSnapTheme.FontToken.captionHint)
                                     .foregroundStyle(.secondary)
                             }
                             

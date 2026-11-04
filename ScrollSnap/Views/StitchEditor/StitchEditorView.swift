@@ -1226,7 +1226,7 @@ public struct TextExtractorSheet: View {
                     .font(.body)
                     .padding(8)
                     .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: ScrollSnapTheme.Radius.md, style: .continuous))
                 
                 Button {
                     UIPasteboard.general.string = text
@@ -1234,13 +1234,9 @@ public struct TextExtractorSheet: View {
                     dismiss()
                 } label: {
                     Label("复制全部文字并关闭", systemImage: "doc.on.doc.fill")
-                        .font(.body.bold())
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
                 }
+                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
             }
             .padding()
             .navigationTitle("长图全文提取 (OCR)")

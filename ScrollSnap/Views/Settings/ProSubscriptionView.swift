@@ -64,21 +64,21 @@ public struct ProSubscriptionView: View {
                             systemName: "clock.arrow.circlepath",
                             tint: .orange,
                             size: 40,
-                            cornerRadius: 12
+                            cornerRadius: ScrollSnapTheme.Radius.sm
                         )
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text("今日免费额度")
-                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .font(ScrollSnapTheme.FontToken.itemTitle)
                             Text(storeKit.isProUser ? "已解锁永久会员，无任何限制" : "剩余 \(quotaManager.remainingDailyFreeStitches) / \(QuotaManager.defaultDailyLimit) 次（每日 00:00 自动刷新）")
-                                .font(.caption2)
+                                .font(ScrollSnapTheme.FontToken.captionHint)
                                 .foregroundStyle(.secondary)
                         }
                         
                         Spacer()
                     }
-                    .padding(14)
-                    .liquidGlassCard(cornerRadius: 18)
+                    .padding(ScrollSnapTheme.Spacing.md + 2)
+                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
                     
                     // Lifetime Perks List with Glass Icon Pods
                     VStack(spacing: 14) {
@@ -119,8 +119,8 @@ public struct ProSubscriptionView: View {
                             detail: "连按截屏后双击手机背面，0.3 秒无感拼好直接存入剪贴板"
                         )
                     }
-                    .padding(18)
-                    .liquidGlassCard(cornerRadius: 22)
+                    .padding(ScrollSnapTheme.Spacing.lg + 2)
+                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.xl)
                     
                     // Purchase Action Block
                     VStack(spacing: 12) {
@@ -147,21 +147,10 @@ public struct ProSubscriptionView: View {
                                     }
                                     
                                     Text("支付 ¥1.00 永久买断")
-                                        .font(.system(.body, design: .rounded).weight(.bold))
                                 }
-                                .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 15)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color(red: 0.95, green: 0.42, blue: 0.25), Color(red: 0.92, green: 0.22, blue: 0.35)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                .shadow(color: Color.orange.opacity(0.35), radius: 12, x: 0, y: 6)
                             }
+                            .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.proGoldGradient))
                             .disabled(isPurchasing)
                         }
                         

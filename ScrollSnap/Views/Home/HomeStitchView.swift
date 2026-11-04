@@ -157,29 +157,7 @@ public struct HomeStitchView: View {
                     toastOverlayView
                 }
             }
-            .overlay {
-                if isProcessingStitch {
-                    ZStack {
-                        Color.black.opacity(0.32)
-                            .ignoresSafeArea()
-                        
-                        VStack(spacing: 14) {
-                            ProgressView()
-                                .controlSize(.large)
-                                .tint(.white)
-                            Text(processingStatusMessage)
-                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.horizontal, 28)
-                        .padding(.vertical, 22)
-                        .liquidGlassCard(cornerRadius: 22, strokeOpacity: 0.45)
-                        .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
-                    }
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isProcessingStitch)
-                }
-            }
+            .scrollSnapLoadingHUD(isPresented: isProcessingStitch, message: processingStatusMessage)
         }
     }
     
@@ -334,17 +312,11 @@ public struct HomeStitchView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text("检测到剪贴板文章链接")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    Text("0 截屏")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1.5)
-                        .background(Color.teal)
-                        .clipShape(Capsule())
+                        .font(ScrollSnapTheme.FontToken.itemTitle)
+                    ScrollSnapBadge("0 截屏", tint: .teal)
                 }
                 Text(url.host ?? url.absoluteString)
-                    .font(.caption2)
+                    .font(ScrollSnapTheme.FontToken.captionHint)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -356,8 +328,8 @@ public struct HomeStitchView: View {
                 self.isShowingWebCapture = true
             }
             .font(.system(.caption, design: .rounded).weight(.bold))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, ScrollSnapTheme.Spacing.md)
+            .padding(.vertical, ScrollSnapTheme.Spacing.xs)
             .background(Color.teal)
             .foregroundStyle(.white)
             .clipShape(Capsule())
@@ -368,16 +340,11 @@ public struct HomeStitchView: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .padding(6)
-                    .background(Color.secondary.opacity(0.12))
-                    .clipShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
-        .padding(14)
-        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.35)
+        .padding(ScrollSnapTheme.Spacing.md + 2)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.teal.opacity(0.35))
     }
     
     private func recentScreenRecordingBanner(_ video: PHAsset) -> some View {
@@ -396,19 +363,13 @@ public struct HomeStitchView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("录屏秒转长图 · 无需连按截图")
-                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                            .font(ScrollSnapTheme.FontToken.cardTitle)
                             .foregroundStyle(.primary)
                         
-                        Text("\(durationSec)s 视频")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.purple)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.12))
-                            .clipShape(Capsule())
+                        ScrollSnapBadge("\(durationSec)s 视频", tint: .purple)
                     }
                     Text("自适应光流追帧，0.08s 捕捉不匀速快滑，去重合成为长图")
-                        .font(.caption2)
+                        .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -419,13 +380,8 @@ public struct HomeStitchView: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .padding(6)
-                        .background(Color.secondary.opacity(0.12))
-                        .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
             }
             
             VStack(spacing: 10) {
@@ -443,25 +399,13 @@ public struct HomeStitchView: View {
                                 .font(.body.weight(.semibold))
                         }
                         Text("提取超清长图并清理原录屏")
-                            .font(.system(.subheadline, design: .rounded).weight(.bold))
                         Spacer()
                         Image(systemName: "trash.slash.fill")
                             .font(.caption)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.purple, Color.indigo],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .shadow(color: Color.purple.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.videoGradient))
                 .disabled(isProcessingStitch)
                 
                 HStack(spacing: 10) {
@@ -472,15 +416,10 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
                             Text("仅存长图")
-                                .font(.system(.caption, design: .rounded).weight(.semibold))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(Color.secondary.opacity(0.12))
-                        .foregroundStyle(.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
                     .disabled(isProcessingStitch)
                     
                     Button {
@@ -490,21 +429,16 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "slider.horizontal.3")
                             Text("工作台精修")
-                                .font(.system(.caption, design: .rounded).weight(.semibold))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(Color.secondary.opacity(0.12))
-                        .foregroundStyle(.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
                     .disabled(isProcessingStitch)
                 }
             }
         }
-        .padding(16)
-        .liquidGlassCard(cornerRadius: 22, strokeOpacity: 0.35)
+        .padding(ScrollSnapTheme.Spacing.lg)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.xl, strokeColor: Color.purple.opacity(0.35))
     }
     
     private var recentDetectedScreenshotsBanner: some View {
@@ -524,19 +458,13 @@ public struct HomeStitchView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("即开即拼 · 智能感知")
-                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                            .font(ScrollSnapTheme.FontToken.cardTitle)
                             .foregroundStyle(.primary)
                         
-                        Text("刚刚截取")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.accentColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.12))
-                            .clipShape(Capsule())
+                        ScrollSnapBadge("刚刚截取", tint: .accentColor)
                     }
                     Text("检测到相册中有 \(count) 张连续截图，已为您准备好无缝拼合")
-                        .font(.caption2)
+                        .font(ScrollSnapTheme.FontToken.captionHint)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -547,13 +475,8 @@ public struct HomeStitchView: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .padding(6)
-                        .background(Color.secondary.opacity(0.12))
-                        .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
             }
             
             // Primary Action Buttons
@@ -573,25 +496,13 @@ public struct HomeStitchView: View {
                                 .font(.body.weight(.semibold))
                         }
                         Text("保存长图并清理 \(count) 张原截图")
-                            .font(.system(.subheadline, design: .rounded).weight(.bold))
                         Spacer()
                         Image(systemName: "trash.slash.fill")
                             .font(.caption)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.blue],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .shadow(color: Color.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
                 .disabled(isProcessingStitch)
                 
                 // Secondary Actions Row
@@ -604,15 +515,10 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
                             Text("仅存长图")
-                                .font(.system(.caption, design: .rounded).weight(.semibold))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.secondary.opacity(0.12))
-                        .foregroundStyle(.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
                     .disabled(isProcessingStitch)
                     
                     // Action 3: Open in Editor
@@ -623,21 +529,16 @@ public struct HomeStitchView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "slider.horizontal.3")
                             Text("工作台精修")
-                                .font(.system(.caption, design: .rounded).weight(.semibold))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.secondary.opacity(0.12))
-                        .foregroundStyle(.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
                     .disabled(isProcessingStitch)
                 }
             }
         }
-        .padding(16)
-        .liquidGlassCard(cornerRadius: 22, strokeOpacity: 0.35)
+        .padding(ScrollSnapTheme.Spacing.lg)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.xl, strokeColor: Color.accentColor.opacity(0.35))
     }
     
     private var coreActionsGrid: some View {
@@ -711,28 +612,28 @@ public struct HomeStitchView: View {
     }
     
     private func actionCard(title: String, subtitle: String, iconName: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: ScrollSnapTheme.Spacing.sm) {
             LiquidGlassIconPod(
                 systemName: iconName,
                 tint: tint,
-                size: 40,
-                cornerRadius: 12
+                size: 38,
+                cornerRadius: ScrollSnapTheme.Radius.sm
             )
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .font(ScrollSnapTheme.FontToken.itemTitle)
                     .foregroundStyle(.primary)
                 Text(subtitle)
-                    .font(.caption2)
+                    .font(ScrollSnapTheme.FontToken.captionHint)
                     .foregroundStyle(.secondary)
             }
             Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 105)
-        .padding(14)
-        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
+        .padding(ScrollSnapTheme.Spacing.md)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: tint.opacity(0.25))
     }
     
     private var quickCaptureHub: some View {
@@ -747,20 +648,14 @@ public struct HomeStitchView: View {
                         systemName: "iphone.radiowaves.left.and.right",
                         tint: Color.blue,
                         size: 38,
-                        cornerRadius: 11
+                        cornerRadius: ScrollSnapTheme.Radius.sm
                     )
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
                             Text("侧键 / 轻敲背面")
-                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .font(ScrollSnapTheme.FontToken.itemTitle)
                                 .foregroundStyle(.primary)
-                            Text("0.3s")
-                                .font(.system(size: 9, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1.5)
-                                .background(Color.blue)
-                                .clipShape(Capsule())
+                            ScrollSnapBadge("0.3s", tint: .blue, font: ScrollSnapTheme.FontToken.monoMetric)
                         }
                         Text("截屏后轻敲两下直接拼好")
                             .font(.system(size: 10.5))
@@ -769,8 +664,8 @@ public struct HomeStitchView: View {
                     }
                     Spacer()
                 }
-                .padding(12)
-                .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
+                .padding(ScrollSnapTheme.Spacing.md)
+                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.blue.opacity(0.25))
             }
             .buttonStyle(.plain)
             
@@ -780,11 +675,11 @@ public struct HomeStitchView: View {
                     systemName: "record.circle.fill",
                     tint: Color.orange,
                     size: 38,
-                    cornerRadius: 11
+                    cornerRadius: ScrollSnapTheme.Radius.sm
                 )
                 VStack(alignment: .leading, spacing: 2) {
                     Text("滚动录屏截取")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .font(ScrollSnapTheme.FontToken.itemTitle)
                         .foregroundStyle(.primary)
                     Text("微信后台匀速录制")
                         .font(.system(size: 10.5))
@@ -806,8 +701,8 @@ public struct HomeStitchView: View {
                 }
                 #endif
             }
-            .padding(12)
-            .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
+            .padding(ScrollSnapTheme.Spacing.md)
+            .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.orange.opacity(0.25))
         }
     }
     

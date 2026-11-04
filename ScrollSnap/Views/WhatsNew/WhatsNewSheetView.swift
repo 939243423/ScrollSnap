@@ -32,13 +32,7 @@ public struct WhatsNewSheetView: View {
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(.secondary)
                                 
-                                Text("v\(whatsNewManager.currentVersion)")
-                                    .font(.caption2.weight(.bold).monospacedDigit())
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.accentColor.opacity(0.12))
-                                    .foregroundStyle(Color.accentColor)
-                                    .clipShape(Capsule())
+                                ScrollSnapBadge("v\(whatsNewManager.currentVersion)", tint: .accentColor, font: ScrollSnapTheme.FontToken.monoMetric)
                             }
                         }
                     }
@@ -48,23 +42,20 @@ public struct WhatsNewSheetView: View {
                     VStack(spacing: 22) {
                         ForEach(whatsNewManager.features) { feature in
                             HStack(alignment: .top, spacing: 16) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(feature.iconColor.opacity(0.12))
-                                        .frame(width: 44, height: 44)
-                                    
-                                    Image(systemName: feature.iconName)
-                                        .font(.system(size: 20, weight: .semibold))
-                                        .foregroundStyle(feature.iconColor)
-                                }
+                                LiquidGlassIconPod(
+                                    systemName: feature.iconName,
+                                    tint: feature.iconColor,
+                                    size: 44,
+                                    cornerRadius: ScrollSnapTheme.Radius.sm + 2
+                                )
                                 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(feature.title)
-                                        .font(.system(.body, design: .rounded).weight(.bold))
+                                        .font(ScrollSnapTheme.FontToken.cardTitle)
                                         .foregroundStyle(.primary)
                                     
                                     Text(feature.description)
-                                        .font(.system(.footnote))
+                                        .font(ScrollSnapTheme.FontToken.bodyText)
                                         .foregroundStyle(.secondary)
                                         .lineSpacing(2)
                                 }
@@ -86,14 +77,9 @@ public struct WhatsNewSheetView: View {
                     dismiss()
                 } label: {
                     Text("继续使用")
-                        .font(.system(.body, design: .rounded).weight(.bold))
-                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accentColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: Color.accentColor.opacity(0.3), radius: 8, y: 4)
                 }
+                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
                 
                 HStack(spacing: 4) {
                     Image(systemName: "lock.shield")
