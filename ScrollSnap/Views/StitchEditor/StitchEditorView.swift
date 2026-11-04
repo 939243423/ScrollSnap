@@ -204,6 +204,8 @@ public struct StitchEditorView: View {
                             .background(Color.secondary.opacity(0.12))
                             .clipShape(Circle())
                     }
+                    .keyboardShortcut(.escape, modifiers: [])
+                    .accessibilityLabel("关闭")
                 }
                 
                 ToolbarItem(placement: .principal) {
@@ -221,6 +223,8 @@ public struct StitchEditorView: View {
                                 .background(Color.secondary.opacity(0.12))
                                 .clipShape(Circle())
                         }
+                        .keyboardShortcut("c", modifiers: .command)
+                        .accessibilityLabel("复制长截图")
                         .buttonStyle(ScrollSnapButtonStyle.bouncy)
                         
                         Button {
@@ -244,6 +248,8 @@ public struct StitchEditorView: View {
                             .foregroundStyle(.white)
                             .clipShape(Capsule())
                         }
+                        .keyboardShortcut("s", modifiers: .command)
+                        .accessibilityLabel("保存长截图到相册")
                         .disabled(isExporting)
                         .buttonStyle(ScrollSnapButtonStyle.bouncy)
                         
@@ -333,6 +339,13 @@ public struct StitchEditorView: View {
                 Button("好", role: .cancel) {}
             } message: {
                 Text("已将长图拆解为 \(generatedSlices.count) 张切片，可前往微信或小红书发布。")
+            }
+            .background {
+                Button("") {
+                    handleUndoAction()
+                }
+                .keyboardShortcut("z", modifiers: .command)
+                .opacity(0)
             }
         }
     }
@@ -1320,6 +1333,20 @@ public struct StitchEditorView: View {
                     showToast()
                 }
             }
+        }
+    }
+    
+    private func handleUndoAction() {
+        if !brushStrokes.isEmpty {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                _ = brushStrokes.removeLast()
+            }
+            HapticFeedbackManager.shared.triggerSelection()
+        } else if !annotations.isEmpty {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                _ = annotations.removeLast()
+            }
+            HapticFeedbackManager.shared.triggerSelection()
         }
     }
     
