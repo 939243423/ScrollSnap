@@ -9,7 +9,7 @@ public struct TactileSeamDialView: View {
     public let range: ClosedRange<CGFloat>
     public let onSnapToOptimal: () -> Void
     
-    @State private var dragStartOffset: CGFloat = 0
+    @State private var dragInitialOffset: CGFloat? = nil
     @State private var isFineGrained: Bool = false
     @State private var lastDetentOffset: CGFloat = 0
     
@@ -312,12 +312,13 @@ public struct TactileSeamDialView: View {
             .gesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
-                        if dragStartOffset == 0 {
-                            dragStartOffset = offset
+                        if dragInitialOffset == nil {
+                            dragInitialOffset = offset
                         }
+                        let initial = dragInitialOffset ?? offset
                         let sensitivity: CGFloat = isFineGrained ? 0.25 : 0.55
                         let delta = -value.translation.width * sensitivity / (tickSpacing * 0.5)
-                        var newOffset = dragStartOffset + delta
+                        var newOffset = initial + delta
                         newOffset = min(max(newOffset, range.lowerBound), range.upperBound)
                         
                         // Check if hitting detents
@@ -330,14 +331,17 @@ public struct TactileSeamDialView: View {
                         // Magnetic snap when near optimal
                         if abs(newOffset - optimalOffset) < 1.0 {
                             newOffset = optimalOffset
-                            HapticFeedbackManager.shared.triggerMagneticLock()
-                            SoundEffectManager.shared.playMagneticSnap()
+                            if lastDetentOffset != optimalOffset {
+                                lastDetentOffset = optimalOffset
+                                HapticFeedbackManager.shared.triggerMagneticLock()
+                                SoundEffectManager.shared.playMagneticSnap()
+                            }
                         }
                         
                         self.offset = newOffset
                     }
                     .onEnded { _ in
-                        dragStartOffset = 0
+                        dragInitialOffset = nil
                     }
             )
         }

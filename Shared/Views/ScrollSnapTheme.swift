@@ -158,8 +158,13 @@ public struct PrimaryHeroButtonStyle: ButtonStyle {
                 x: 0,
                 y: 4
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.55), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed {
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
+            }
     }
 }
 
@@ -178,8 +183,13 @@ public struct SecondaryGlassButtonStyle: ButtonStyle {
             .padding(.vertical, ScrollSnapTheme.Spacing.sm + 1)
             .background(ScrollSnapTheme.Colors.subtleFill)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.55), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed {
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
+            }
     }
 }
 
@@ -197,8 +207,8 @@ public struct DismissCircleButtonStyle: ButtonStyle {
             .frame(width: size, height: size)
             .background(ScrollSnapTheme.Colors.subtleFill)
             .clipShape(Circle())
-            .scaleEffect(configuration.isPressed ? 0.90 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.86 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.50), value: configuration.isPressed)
     }
 }
 
@@ -206,7 +216,7 @@ public struct BouncyPressStyle: ButtonStyle {
     public var scale: CGFloat
     public var opacity: CGFloat
     
-    public init(scale: CGFloat = 0.97, opacity: CGFloat = 0.92) {
+    public init(scale: CGFloat = 0.94, opacity: CGFloat = 0.90) {
         self.scale = scale
         self.opacity = opacity
     }
@@ -215,7 +225,12 @@ public struct BouncyPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1.0)
             .opacity(configuration.isPressed ? opacity : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .animation(.spring(response: 0.28, dampingFraction: 0.52), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed {
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
+            }
     }
 }
 

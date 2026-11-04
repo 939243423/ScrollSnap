@@ -456,11 +456,14 @@ public struct StitchEditorView: View {
                                     Text("接缝 #\(index): \(Int(slice.effectiveOverlap))pt (触觉磁吸)")
                                 }
                                 .font(.caption2.bold().monospacedDigit())
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.orange)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
+                                .background(selectedSliceIndex == index ? Color.orange : Color.secondary)
                                 .foregroundStyle(.white)
                                 .clipShape(Capsule())
+                                .shadow(color: Color.black.opacity(selectedSliceIndex == index ? 0.35 : 0.15), radius: 6, y: 2)
+                                .scaleEffect(selectedSliceIndex == index ? 1.06 : 0.95)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.62), value: selectedSliceIndex)
                                 .offset(y: -14)
                             )
                     }
@@ -468,8 +471,11 @@ public struct StitchEditorView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     if activeToolMode == .seamTuner && index > 0 {
-                        selectedSliceIndex = index
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.65)) {
+                            selectedSliceIndex = index
+                        }
                         HapticFeedbackManager.shared.triggerSelection()
+                        SoundEffectManager.shared.playRatchetTick()
                     }
                 }
             }

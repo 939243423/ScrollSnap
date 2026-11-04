@@ -20,11 +20,13 @@ public struct LiquidBrushRedactionView: View {
     public var body: some View {
         VStack(spacing: 12) {
             // Brush Bar Controls
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 // Brush Type Switcher
                 ForEach(RedactionBrushType.allCases) { brush in
                     Button {
-                        activeBrush = brush
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
+                            activeBrush = brush
+                        }
                         HapticFeedbackManager.shared.triggerSelection()
                     } label: {
                         HStack(spacing: 4) {
@@ -40,38 +42,42 @@ public struct LiquidBrushRedactionView: View {
                         )
                         .foregroundStyle(activeBrush == brush ? Color.white : Color.primary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 }
                 
                 Spacer()
                 
-                // Undo Button
+                // Undo Button with Spring Bounce
                 Button {
                     if !strokes.isEmpty {
-                        strokes.removeLast()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                            strokes.removeLast()
+                        }
                         HapticFeedbackManager.shared.triggerSelection()
                     }
                 } label: {
                     Image(systemName: "arrow.uturn.backward.circle.fill")
-                        .font(.system(size: 20))
+                        .font(.system(size: 22))
                         .foregroundStyle(strokes.isEmpty ? Color.gray.opacity(0.3) : Color.white)
                 }
                 .disabled(strokes.isEmpty)
-                .buttonStyle(.plain)
+                .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 
-                // Clear All Button
+                // Clear All Button with Warning Haptic
                 Button {
                     if !strokes.isEmpty {
-                        strokes.removeAll()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            strokes.removeAll()
+                        }
                         HapticFeedbackManager.shared.triggerWarning()
                     }
                 } label: {
                     Image(systemName: "trash.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(strokes.isEmpty ? Color.gray.opacity(0.3) : Color.red.opacity(0.8))
+                        .font(.system(size: 22))
+                        .foregroundStyle(strokes.isEmpty ? Color.gray.opacity(0.3) : Color.red.opacity(0.85))
                 }
                 .disabled(strokes.isEmpty)
-                .buttonStyle(.plain)
+                .buttonStyle(ScrollSnapButtonStyle.bouncy)
             }
             .padding(.horizontal, 4)
             

@@ -43,7 +43,7 @@ public struct FloatingTelemetryIslandView: View {
         VStack(spacing: 8) {
             // Main Floating Capsule Pill
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
                     isExpanded.toggle()
                 }
                 HapticFeedbackManager.shared.triggerSelection()
@@ -97,7 +97,7 @@ public struct FloatingTelemetryIslandView: View {
                 .padding(.vertical, 7)
                 .liquidGlassPill()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ScrollSnapButtonStyle.bouncy)
             
             // Expanded Telemetry Matrix Sheet
             if isExpanded {

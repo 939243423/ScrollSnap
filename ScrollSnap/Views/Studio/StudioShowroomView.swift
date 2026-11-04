@@ -60,6 +60,7 @@ public struct StudioShowroomView: View {
     @State private var dragRotationX: CGFloat = -14.0
     @State private var dragRotationY: CGFloat = 18.0
     @State private var showShadow: Bool = true
+    @State private var isInteractingWithDevice: Bool = false
     @State private var isExporting: Bool = false
     @State private var toastMessage: String = ""
     @State private var isShowingToast: Bool = false
@@ -86,29 +87,51 @@ public struct StudioShowroomView: View {
                 VStack(spacing: 0) {
                     // 3D Interactive Stage
                     ZStack {
-                        // Ambient Radial Spotlight Glow
+                        // Ambient Radial Spotlight Glow (Tracks phone tilt dynamically)
                         RadialGradient(
-                            colors: [Color.white.opacity(0.12), Color.clear],
-                            center: .center,
+                            colors: [Color.white.opacity(0.14), Color.clear],
+                            center: UnitPoint(
+                                x: 0.5 + Double(dragRotationY) * 0.005,
+                                y: 0.5 - Double(dragRotationX) * 0.005
+                            ),
                             startRadius: 20,
-                            endRadius: 280
+                            endRadius: 290
                         )
                         
-                        // 3D Floating Device
+                        // 3D Floating Device with Dynamic Floating & Wobble
                         deviceStageView
+                            .scaleEffect(isInteractingWithDevice ? 1.04 : 1.0)
                             .gesture(
                                 DragGesture()
                                     .onChanged { val in
-                                        dragRotationY = min(max(val.translation.width * 0.15 + 18, -35), 35)
-                                        dragRotationX = min(max(-val.translation.height * 0.15 - 14, -30), 20)
+                                        if !isInteractingWithDevice {
+                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+                                                isInteractingWithDevice = true
+                                            }
+                                            HapticFeedbackManager.shared.triggerSelection()
+                                        }
+                                        dragRotationY = min(max(val.translation.width * 0.16 + 18, -38), 38)
+                                        dragRotationX = min(max(-val.translation.height * 0.16 - 14, -32), 22)
                                     }
                                     .onEnded { _ in
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                        withAnimation(.spring(response: 0.48, dampingFraction: 0.55)) {
                                             dragRotationX = -14.0
                                             dragRotationY = 18.0
+                                            isInteractingWithDevice = false
                                         }
+                                        HapticFeedbackManager.shared.triggerSnap()
                                     }
                             )
+                            .onTapGesture(count: 2) {
+                                withAnimation(.spring(response: 0.52, dampingFraction: 0.6)) {
+                                    dragRotationY += 360.0
+                                }
+                                HapticFeedbackManager.shared.triggerMagneticLock()
+                                SoundEffectManager.shared.playMagneticSnap()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                                    dragRotationY = 18.0
+                                }
+                            }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     

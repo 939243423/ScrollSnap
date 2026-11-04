@@ -172,10 +172,11 @@ public struct HomeStitchView: View {
     private var toastOverlayView: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                Image(systemName: "checkmark.seal.fill")
+                    .symbolRenderingMode(.multicolor)
+                    .font(.subheadline)
                 Text(toastMessage)
-                    .font(.footnote.bold())
+                    .font(ScrollSnapTheme.FontToken.itemTitle)
                     .foregroundStyle(.primary)
             }
             
@@ -188,52 +189,55 @@ public struct HomeStitchView: View {
                         self.toastMessage = "长截图已复制到剪贴板！"
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "doc.on.doc")
+                            Image(systemName: "doc.on.doc.fill")
                             Text("复制长图")
                         }
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                         .background(Color.secondary.opacity(0.18))
                         .foregroundStyle(.primary)
                         .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
                     
                     Button {
                         isShowingStudioShowroom = true
                         HapticFeedbackManager.shared.triggerSelection()
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "cube.transparent")
+                            Image(systemName: "cube.transparent.fill")
                             Text("套3D机壳")
                         }
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                         .background(Color.purple.opacity(0.18))
                         .foregroundStyle(Color.purple)
                         .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 }
             }
             #endif
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
         .liquidGlassPill()
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.86).combined(with: .opacity).combined(with: .move(edge: .bottom)),
+            removal: .scale(scale: 0.94).combined(with: .opacity)
+        ))
         .padding(.bottom, 24)
     }
     
     private func showToast(message: String) {
         self.toastMessage = message
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
             self.isShowingToast = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 self.isShowingToast = false
             }
         }

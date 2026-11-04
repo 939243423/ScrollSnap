@@ -47,4 +47,12 @@ public final class SoundEffectManager {
         AudioServicesPlaySystemSound(1108)
         #endif
     }
+    
+    /// Plays celebratory success chime on stitch completion (Sound ID 1025)
+    public func playCelebrationChime() {
+        guard isSoundEnabled else { return }
+        #if canImport(AudioToolbox)
+        AudioServicesPlaySystemSound(1025)
+        #endif
+    }
 }

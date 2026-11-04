@@ -78,7 +78,7 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
                             selectedIndex = idx
                         }
                         HapticFeedbackManager.shared.triggerSelection()
@@ -92,14 +92,14 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
                         state = value.translation.width
                     }
                     .onEnded { value in
-                        let threshold: CGFloat = 40
+                        let threshold: CGFloat = 36
                         if value.translation.width < -threshold && selectedIndex < items.count - 1 {
-                            withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
                                 selectedIndex += 1
                             }
                             HapticFeedbackManager.shared.triggerSelection()
                         } else if value.translation.width > threshold && selectedIndex > 0 {
-                            withAnimation(.spring(response: 0.36, dampingFraction: 0.8)) {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
                                 selectedIndex -= 1
                             }
                             HapticFeedbackManager.shared.triggerSelection()
