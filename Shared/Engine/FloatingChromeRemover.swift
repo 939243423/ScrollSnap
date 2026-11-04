@@ -18,6 +18,14 @@ public final class FloatingChromeRemover: Sendable {
         scrollOffset: CGFloat
     ) -> [CGRect] {
         guard let topCG = topImage.cgImage, let botCG = bottomImage.cgImage else { return [] }
+        return detectFloatingOverlays(topCG: topCG, botCG: botCG, scrollOffset: scrollOffset)
+    }
+    
+    public func detectFloatingOverlays(
+        topCG: CGImage,
+        botCG: CGImage,
+        scrollOffset: CGFloat
+    ) -> [CGRect] {
         guard abs(scrollOffset) > 20 else { return [] } // Must have actual scroll motion
         
         let width = min(topCG.width, botCG.width)

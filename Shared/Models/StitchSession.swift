@@ -70,12 +70,28 @@ public struct StitchSession: Codable, Identifiable {
     public var sourceAssetIdentifiers: [String]
     
     public var totalEstimatedHeight: CGFloat {
+        if presetMode == .horizontalCompare {
+            return slices.map { $0.originalHeight }.max() ?? 800
+        }
         guard let first = slices.first else { return 0 }
         var height = first.visibleHeight
         for slice in slices.dropFirst() {
             height += (slice.visibleHeight - slice.effectiveOverlap)
         }
         return max(1, height)
+    }
+    
+    public var totalEstimatedWidth: CGFloat {
+        if presetMode == .horizontalCompare {
+            let targetH = totalEstimatedHeight
+            var w: CGFloat = 0
+            for slice in slices {
+                let scale = targetH / max(1, slice.originalHeight)
+                w += slice.originalWidth * scale
+            }
+            return max(1, w + CGFloat(max(0, slices.count - 1)) * 4.0)
+        }
+        return slices.first?.originalWidth ?? 393
     }
     
     public init(

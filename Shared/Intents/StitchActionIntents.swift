@@ -67,10 +67,15 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
                     await MainActor.run {
                         UIPasteboard.general.image = image
                     }
+                    #if canImport(Photos)
+                    try? await PHPhotoLibrary.shared().performChanges {
+                        PHAssetChangeRequest.creationRequestForAsset(from: image)
+                    }
+                    #endif
                 }
                 SharedStore.shared.resetActiveBroadcastSession()
                 SharedStore.shared.notifyWidgetReloadDebounced()
-                return .result(dialog: "已自动拼合 \(broadcastSlices.count) 屏录屏内容并复制到剪贴板！")
+                return .result(dialog: "已自动拼合 \(broadcastSlices.count) 屏录屏内容，已保存至系统相册并复制到剪贴板！")
             }
         }
         
@@ -125,9 +130,14 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
                 await MainActor.run {
                     UIPasteboard.general.image = image
                 }
+                #if canImport(Photos)
+                try? await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: image)
+                }
+                #endif
             }
             SharedStore.shared.notifyWidgetReloadDebounced()
-            return .result(dialog: "已智能拼合 \(paths.count) 张截屏并存入剪贴板，可直接粘贴！")
+            return .result(dialog: "已智能拼合 \(paths.count) 张截屏，已保存至系统相册并存入剪贴板！")
         }
         #endif
         

@@ -8,21 +8,25 @@ public struct TactileSeamDialView: View {
     public let optimalOffset: CGFloat
     public let range: ClosedRange<CGFloat>
     public let onSnapToOptimal: () -> Void
+    public let onScrubbingChanged: ((Bool) -> Void)?
     
     @State private var dragInitialOffset: CGFloat? = nil
     @State private var isFineGrained: Bool = false
+    @State private var isLoupeActive: Bool = false
     @State private var lastDetentOffset: CGFloat = 0
     
     public init(
         offset: Binding<CGFloat>,
         optimalOffset: CGFloat = 0.0,
         range: ClosedRange<CGFloat> = -50...50,
-        onSnapToOptimal: @escaping () -> Void = {}
+        onSnapToOptimal: @escaping () -> Void = {},
+        onScrubbingChanged: ((Bool) -> Void)? = nil
     ) {
         self._offset = offset
         self.optimalOffset = optimalOffset
         self.range = range
         self.onSnapToOptimal = onSnapToOptimal
+        self.onScrubbingChanged = onScrubbingChanged
     }
     
     private var isLockedToOptimal: Bool {
@@ -164,19 +168,36 @@ public struct TactileSeamDialView: View {
             }
             
             // Controls Footer
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Button {
                     isFineGrained.toggle()
                     HapticFeedbackManager.shared.triggerSelection()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: isFineGrained ? "scope" : "slider.horizontal.3")
-                        Text(isFineGrained ? "0.5x 微调" : "1.0x 步长")
+                        Text(isFineGrained ? "0.5x" : "1.0x")
                     }
                     .font(.caption2.bold())
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+                
+                Button {
+                    isLoupeActive.toggle()
+                    onScrubbingChanged?(isLoupeActive)
+                    HapticFeedbackManager.shared.triggerSelection()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isLoupeActive ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                        Text(isLoupeActive ? "收起放大镜" : "2.2x 放大镜")
+                    }
+                    .font(.caption2.bold())
+                    .foregroundStyle(isLoupeActive ? Color.orange : Color.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(isLoupeActive ? Color.orange.opacity(0.18) : Color.white.opacity(0.08)))
                 }
                 .buttonStyle(.plain)
                 
@@ -196,7 +217,7 @@ public struct TactileSeamDialView: View {
                     }
                     .font(.caption2.bold())
                     .foregroundStyle(Color.green)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 9)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(Color.green.opacity(0.16)))
                 }
@@ -208,10 +229,10 @@ public struct TactileSeamDialView: View {
                     }
                     HapticFeedbackManager.shared.triggerSelection()
                 } label: {
-                    Text("重置归零")
+                    Text("重置")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, 6)
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
@@ -314,6 +335,7 @@ public struct TactileSeamDialView: View {
                     .onChanged { value in
                         if dragInitialOffset == nil {
                             dragInitialOffset = offset
+                            onScrubbingChanged?(true)
                         }
                         let initial = dragInitialOffset ?? offset
                         let sensitivity: CGFloat = isFineGrained ? 0.25 : 0.55
@@ -342,6 +364,9 @@ public struct TactileSeamDialView: View {
                     }
                     .onEnded { _ in
                         dragInitialOffset = nil
+                        if !isLoupeActive {
+                            onScrubbingChanged?(false)
+                        }
                     }
             )
         }

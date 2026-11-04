@@ -41,6 +41,18 @@ public final class TiledImageRenderer {
             return
         }
         
+        if session.presetMode == .horizontalCompare {
+            try renderHorizontalCompareToFile(
+                session: session,
+                annotations: annotations,
+                brushStrokes: brushStrokes,
+                outputURL: outputURL,
+                format: format,
+                quality: quality
+            )
+            return
+        }
+        
         var totalHeight = session.totalEstimatedHeight
         var canvasWidth = session.slices.first?.originalWidth ?? 393
         var scaleFactor: CGFloat = 1.0
@@ -356,6 +368,78 @@ public final class TiledImageRenderer {
         }
     }
     
+    private static func renderHorizontalCompareToFile(
+        session: StitchSession,
+        annotations: [AnnotationItem],
+        brushStrokes: [RedactionStroke],
+        outputURL: URL,
+        format: ExportFormat,
+        quality: CGFloat
+    ) throws {
+        var loadedImages: [UIImage] = []
+        for slice in session.slices {
+            guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                  let img = UIImage(contentsOfFile: fileURL.path) else {
+                continue
+            }
+            loadedImages.append(img)
+        }
+        guard !loadedImages.isEmpty else { throw StitchError.emptySlices }
+        
+        let targetHeight = min(4096.0, loadedImages.map { $0.size.height }.max() ?? 1080.0)
+        let dividerWidth: CGFloat = 3.0
+        var scaledWidths: [CGFloat] = []
+        var totalWidth: CGFloat = 0
+        
+        for img in loadedImages {
+            let scale = targetHeight / max(1, img.size.height)
+            let w = img.size.width * scale
+            scaledWidths.append(w)
+            totalWidth += w
+        }
+        totalWidth += dividerWidth * CGFloat(max(0, loadedImages.count - 1))
+        
+        let rendererFormat = UIGraphicsImageRendererFormat.default()
+        rendererFormat.scale = 1.0
+        rendererFormat.opaque = (format == .jpeg)
+        
+        let renderer = UIGraphicsImageRenderer(
+            size: CGSize(width: totalWidth, height: targetHeight),
+            format: rendererFormat
+        )
+        
+        let drawBlock: (UIGraphicsImageRendererContext) -> Void = { context in
+            let cgContext = context.cgContext
+            var currentX: CGFloat = 0
+            
+            for (idx, img) in loadedImages.enumerated() {
+                let w = scaledWidths[idx]
+                img.draw(in: CGRect(x: currentX, y: 0, width: w, height: targetHeight))
+                currentX += w
+                
+                if idx < loadedImages.count - 1 {
+                    cgContext.saveGState()
+                    cgContext.setFillColor(UIColor.separator.cgColor)
+                    cgContext.fill(CGRect(x: currentX, y: 0, width: dividerWidth, height: targetHeight))
+                    cgContext.restoreGState()
+                    currentX += dividerWidth
+                }
+            }
+            
+            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: totalWidth, height: targetHeight))
+            drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: totalWidth, height: targetHeight))
+        }
+        
+        let data: Data
+        if format == .png {
+            data = renderer.pngData(actions: drawBlock)
+        } else {
+            data = renderer.jpegData(withCompressionQuality: quality, actions: drawBlock)
+        }
+        
+        try data.write(to: outputURL, options: .atomic)
+    }
+
     private static func applyRedaction(in context: CGContext, rect: CGRect, style: RedactionRegion.RedactionStyle) {
         context.saveGState()
         switch style {

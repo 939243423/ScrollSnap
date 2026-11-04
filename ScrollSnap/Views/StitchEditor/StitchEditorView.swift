@@ -55,6 +55,7 @@ public struct StitchEditorView: View {
     // Interactive Loupe (Magnifying Glass) State
     @State private var isShowingLoupe: Bool = false
     @State private var loupePosition: CGPoint = .zero
+    @State private var loupeDisplayPosition: CGPoint? = nil
     
     // Canvas & Mockup State
     @State private var showDeviceFrame: Bool = false
@@ -166,9 +167,21 @@ public struct StitchEditorView: View {
                 
                 // Magnifying Loupe Overlay when inspecting fine details
                 if isShowingLoupe {
-                    InteractiveLoupeView(touchPosition: loupePosition) {
+                    InteractiveLoupeView(
+                        touchPosition: loupePosition,
+                        displayPosition: loupeDisplayPosition,
+                        onDismiss: {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                                isShowingLoupe = false
+                            }
+                        }
+                    ) {
                         annotatedCanvasStack
                     }
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.7).combined(with: .opacity),
+                        removal: .scale(scale: 0.85).combined(with: .opacity)
+                    ))
                 }
                 
                 // Copied to Clipboard Notification Toast
@@ -358,21 +371,32 @@ public struct StitchEditorView: View {
     }
     
     private var annotatedCanvasStack: some View {
+        let isHorizontal = (session.presetMode == .horizontalCompare)
+        let targetDisplayHeight: CGFloat = isHorizontal ? 360.0 : (session.totalEstimatedHeight / 3.0)
         let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
-        let totalDisplayHeight: CGFloat = session.totalEstimatedHeight / 3.0
+        let totalDisplayWidth: CGFloat = isHorizontal ? (session.totalEstimatedWidth / 3.0) : displayWidth
         let yOffsets = sliceYOffsets
         
         return ZStack(alignment: .topLeading) {
-            // Underneath: Raw Stitched Slices placed at mathematically exact seam positions
-            ForEach(Array(session.slices.enumerated()), id: \.element.id) { index, slice in
-                let offsetY = index < yOffsets.count ? yOffsets[index] : 0
-                renderSliceView(index: index, slice: slice, displayWidth: displayWidth)
-                    .offset(y: offsetY)
+            if isHorizontal {
+                // Horizontal Compare: Side by Side
+                HStack(spacing: 3) {
+                    ForEach(Array(session.slices.enumerated()), id: \.element.id) { index, slice in
+                        renderHorizontalSliceView(index: index, slice: slice, targetHeight: targetDisplayHeight)
+                    }
+                }
+            } else {
+                // Underneath: Raw Stitched Slices placed at mathematically exact seam positions
+                ForEach(Array(session.slices.enumerated()), id: \.element.id) { index, slice in
+                    let offsetY = index < yOffsets.count ? yOffsets[index] : 0
+                    renderSliceView(index: index, slice: slice, displayWidth: displayWidth)
+                        .offset(y: offsetY)
+                }
             }
             
             // Middle: Rendered Annotations
             ForEach(annotations) { item in
-                renderAnnotationOverlay(item: item, canvasWidth: displayWidth, canvasHeight: totalDisplayHeight)
+                renderAnnotationOverlay(item: item, canvasWidth: totalDisplayWidth, canvasHeight: targetDisplayHeight)
             }
             
             // Rendered Privacy Frost & Mosaic Strokes
@@ -382,25 +406,25 @@ public struct StitchEditorView: View {
             
             // Current In-progress Drawing Shape
             if let drawing = currentDrawingItem {
-                renderAnnotationOverlay(item: drawing, canvasWidth: displayWidth, canvasHeight: totalDisplayHeight)
+                renderAnnotationOverlay(item: drawing, canvasWidth: totalDisplayWidth, canvasHeight: targetDisplayHeight)
             }
             
             // Top: Interaction Layer for Gesture Input
             if activeToolMode == .annotation {
                 Color.white.opacity(0.001)
-                    .frame(width: displayWidth, height: totalDisplayHeight)
+                    .frame(width: totalDisplayWidth, height: targetDisplayHeight)
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
-                                handleAnnotationDragChanged(value: value, canvasSize: CGSize(width: displayWidth, height: totalDisplayHeight))
+                                handleAnnotationDragChanged(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
                             }
                             .onEnded { value in
-                                handleAnnotationDragEnded(value: value, canvasSize: CGSize(width: displayWidth, height: totalDisplayHeight))
+                                handleAnnotationDragEnded(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
                             }
                     )
             } else if activeToolMode == .privacyBrush {
                 Color.white.opacity(0.001)
-                    .frame(width: displayWidth, height: totalDisplayHeight)
+                    .frame(width: totalDisplayWidth, height: targetDisplayHeight)
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
@@ -412,9 +436,26 @@ public struct StitchEditorView: View {
                     )
             }
         }
-        .frame(width: displayWidth, height: totalDisplayHeight, alignment: .topLeading)
+        .frame(width: totalDisplayWidth, height: targetDisplayHeight, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: showDeviceFrame ? 0 : 8, style: .continuous))
         .shadow(color: Color.black.opacity(showDeviceFrame ? 0 : 0.12), radius: 14, x: 0, y: 6)
+    }
+    
+    private func renderHorizontalSliceView(index: Int, slice: StitchItem, targetHeight: CGFloat) -> some View {
+        let scaledWidth = (slice.originalWidth / max(1, slice.originalHeight)) * targetHeight
+        return Group {
+            if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+               let image = UIImage(contentsOfFile: fileURL.path) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: scaledWidth, height: targetHeight)
+                    .clipped()
+            } else {
+                Color.gray.opacity(0.2)
+                    .frame(width: scaledWidth, height: targetHeight)
+            }
+        }
     }
     
     private func renderSliceView(index: Int, slice: StitchItem, displayWidth: CGFloat) -> some View {
@@ -465,6 +506,25 @@ public struct StitchEditorView: View {
                                 .scaleEffect(selectedSliceIndex == index ? 1.06 : 0.95)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.62), value: selectedSliceIndex)
                                 .offset(y: -14)
+                                .gesture(
+                                    DragGesture(minimumDistance: 1)
+                                        .onChanged { gesture in
+                                            selectedSliceIndex = index
+                                            let delta = gesture.translation.height * 0.4
+                                            session.slices[index].manualOffsetAdjustment += delta
+                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+                                                loupePosition = CGPoint(x: displayWidth / 2, y: index < sliceYOffsets.count ? sliceYOffsets[index] : 100)
+                                                loupeDisplayPosition = CGPoint(x: UIScreen.main.bounds.width / 2, y: 220)
+                                                isShowingLoupe = true
+                                            }
+                                            HapticFeedbackManager.shared.triggerDialDetent()
+                                        }
+                                        .onEnded { _ in
+                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                                                isShowingLoupe = false
+                                            }
+                                        }
+                                )
                             )
                     }
                 }
@@ -690,6 +750,19 @@ public struct StitchEditorView: View {
                         if selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                                 session.slices[selectedSliceIndex].manualOffsetAdjustment = 0
+                            }
+                        }
+                    },
+                    onScrubbingChanged: { isScrubbing in
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+                            if isScrubbing {
+                                let displayW = (session.slices.first?.originalWidth ?? 393) / 3.0
+                                let seamY = selectedSliceIndex < sliceYOffsets.count ? sliceYOffsets[selectedSliceIndex] : 100
+                                loupePosition = CGPoint(x: displayW / 2, y: seamY)
+                                loupeDisplayPosition = CGPoint(x: UIScreen.main.bounds.width / 2, y: 220)
+                                isShowingLoupe = true
+                            } else {
+                                isShowingLoupe = false
                             }
                         }
                     }

@@ -58,11 +58,24 @@ public final class BroadcastFrameProcessor {
         sliceCounter = 0
     }
     
-    // MARK: - Downsampled Projection (Resident RAM < 180KB)
+    // MARK: - Downsampled Projection (Resident RAM < 180KB, Supports Both Planar NV12 & Packed BGRA)
     
     private func extractDownsampledProjection(pixelBuffer: CVPixelBuffer, width: Int, height: Int) -> [Double] {
-        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else { return [] }
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let isPlanar = CVPixelBufferIsPlanar(pixelBuffer)
+        let baseAddress: UnsafeMutableRawPointer?
+        let bytesPerRow: Int
+        
+        if isPlanar {
+            // ReplayKit on iOS typically outputs NV12 (Planar): Plane 0 is pure Luminance (Y)
+            baseAddress = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0)
+            bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+        } else {
+            // Packed 32BGRA
+            baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer)
+            bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        }
+        
+        guard let baseAddress = baseAddress else { return [] }
         let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
         
         let stepY = max(1, height / 128)
@@ -75,14 +88,25 @@ public final class BroadcastFrameProcessor {
             guard idx < sampleCountY else { break }
             var rowSum = 0.0
             let rowOffset = y * bytesPerRow
-            for x in sampleCols {
-                let pixelOffset = rowOffset + x * 4
-                let b = Double(buffer[pixelOffset])
-                let g = Double(buffer[pixelOffset + 1])
-                let r = Double(buffer[pixelOffset + 2])
-                rowSum += (0.299 * r + 0.587 * g + 0.114 * b)
+            
+            if isPlanar {
+                // Direct 8-bit Luminance (Y) read
+                for x in sampleCols {
+                    let yVal = Double(buffer[rowOffset + x])
+                    rowSum += yVal
+                }
+                projection[idx] = rowSum / Double(sampleCols.count * 255.0)
+            } else {
+                // 32BGRA packed decode
+                for x in sampleCols {
+                    let pixelOffset = rowOffset + x * 4
+                    let b = Double(buffer[pixelOffset])
+                    let g = Double(buffer[pixelOffset + 1])
+                    let r = Double(buffer[pixelOffset + 2])
+                    rowSum += (0.299 * r + 0.587 * g + 0.114 * b)
+                }
+                projection[idx] = rowSum / Double(sampleCols.count * 255.0)
             }
-            projection[idx] = rowSum / Double(sampleCols.count * 255)
         }
         return projection
     }

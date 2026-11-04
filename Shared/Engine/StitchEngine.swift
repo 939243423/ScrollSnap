@@ -146,6 +146,27 @@ public final class StitchEngine {
                         }
                     }
                     
+                    var detectedRedactions: [RedactionRegion] = []
+                    #if canImport(UIKit)
+                    if index > 0 && index < totalCount - 1 && abs(overlapOffset) > 20 && (presetMode == .chatRecord || presetMode == .smartAuto || presetMode == .webArticle) {
+                        let prevImage = loadedSlices[index - 1].image
+                        let floatingBoxes = FloatingChromeRemover.shared.detectFloatingOverlays(
+                            topCG: prevImage,
+                            botCG: cgImage,
+                            scrollOffset: overlapOffset
+                        )
+                        for box in floatingBoxes {
+                            let relRect = CGRect(
+                                x: box.minX / max(1, width),
+                                y: box.minY / max(1, height),
+                                width: box.width / max(1, width),
+                                height: box.height / max(1, height)
+                            )
+                            detectedRedactions.append(RedactionRegion(id: UUID(), relativeRect: relRect, style: .frostedBlur))
+                        }
+                    }
+                    #endif
+                    
                     let item = StitchItem(
                         id: UUID(),
                         relativeFilePath: path,
@@ -157,7 +178,7 @@ public final class StitchEngine {
                         manualOffsetAdjustment: 0,
                         optimalSeamLineY: seamLineY,
                         matchConfidence: matchConfidence,
-                        redactions: [],
+                        redactions: detectedRedactions,
                         timestamp: Date()
                     )
                     items.append(item)
