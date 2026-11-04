@@ -1,4 +1,5 @@
 import SwiftUI
+import Photos
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -162,6 +163,17 @@ public struct StitchEditorView: View {
                                 .font(.system(size: 14, weight: .semibold))
                         }
                         
+                        Button {
+                            saveDirectlyToAlbum()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.down.to.line.circle.fill")
+                                Text("存相册")
+                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                            }
+                        }
+                        .disabled(isExporting)
+                        
                         Menu {
                             Section("视觉体验") {
                                 Button {
@@ -179,7 +191,7 @@ public struct StitchEditorView: View {
                                     Label("3D 悬浮立体制图", systemImage: "cube.transparent")
                                 }
                             }
-                            Section("导出格式") {
+                            Section("更多导出格式") {
                                 ForEach(ExportFormat.allCases) { format in
                                     Button {
                                         selectedExportFormat = format
@@ -193,8 +205,8 @@ public struct StitchEditorView: View {
                             if isExporting {
                                 ProgressView().controlSize(.small)
                             } else {
-                                Label("导出", systemImage: "square.and.arrow.up")
-                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                Image(systemName: "ellipsis.circle")
+                                    .font(.system(size: 17, weight: .semibold))
                             }
                         }
                         .disabled(isExporting)
@@ -265,16 +277,32 @@ public struct StitchEditorView: View {
         }
     }
     
+    private var sliceYOffsets: [CGFloat] {
+        var offsets: [CGFloat] = []
+        var currentY: CGFloat = 0
+        for (index, slice) in session.slices.enumerated() {
+            offsets.append(currentY)
+            let nextOverlap: CGFloat = (index + 1 < session.slices.count) ? session.slices[index + 1].effectiveOverlap : 0
+            let isMovieSubtitlesMode = (session.presetMode == .movieSubtitles)
+            let visibleHeight = (isMovieSubtitlesMode && index > 0)
+                ? (slice.originalHeight * 0.18)
+                : slice.visibleHeight
+            currentY += (visibleHeight - nextOverlap) / 3.0
+        }
+        return offsets
+    }
+    
     private var annotatedCanvasStack: some View {
         let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
         let totalDisplayHeight: CGFloat = session.totalEstimatedHeight / 3.0
+        let yOffsets = sliceYOffsets
         
         return ZStack(alignment: .topLeading) {
-            // Underneath: Raw Stitched Slices
-            VStack(spacing: 0) {
-                ForEach(Array(session.slices.enumerated()), id: \.element.id) { index, slice in
-                    renderSliceView(index: index, slice: slice, displayWidth: displayWidth)
-                }
+            // Underneath: Raw Stitched Slices placed at mathematically exact seam positions
+            ForEach(Array(session.slices.enumerated()), id: \.element.id) { index, slice in
+                let offsetY = index < yOffsets.count ? yOffsets[index] : 0
+                renderSliceView(index: index, slice: slice, displayWidth: displayWidth)
+                    .offset(y: offsetY)
             }
             
             // Middle: Rendered Annotations
@@ -319,6 +347,7 @@ public struct StitchEditorView: View {
                     )
             }
         }
+        .frame(width: displayWidth, height: totalDisplayHeight, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: showDeviceFrame ? 0 : 8, style: .continuous))
         .shadow(color: Color.black.opacity(showDeviceFrame ? 0 : 0.12), radius: 14, x: 0, y: 6)
     }
@@ -380,7 +409,6 @@ public struct StitchEditorView: View {
                 }
             }
         }
-        .offset(y: index == 0 ? 0 : -slice.effectiveOverlap / 3.0)
     }
     
     // MARK: - Annotation Drawing
@@ -1052,6 +1080,56 @@ public struct StitchEditorView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
             withAnimation {
                 isCopiedToClipboardToast = false
+            }
+        }
+    }
+    
+    private func saveDirectlyToAlbum() {
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            return
+        }
+        
+        isExporting = true
+        let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_\(Int(Date().timeIntervalSince1970)).jpg")
+        
+        Task {
+            do {
+                try TiledImageRenderer.renderStitchedImageToFile(
+                    session: session,
+                    annotations: annotations,
+                    outputURL: tempOutput,
+                    format: .jpeg,
+                    quality: 0.95
+                )
+                
+                #if canImport(UIKit)
+                guard let image = UIImage(contentsOfFile: tempOutput.path) else {
+                    await MainActor.run { isExporting = false }
+                    return
+                }
+                
+                let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: storeKit.isProUser)
+                
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
+                }
+                #endif
+                
+                quotaManager.recordStitchUsage()
+                
+                await MainActor.run {
+                    self.isExporting = false
+                    HapticFeedbackManager.shared.triggerSnap()
+                    SoundEffectManager.shared.playShutter()
+                    StoreReviewManager.shared.recordSuccessfulExport()
+                    self.toastMessage = "已成功保存高清长图至相册！"
+                    showToast()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isExporting = false
+                }
             }
         }
     }

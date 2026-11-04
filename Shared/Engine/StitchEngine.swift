@@ -47,6 +47,23 @@ public final class StitchEngine {
                     return
                 }
                 
+                // Intelligent Bidirectional Sequence Detection:
+                // If user selected slices in reverse order (e.g. from newest to oldest in PhotosPicker),
+                // compare forward correlation vs reverse correlation and auto-correct slice order.
+                if loadedSlices.count >= 2 && (presetMode != .movieSubtitles && presetMode != .horizontalCompare) {
+                    let forwardCheck = ImageOverlapDetector.findOverlap(
+                        topSlice: loadedSlices[0].image,
+                        bottomSlice: loadedSlices[1].image
+                    )
+                    let reverseCheck = ImageOverlapDetector.findOverlap(
+                        topSlice: loadedSlices[1].image,
+                        bottomSlice: loadedSlices[0].image
+                    )
+                    if reverseCheck.confidence > forwardCheck.confidence + 0.20 && reverseCheck.confidence > 0.35 {
+                        loadedSlices.reverse()
+                    }
+                }
+                
                 // Detect static navigation bar and bottom bar height from first two slices
                 var detectedTopBar: CGFloat = 0
                 var detectedBottomBar: CGFloat = 0

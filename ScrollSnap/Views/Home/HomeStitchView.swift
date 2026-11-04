@@ -21,6 +21,8 @@ public struct HomeStitchView: View {
     @State private var isShowingActionShortcutGuide = false
     @State private var isShowingWhatsNew = false
     @State private var activeBroadcastSlices: [String] = []
+    @State private var toastMessage: String = ""
+    @State private var isShowingToast: Bool = false
     
     public init() {}
     
@@ -127,6 +129,38 @@ public struct HomeStitchView: View {
             .onChange(of: selectedPhotoItems) { _, items in
                 handleSelectedPhotoPickerItems(items)
             }
+            .overlay(alignment: .bottom) {
+                if isShowingToast {
+                    toastOverlayView
+                }
+            }
+        }
+    }
+    
+    private var toastOverlayView: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+            Text(toastMessage)
+                .font(.footnote.bold())
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .liquidGlassPill()
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .padding(.bottom, 24)
+    }
+    
+    private func showToast(message: String) {
+        self.toastMessage = message
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            self.isShowingToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation {
+                self.isShowingToast = false
+            }
         }
     }
     
@@ -184,35 +218,122 @@ public struct HomeStitchView: View {
     }
     
     private var recentDetectedScreenshotsBanner: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "rectangle.stack.fill")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.accentColor)
-                
-                Text("检测到 \(photoObserver.recentScreenshotAssets.count) 张最近连续截屏")
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                
-                Spacer()
-                
-                Button("一键拼合") {
-                    HapticFeedbackManager.shared.triggerSnap()
-                    stitchRecentAssets(photoObserver.recentScreenshotAssets)
+        let count = photoObserver.recentScreenshotAssets.count
+        return VStack(alignment: .leading, spacing: 14) {
+            // Header: Status badge & Title
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.15))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "bolt.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.accentColor)
                 }
-                .font(.system(.caption, design: .rounded).weight(.bold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.accentColor)
-                .foregroundStyle(.white)
-                .clipShape(Capsule())
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("即开即拼 · 智能感知")
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                            .foregroundStyle(.primary)
+                        
+                        Text("刚刚截取")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    Text("检测到相册中有 \(count) 张连续截图，已为您准备好无缝拼合")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
             }
             
-            Text("拍摄于 5 分钟内，宽高比符合当前屏幕尺寸，可直接对齐拼接。")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            // Primary Action Buttons
+            VStack(spacing: 10) {
+                // Killer Action 1: Save long screenshot AND delete raw slices!
+                Button {
+                    HapticFeedbackManager.shared.triggerSnap()
+                    quickSaveRecentAssets(photoObserver.recentScreenshotAssets, deleteOriginals: true)
+                } label: {
+                    HStack(spacing: 8) {
+                        if isProcessingStitch {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.body.weight(.semibold))
+                        }
+                        Text("保存长图并清理 \(count) 张原截图")
+                            .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        Spacer()
+                        Image(systemName: "trash.slash.fill")
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [Color.accentColor, Color.blue],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: Color.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .buttonStyle(.plain)
+                .disabled(isProcessingStitch)
+                
+                // Secondary Actions Row
+                HStack(spacing: 10) {
+                    // Action 2: Only save to album without deleting
+                    Button {
+                        HapticFeedbackManager.shared.triggerSelection()
+                        quickSaveRecentAssets(photoObserver.recentScreenshotAssets, deleteOriginals: false)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("仅存长图")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.secondary.opacity(0.12))
+                        .foregroundStyle(.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingStitch)
+                    
+                    // Action 3: Open in Editor
+                    Button {
+                        HapticFeedbackManager.shared.triggerSelection()
+                        stitchRecentAssets(photoObserver.recentScreenshotAssets)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "slider.horizontal.3")
+                            Text("工作台精修")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.secondary.opacity(0.12))
+                        .foregroundStyle(.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isProcessingStitch)
+                }
+            }
         }
         .padding(16)
-        .liquidGlassCard(cornerRadius: 20, strokeOpacity: 0.3)
+        .liquidGlassCard(cornerRadius: 22, strokeOpacity: 0.35)
     }
     
     private var coreActionsGrid: some View {
@@ -547,6 +668,80 @@ public struct HomeStitchView: View {
         }
     }
     
+    private func quickSaveRecentAssets(_ assets: [PHAsset], deleteOriginals: Bool) {
+        guard quotaManager.canStitch() else {
+            isShowingPaywall = true
+            return
+        }
+        
+        isProcessingStitch = true
+        let imageManager = PHImageManager.default()
+        let requestOptions = PHImageRequestOptions()
+        requestOptions.isSynchronous = true
+        requestOptions.deliveryMode = .highQualityFormat
+        
+        Task.detached(priority: .userInitiated) {
+            var paths: [String] = []
+            let sortedAssets = assets.sorted { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }
+            for (index, asset) in sortedAssets.enumerated() {
+                imageManager.requestImageDataAndOrientation(for: asset, options: requestOptions) { data, _, _, _ in
+                    if let data = data,
+                       let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                        paths.append(path)
+                    }
+                }
+            }
+            
+            guard paths.count >= 2 else {
+                await MainActor.run { self.isProcessingStitch = false }
+                return
+            }
+            
+            do {
+                let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
+                let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_\(Int(Date().timeIntervalSince1970)).jpg")
+                try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
+                
+                #if canImport(UIKit)
+                guard let image = UIImage(contentsOfFile: tempOutput.path) else {
+                    await MainActor.run { self.isProcessingStitch = false }
+                    return
+                }
+                
+                let isPro = await MainActor.run { self.storeKit.isProUser }
+                let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: isPro)
+                
+                // 1. Save stitched image to photo library
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
+                }
+                
+                // 2. If user opted to delete raw temporary slices, request system deletion
+                if deleteOriginals {
+                    try? await PHPhotoLibrary.shared().performChanges {
+                        PHAssetChangeRequest.deleteAssets(sortedAssets as NSArray)
+                    }
+                }
+                #endif
+                
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.quotaManager.recordStitchUsage()
+                    HapticFeedbackManager.shared.triggerSnap()
+                    SoundEffectManager.shared.playShutter()
+                    StoreReviewManager.shared.recordSuccessfulExport()
+                    let msg = deleteOriginals ? "已保存长图并清理 \(sortedAssets.count) 张原截图！" : "已成功保存高清长图至相册！"
+                    self.showToast(message: msg)
+                    self.photoObserver.scanRecentScreenshots()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                }
+            }
+        }
+    }
+    
     private func stitchRecentAssets(_ assets: [PHAsset]) {
         guard quotaManager.canStitch() else {
             isShowingPaywall = true
@@ -561,7 +756,8 @@ public struct HomeStitchView: View {
         
         Task.detached(priority: .userInitiated) {
             var paths: [String] = []
-            for (index, asset) in assets.enumerated() {
+            let sortedAssets = assets.sorted { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }
+            for (index, asset) in sortedAssets.enumerated() {
                 imageManager.requestImageDataAndOrientation(for: asset, options: requestOptions) { data, _, _, _ in
                     if let data = data,
                        let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
