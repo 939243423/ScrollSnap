@@ -57,10 +57,7 @@ public struct HomeStitchView: View {
     public var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
-                    // Header Bar with Quota Pill
-                    headerBar
-                    
+                VStack(spacing: 16) {
                     // Photo Permission Denied / Restricted Warning Banner
                     if photoObserver.authorizationStatus == .denied || photoObserver.authorizationStatus == .restricted {
                         photoPermissionDeniedBanner
@@ -95,22 +92,31 @@ public struct HomeStitchView: View {
                     Button {
                         isShowingPaywall = true
                     } label: {
-                        HStack(spacing: 4) {
-                            if storeKit.isProUser {
-                                Image(systemName: "checkmark.seal.fill")
-                                    .foregroundStyle(.green)
+                        if storeKit.isProUser {
+                            HStack(spacing: 3) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 10, weight: .bold))
                                 Text("永久会员")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                            } else {
-                                Text("今日免费 \(quotaManager.remainingDailyFreeStitches)/\(QuotaManager.defaultDailyLimit)")
                                     .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(quotaManager.remainingDailyFreeStitches > 0 ? Color.primary : Color.orange)
                             }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4.5)
+                            .background(Color.green.opacity(0.12), in: Capsule())
+                            .foregroundStyle(Color.green)
+                        } else {
+                            HStack(spacing: 3) {
+                                Text("免费版")
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                Text("\(quotaManager.remainingDailyFreeStitches)/\(QuotaManager.defaultDailyLimit)")
+                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4.5)
+                            .background(Color.secondary.opacity(0.12), in: Capsule())
+                            .foregroundStyle(quotaManager.remainingDailyFreeStitches > 0 ? Color.secondary : Color.orange)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .liquidGlassPill(accentTint: storeKit.isProUser ? .green : nil)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .sheet(item: $activeSessionToEdit, onDismiss: {
@@ -567,9 +573,9 @@ public struct HomeStitchView: View {
                 } label: {
                     actionCard(
                         title: "滚动录屏长截",
-                        subtitle: "滑动屏幕自动拼接",
+                        subtitle: "边录边划自动拼",
                         iconName: "record.circle.fill",
-                        tint: Color.orange,
+                        tint: Color.accentColor,
                         tag: "免切"
                     )
                 }
@@ -586,9 +592,9 @@ public struct HomeStitchView: View {
                 } label: {
                     actionCard(
                         title: "网页长截图",
-                        subtitle: "输入网址保存整页",
+                        subtitle: "输入网址整页截",
                         iconName: "safari.fill",
-                        tint: Color.teal,
+                        tint: Color.accentColor,
                         tag: "网页"
                     )
                 }
@@ -605,9 +611,9 @@ public struct HomeStitchView: View {
                 ) {
                     actionCard(
                         title: "录屏转长图",
-                        subtitle: "从录屏视频提取长图",
+                        subtitle: "相册视频提取拼接",
                         iconName: "film.stack.fill",
-                        tint: Color.purple,
+                        tint: Color.accentColor,
                         tag: "视频"
                     )
                 }
@@ -619,10 +625,10 @@ public struct HomeStitchView: View {
                     isShowingActionShortcutGuide = true
                 } label: {
                     actionCard(
-                        title: "快捷指令 / 轻敲背面",
-                        subtitle: "截屏后敲击手机直接拼",
+                        title: "轻点背面快捷拼",
+                        subtitle: "轻敲手机直接拼长图",
                         iconName: "iphone.radiowaves.left.and.right",
-                        tint: Color.blue,
+                        tint: Color.accentColor,
                         tag: "快捷"
                     )
                 }

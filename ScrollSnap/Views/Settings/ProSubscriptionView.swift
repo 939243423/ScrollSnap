@@ -80,43 +80,31 @@ public struct ProSubscriptionView: View {
                     .padding(ScrollSnapTheme.Spacing.md + 2)
                     .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
                     
-                    // Lifetime Perks List with Glass Icon Pods
+                    // Lifetime Perks List with Clean Unified Icons
                     VStack(spacing: 14) {
                         perkRow(
-                            icon: "dial.low",
-                            tint: .green,
+                            icon: "photo.on.rectangle.angled",
+                            tint: .accentColor,
+                            title: "无限长截图拼接",
+                            detail: "每日不限拼图次数，支持超长无损长截图导出"
+                        )
+                        perkRow(
+                            icon: "arrow.up.and.down",
+                            tint: .accentColor,
                             title: "接缝微调与放大镜",
-                            detail: "滑动刻度滚轮精确微调接缝，配合 2.2x 放大镜精准对齐"
+                            detail: "滑动微调接缝位置，配合放大镜精准对齐"
                         )
                         perkRow(
-                            icon: "paintbrush.pointed.fill",
-                            tint: .cyan,
-                            title: "毛玻璃与隐私涂抹",
-                            detail: "自由手绘毛玻璃与像素马赛克，自然遮挡敏感信息"
+                            icon: "eye.slash",
+                            tint: .accentColor,
+                            title: "自由打码与画笔标注",
+                            detail: "自由手绘模糊、马赛克、涂黑遮挡与箭头文字批注"
                         )
                         perkRow(
-                            icon: "shield.lefthalf.filled",
-                            tint: .yellow,
-                            title: "超长图预警与九宫格切片",
-                            detail: "画幅超长时自动预警，一键拆分为九宫格避免微信画质压缩"
-                        )
-                        perkRow(
-                            icon: "cube.transparent",
-                            tint: .purple,
-                            title: "3D 样机海报制作",
-                            detail: "为长截图套上金属机壳与立体光影，一键导出展示海报"
-                        )
-                        perkRow(
-                            icon: "text.viewfinder",
-                            tint: .indigo,
-                            title: "文字识别与敏感信息保护",
-                            detail: "本地自动识别头像、手机号并支持一键提取全文文本"
-                        )
-                        perkRow(
-                            icon: "iphone.radiowaves.left.and.right",
-                            tint: .blue,
-                            title: "操作按钮与轻点背面快捷拼图",
-                            detail: "连按截屏后轻敲手机背面，自动拼接并存入相册与剪贴板"
+                            icon: "square.grid.3x3",
+                            tint: .accentColor,
+                            title: "九宫格社交切图",
+                            detail: "长图一键切九宫格，微信朋友圈与小红书免压缩发图"
                         )
                     }
                     .padding(ScrollSnapTheme.Spacing.lg + 2)
@@ -163,6 +151,7 @@ public struct ProSubscriptionView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         
+                        #if DEBUG
                         // Developer Quick Unlock for Testing
                         Button("开发测试：一键模拟解锁 PRO") {
                             storeKit.unlockLocally()
@@ -172,6 +161,7 @@ public struct ProSubscriptionView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .padding(.top, 2)
+                        #endif
                         
                         // Legal Links (App Store Guideline 3.1.2 Compliance)
                         HStack(spacing: 14) {
@@ -236,10 +226,14 @@ public struct ProSubscriptionView: View {
             } catch {
                 await MainActor.run {
                     self.isPurchasing = false
+                    #if DEBUG
                     // 调试环境下内购未配置时自动兜底本地解锁，避免卡住
                     storeKit.unlockLocally()
                     HapticFeedbackManager.shared.triggerSnap()
                     dismiss()
+                    #else
+                    self.purchaseErrorMessage = "购买未完成，请重试"
+                    #endif
                 }
             }
         }

@@ -68,7 +68,7 @@ public struct LiquidBrushRedactionView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "hand.draw")
-                            Text("浏览/选择")
+                            Text("移动")
                         }
                         .font(.system(size: 11, weight: interactionMode == .browse ? .bold : .medium))
                         .padding(.horizontal, 10)

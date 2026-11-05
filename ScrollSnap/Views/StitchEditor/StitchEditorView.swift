@@ -1087,7 +1087,7 @@ public struct StitchEditorView: View {
             Divider().opacity(0.3)
             
             // Row 2: 5 Tools (Brush/Highlighter, Rectangle, Arrow, Text, Step Badge)
-            HStack(spacing: 8) {
+            HStack(spacing: 5) {
                 annotationToolButton(kind: .highlighter, title: "画笔", icon: "pencil.tip")
                 annotationToolButton(kind: .rectangle, title: "方框", icon: "rectangle")
                 annotationToolButton(kind: .arrow, title: "箭头", icon: "arrow.up.right")
@@ -1171,14 +1171,17 @@ public struct StitchEditorView: View {
             }
             HapticFeedbackManager.shared.triggerSelection()
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Image(systemName: icon)
                     .font(.system(size: 11))
                 Text(title)
                     .font(.system(size: 11, weight: activeAnnotationKind == kind ? .bold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
             .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
             .background(activeAnnotationKind == kind ? Color.accentColor : Color.primary.opacity(0.08))
             .foregroundStyle(activeAnnotationKind == kind ? Color.white : Color.primary)
             .clipShape(Capsule())

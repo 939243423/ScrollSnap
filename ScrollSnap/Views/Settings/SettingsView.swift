@@ -221,6 +221,7 @@ public struct SettingsView: View {
                     }
                 }
                 
+                #if DEBUG
                 // Developer Debug Tools
                 Section("开发测试与调试 (Debug)") {
                     HStack {
@@ -249,6 +250,7 @@ public struct SettingsView: View {
                         HapticFeedbackManager.shared.triggerSuccess()
                     }
                 }
+                #endif
                 
                 // Privacy & Architecture
                 Section("隐私与安全") {

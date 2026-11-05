@@ -80,9 +80,14 @@ public final class StoreKitManager: ObservableObject {
             return try await purchase(product: product)
         }
         
+        #if DEBUG
         // 开发者/本地调试环境兜底：当未连接 App Store Connect 内购配置时，直接本地解锁 Pro
         unlockLocally()
         return true
+        #else
+        // 正式发布环境：必须连接苹果 App Store 官方服务器发起真实交易
+        return false
+        #endif
     }
     
     public func unlockLocally() {
