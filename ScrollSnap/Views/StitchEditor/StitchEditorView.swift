@@ -38,7 +38,7 @@ public struct StitchEditorView: View {
     
     // Privacy Redaction & Brush State
     @State private var brushStrokes: [RedactionStroke] = []
-    @State private var redactionShapeMode: RedactionShapeMode = .box
+    @State private var redactionShapeMode: RedactionShapeMode = .brush
     @State private var redactionStyleChoice: RedactionStyleChoice = .mosaic
     @State private var brushStrokeWidth: CGFloat = 28.0
     @State private var currentBrushStroke: RedactionStroke? = nil
@@ -46,7 +46,7 @@ public struct StitchEditorView: View {
     // Annotation Suite State
     @State private var canvasInteractionMode: CanvasInteractionMode = .draw
     @State private var annotations: [AnnotationItem] = []
-    @State private var activeAnnotationKind: AnnotationKind = .rectangle
+    @State private var activeAnnotationKind: AnnotationKind = .highlighter
     @State private var activeAnnotationColor: AnnotationColor = .crimsonRed
     @State private var annotationLineWidth: CGFloat = 3.5
     @State private var nextStepBadgeNumber: Int = 1
@@ -1082,11 +1082,11 @@ public struct StitchEditorView: View {
             
             Divider().opacity(0.3)
             
-            // Row 2: 5 Tools (Rectangle, Arrow, Highlighter, Text, Step Badge)
+            // Row 2: 5 Tools (Brush/Highlighter, Rectangle, Arrow, Text, Step Badge)
             HStack(spacing: 8) {
+                annotationToolButton(kind: .highlighter, title: "画笔", icon: "pencil.tip")
                 annotationToolButton(kind: .rectangle, title: "方框", icon: "rectangle")
                 annotationToolButton(kind: .arrow, title: "箭头", icon: "arrow.up.right")
-                annotationToolButton(kind: .highlighter, title: "荧光笔", icon: "pencil.tip")
                 annotationToolButton(kind: .textNote, title: "文字", icon: "textformat")
                 annotationToolButton(kind: .stepBadge, title: "序号", icon: "1.circle.fill")
             }
@@ -1593,6 +1593,11 @@ public struct StitchEditorView: View {
                     PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
                 }
                 
+                // Save copy to AppGroup completed_stitches directory so recent history is updated
+                if let jpegData = watermarked.jpegData(compressionQuality: 0.90) {
+                    SharedStore.shared.saveCompletedStitch(data: jpegData)
+                }
+                
                 // If requested to delete original source assets
                 if deleteOriginals && !session.sourceAssetIdentifiers.isEmpty {
                     let assets = PHAsset.fetchAssets(withLocalIdentifiers: session.sourceAssetIdentifiers, options: nil)
@@ -1651,6 +1656,7 @@ public struct StitchEditorView: View {
                     let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: rawImage, isProUser: storeKit.isProUser)
                     if let data = (selectedExportFormat == .png ? watermarked.pngData() : watermarked.jpegData(compressionQuality: 0.9)) {
                         try? data.write(to: outputURL)
+                        SharedStore.shared.saveCompletedStitch(data: data)
                     }
                 }
                 #endif

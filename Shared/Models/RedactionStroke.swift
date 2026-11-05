@@ -9,15 +9,15 @@ public enum CanvasInteractionMode: String, CaseIterable, Identifiable, Sendable 
 }
 
 public enum RedactionShapeMode: String, CaseIterable, Identifiable, Sendable {
+    case brush = "画笔"
     case box = "框选"
-    case brush = "涂抹"
     
     public var id: String { rawValue }
     
     public var iconName: String {
         switch self {
-        case .box: return "square.dashed"
         case .brush: return "paintbrush.pointed"
+        case .box: return "square.dashed"
         }
     }
 }

@@ -108,6 +108,41 @@ public final class SharedStore {
         return container.appendingPathComponent(relativePath)
     }
     
+    // MARK: - Completed Stitches History
+    
+    /// Saves a copy of the completed stitch to the AppGroup completed_stitches directory, keeping the latest N items
+    @discardableResult
+    public func saveCompletedStitch(data: Data, maxHistoryCount: Int = 20) -> URL? {
+        let dir = AppGroupConstants.completedStitchesDirectory
+        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        let filename = String(format: "ScrollSnap_%ld.jpg", Int(Date().timeIntervalSince1970))
+        let targetURL = dir.appendingPathComponent(filename)
+        
+        do {
+            try data.write(to: targetURL, options: .atomic)
+            cleanupOldCompletedStitches(maxCount: maxHistoryCount)
+            notifyWidgetReloadDebounced()
+            return targetURL
+        } catch {
+            print("[SharedStore] saveCompletedStitch failed: \(error)")
+            return nil
+        }
+    }
+    
+    public func cleanupOldCompletedStitches(maxCount: Int = 20) {
+        let dir = AppGroupConstants.completedStitchesDirectory
+        guard let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
+        let imageFiles = files
+            .filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+            .sorted(by: { $0.lastPathComponent > $1.lastPathComponent }) // newest first
+        
+        if imageFiles.count > maxCount {
+            for oldFile in imageFiles.dropFirst(maxCount) {
+                try? fileManager.removeItem(at: oldFile)
+            }
+        }
+    }
+    
     // MARK: - Widget Reload Debounce (300ms)
     
     public func notifyWidgetReloadDebounced(kind: String = "RecentStitchWidget") {

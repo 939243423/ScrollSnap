@@ -50,6 +50,7 @@ public struct HomeStitchView: View {
     @State private var isDismissedRecentVideo = false
     @State private var isDismissedClipboardURL = false
     @State private var processingStatusMessage = "正在智能拼接长图..."
+    @State private var completedStitchFiles: [URL] = []
     
     public init() {}
     
@@ -112,7 +113,9 @@ public struct HomeStitchView: View {
                     }
                 }
             }
-            .sheet(item: $activeSessionToEdit) { session in
+            .sheet(item: $activeSessionToEdit, onDismiss: {
+                refreshCompletedStitches()
+            }) { session in
                 StitchEditorView(session: session)
             }
             .sheet(isPresented: $isShowingWebCapture) {
@@ -138,6 +141,7 @@ public struct HomeStitchView: View {
             .onAppear {
                 quotaManager.refreshQuota()
                 refreshActiveBroadcastSlices()
+                refreshCompletedStitches()
                 checkClipboardForURL()
                 if WhatsNewManager.shared.shouldShowWhatsNew() {
                     isShowingWhatsNew = true
@@ -288,28 +292,41 @@ public struct HomeStitchView: View {
             }
             
             VStack(alignment: .leading, spacing: 2) {
-                Text("检测到录屏截取的 \(activeBroadcastSlices.count) 屏切片")
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                Text("轻触立即自动对齐并拼合为长图")
-                    .font(.caption2)
+                HStack(spacing: 6) {
+                    Text("滚动录屏完成")
+                        .font(ScrollSnapTheme.FontToken.itemTitle)
+                    ScrollSnapBadge("\(activeBroadcastSlices.count) 屏", tint: .orange)
+                }
+                Text("轻触立即拼接为长图")
+                    .font(ScrollSnapTheme.FontToken.captionHint)
                     .foregroundStyle(.secondary)
             }
             
             Spacer()
             
-            Button("立即拼合") {
+            Button("一键拼长图") {
                 HapticFeedbackManager.shared.triggerSnap()
                 stitchActiveBroadcastSlices()
             }
             .font(.system(.caption, design: .rounded).weight(.bold))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, ScrollSnapTheme.Spacing.md)
+            .padding(.vertical, ScrollSnapTheme.Spacing.xs)
             .background(Color.orange)
             .foregroundStyle(.white)
             .clipShape(Capsule())
+            
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    SharedStore.shared.resetActiveBroadcastSession()
+                    refreshActiveBroadcastSlices()
+                }
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
-        .padding(14)
-        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.35)
+        .padding(ScrollSnapTheme.Spacing.md)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.orange.opacity(0.35))
     }
     
     private func checkClipboardForURL() {
@@ -381,214 +398,104 @@ public struct HomeStitchView: View {
     
     private func recentScreenRecordingBanner(_ video: PHAsset) -> some View {
         let durationSec = max(1, Int(video.duration))
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Color.purple.opacity(0.15))
-                        .frame(width: 38, height: 38)
-                    Image(systemName: "video.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.purple)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("录屏转长图")
-                            .font(ScrollSnapTheme.FontToken.cardTitle)
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                        
-                        ScrollSnapBadge("\(durationSec)s 视频", tint: .purple)
-                    }
-                    Text("从滑动录屏提取画面，自动去除重复内容")
-                        .font(ScrollSnapTheme.FontToken.captionHint)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-                Spacer()
-                
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        isDismissedRecentVideo = true
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
+        return HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.purple.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "film.stack.fill")
+                    .font(.body)
+                    .foregroundStyle(Color.purple)
             }
             
-            VStack(spacing: 10) {
-                Button {
-                    HapticFeedbackManager.shared.triggerSnap()
-                    stitchVideoAsset(video, deleteOriginalVideo: true)
-                } label: {
-                    HStack(spacing: 8) {
-                        if isProcessingStitch {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "film.stack.fill")
-                                .font(.body.weight(.semibold))
-                        }
-                        Text("保存长图并删除原录屏")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                        Spacer()
-                        Image(systemName: "trash.slash.fill")
-                            .font(.caption)
-                    }
-                    .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("相册新录屏")
+                        .font(ScrollSnapTheme.FontToken.itemTitle)
+                    ScrollSnapBadge("\(durationSec)s", tint: .purple)
                 }
-                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.videoGradient))
-                .disabled(isProcessingStitch)
-                
-                HStack(spacing: 10) {
-                    Button {
-                        HapticFeedbackManager.shared.triggerSelection()
-                        stitchVideoAsset(video, deleteOriginalVideo: false)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.down")
-                            Text("仅存长图")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
-                    .disabled(isProcessingStitch)
-                    
-                    Button {
-                        HapticFeedbackManager.shared.triggerSelection()
-                        stitchVideoAsset(video, deleteOriginalVideo: false, openInEditor: true)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "slider.horizontal.3")
-                            Text("工作台精修")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
-                    .disabled(isProcessingStitch)
-                }
+                Text("自动提取画面并拼接为长图")
+                    .font(ScrollSnapTheme.FontToken.captionHint)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            
+            Spacer()
+            
+            Button("转为长图") {
+                HapticFeedbackManager.shared.triggerSnap()
+                stitchVideoAsset(video, deleteOriginalVideo: false, openInEditor: true)
+            }
+            .font(.system(.caption, design: .rounded).weight(.bold))
+            .padding(.horizontal, ScrollSnapTheme.Spacing.md)
+            .padding(.vertical, ScrollSnapTheme.Spacing.xs)
+            .background(Color.purple)
+            .foregroundStyle(.white)
+            .clipShape(Capsule())
+            .disabled(isProcessingStitch)
+            
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    isDismissedRecentVideo = true
+                }
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
-        .padding(ScrollSnapTheme.Spacing.lg)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.xl, strokeColor: Color.purple.opacity(0.35))
+        .padding(ScrollSnapTheme.Spacing.md)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.purple.opacity(0.35))
     }
     
     private var recentDetectedScreenshotsBanner: some View {
         let count = photoObserver.recentScreenshotAssets.count
-        return VStack(alignment: .leading, spacing: 14) {
-            // Header: Status badge & Title
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.15))
-                        .frame(width: 38, height: 38)
-                    Image(systemName: "bolt.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.accentColor)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("检测到连续截屏")
-                            .font(ScrollSnapTheme.FontToken.cardTitle)
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                        
-                        ScrollSnapBadge("\(count) 张截图", tint: .accentColor)
-                    }
-                    Text("已按时间排好顺序，可直接拼成长图")
-                        .font(ScrollSnapTheme.FontToken.captionHint)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-                Spacer()
-                
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        isDismissedRecentScreenshots = true
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
+        return HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.body)
+                    .foregroundStyle(Color.accentColor)
             }
             
-            // Primary Action Buttons
-            VStack(spacing: 10) {
-                // Killer Action 1: Save long screenshot AND delete raw slices!
-                Button {
-                    HapticFeedbackManager.shared.triggerSnap()
-                    quickSaveRecentAssets(photoObserver.recentScreenshotAssets, deleteOriginals: true)
-                } label: {
-                    HStack(spacing: 8) {
-                        if isProcessingStitch {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.body.weight(.semibold))
-                        }
-                        Text("保存长图并删除 \(count) 张原截图")
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                        Spacer()
-                        Image(systemName: "trash.slash.fill")
-                            .font(.caption)
-                    }
-                    .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("检测到连续截图")
+                        .font(ScrollSnapTheme.FontToken.itemTitle)
+                    ScrollSnapBadge("\(count) 张", tint: .accentColor)
                 }
-                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
-                .disabled(isProcessingStitch)
-                
-                // Secondary Actions Row
-                HStack(spacing: 10) {
-                    // Action 2: Only save to album without deleting
-                    Button {
-                        HapticFeedbackManager.shared.triggerSelection()
-                        quickSaveRecentAssets(photoObserver.recentScreenshotAssets, deleteOriginals: false)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.down")
-                            Text("仅存长图")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
-                    .disabled(isProcessingStitch)
-                    
-                    // Action 3: Open in Editor
-                    Button {
-                        HapticFeedbackManager.shared.triggerSelection()
-                        stitchRecentAssets(photoObserver.recentScreenshotAssets)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "slider.horizontal.3")
-                            Text("工作台精修")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(ScrollSnapButtonStyle.glassSecondary)
-                    .disabled(isProcessingStitch)
-                }
+                Text("已按时间排好顺序，可直接拼接")
+                    .font(ScrollSnapTheme.FontToken.captionHint)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            
+            Spacer()
+            
+            Button("一键拼接") {
+                HapticFeedbackManager.shared.triggerSnap()
+                stitchRecentAssets(photoObserver.recentScreenshotAssets)
+            }
+            .font(.system(.caption, design: .rounded).weight(.bold))
+            .padding(.horizontal, ScrollSnapTheme.Spacing.md)
+            .padding(.vertical, ScrollSnapTheme.Spacing.xs)
+            .background(Color.accentColor)
+            .foregroundStyle(.white)
+            .clipShape(Capsule())
+            .disabled(isProcessingStitch)
+            
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    isDismissedRecentScreenshots = true
+                }
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
-        .padding(ScrollSnapTheme.Spacing.lg)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.xl, strokeColor: Color.accentColor.opacity(0.35))
+        .padding(ScrollSnapTheme.Spacing.md)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.35))
     }
     
     @ViewBuilder
@@ -775,20 +682,15 @@ public struct HomeStitchView: View {
     
     private var recentStitchesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            let dir = AppGroupConstants.completedStitchesDirectory
-            let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-            let imageFiles = items.filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
-                .sorted(by: { $0.lastPathComponent > $1.lastPathComponent })
-            
             HStack {
-                Text(imageFiles.isEmpty ? "历史长截图" : "历史长截图 (\(imageFiles.count))")
+                Text(completedStitchFiles.isEmpty ? "最近保存" : "最近保存 (\(completedStitchFiles.count))")
                     .font(.system(.footnote, design: .rounded).weight(.bold))
                     .foregroundStyle(.secondary)
                 
                 Spacer()
                 
-                if !imageFiles.isEmpty {
-                    Button("清空历史") {
+                if !completedStitchFiles.isEmpty {
+                    Button("清空") {
                         clearCompletedHistory()
                     }
                     .font(.caption2)
@@ -796,53 +698,69 @@ public struct HomeStitchView: View {
                 }
             }
             
-            if !imageFiles.isEmpty {
+            if !completedStitchFiles.isEmpty {
                 let columns = [
                     GridItem(.flexible(), spacing: 12),
                     GridItem(.flexible(), spacing: 12)
                 ]
                 
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(imageFiles, id: \.path) { fileURL in
+                    ForEach(completedStitchFiles, id: \.path) { fileURL in
                         let item = CompletedStitchItem(id: fileURL.path, url: fileURL)
                         if let image = UIImage(contentsOfFile: fileURL.path) {
-                            ZStack(alignment: .bottomTrailing) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 200, alignment: .top)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            Button {
+                                HapticFeedbackManager.shared.triggerSelection()
+                                openCompletedStitch(item)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ZStack(alignment: .bottomTrailing) {
+                                        Color(uiColor: .secondarySystemGroupedBackground)
+                                            .frame(height: 220)
+                                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                        
+                                        Image(uiImage: image)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 208)
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                            .padding(6)
+                                        
+                                        // 一键快捷复制按钮
+                                        Button {
+                                            UIPasteboard.general.image = image
+                                            HapticFeedbackManager.shared.triggerSnap()
+                                            showToast(message: "已复制长截图到剪贴板")
+                                        } label: {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "doc.on.doc")
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                Text("复制")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(.ultraThinMaterial, in: Capsule())
+                                            .foregroundStyle(.primary)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(8)
+                                    }
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.8)
+                                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
                                     )
-                                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .onTapGesture {
-                                        HapticFeedbackManager.shared.triggerSelection()
-                                        openCompletedStitch(item)
+                                    
+                                    HStack {
+                                        Text("\(Int(image.size.width * image.scale)) × \(Int(image.size.height * image.scale))")
+                                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
                                     }
-                                
-                                // 一键快捷复制按钮
-                                Button {
-                                    UIPasteboard.general.image = image
-                                    HapticFeedbackManager.shared.triggerSnap()
-                                } label: {
-                                    HStack(spacing: 3) {
-                                        Image(systemName: "doc.on.doc")
-                                            .font(.system(size: 10, weight: .semibold))
-                                        Text("复制")
-                                            .font(.system(size: 11, weight: .semibold))
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.ultraThinMaterial, in: Capsule())
-                                    .foregroundStyle(.primary)
+                                    .padding(.horizontal, 2)
                                 }
-                                .buttonStyle(.plain)
-                                .padding(8)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -864,10 +782,23 @@ public struct HomeStitchView: View {
         }
     }
     
+    private func refreshCompletedStitches() {
+        let dir = AppGroupConstants.completedStitchesDirectory
+        let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        self.completedStitchFiles = items
+            .filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+            .sorted(by: {
+                let d1 = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
+                let d2 = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
+                return d1 > d2
+            })
+    }
+    
     private func clearCompletedHistory() {
         let dir = AppGroupConstants.completedStitchesDirectory
         try? FileManager.default.removeItem(at: dir)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        self.completedStitchFiles = []
         HapticFeedbackManager.shared.triggerSelection()
     }
     
@@ -1067,6 +998,10 @@ public struct HomeStitchView: View {
                     PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
                 }
                 
+                if let jpegData = watermarked.jpegData(compressionQuality: 0.90) {
+                    SharedStore.shared.saveCompletedStitch(data: jpegData)
+                }
+                
                 // 2. If user opted to delete raw temporary slices, request system deletion
                 if deleteOriginals {
                     try? await PHPhotoLibrary.shared().performChanges {
@@ -1079,6 +1014,7 @@ public struct HomeStitchView: View {
                     self.isProcessingStitch = false
                     self.quotaManager.recordStitchUsage()
                     self.lastSavedImage = watermarked
+                    self.refreshCompletedStitches()
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playShutter()
                     StoreReviewManager.shared.recordSuccessfulExport()
@@ -1220,6 +1156,10 @@ public struct HomeStitchView: View {
                         PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
                     }
                     
+                    if let jpegData = watermarked.jpegData(compressionQuality: 0.90) {
+                        SharedStore.shared.saveCompletedStitch(data: jpegData)
+                    }
+                    
                     // 2. If requested, delete raw video
                     if deleteOriginalVideo {
                         try? await PHPhotoLibrary.shared().performChanges {
@@ -1232,6 +1172,7 @@ public struct HomeStitchView: View {
                         self.isProcessingStitch = false
                         self.quotaManager.recordStitchUsage()
                         self.lastSavedImage = watermarked
+                        self.refreshCompletedStitches()
                         HapticFeedbackManager.shared.triggerSnap()
                         SoundEffectManager.shared.playShutter()
                         StoreReviewManager.shared.recordSuccessfulExport()

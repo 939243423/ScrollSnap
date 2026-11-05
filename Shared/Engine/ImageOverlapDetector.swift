@@ -83,8 +83,8 @@ public final class ImageOverlapDetector {
         bottomSliceTopCrop: CGFloat = 0,
         bottomSliceBottomCrop: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.02,
-        maxOverlapRatio: CGFloat = 0.98
+        minOverlapRatio: CGFloat = 0.08,
+        maxOverlapRatio: CGFloat = 0.88
     ) -> OverlapMatchResult {
         let width = topSlice.width
         let topHeight = topSlice.height
@@ -106,21 +106,32 @@ public final class ImageOverlapDetector {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        let minOffset = validTopStart + Int(CGFloat(validTopEnd - validTopStart) * minOverlapRatio)
-        let maxOffset = min(validTopEnd - Int(templateHeightPt), validTopStart + Int(CGFloat(validTopEnd - validTopStart) * maxOverlapRatio))
+        // Safety inset to prevent false-positive matching against identical static top status bars
+        let statusSafetyInset = Int(CGFloat(topHeight) * 0.06)
+        let templateSafetyInset = max(Int(bottomSliceTopCrop), Int(CGFloat(bottomHeight) * 0.06))
+        let templateStart = templateSafetyInset
+        let effectiveCropInBottom = templateStart - Int(bottomSliceTopCrop)
         
-        guard minOffset < maxOffset else {
+        let safeTopStart = max(validTopStart + effectiveCropInBottom, statusSafetyInset)
+        let templateLen = min(Int(templateHeightPt), bottomHeight - Int(bottomSliceBottomCrop) - templateStart)
+        guard templateLen > 20 else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        let searchSpan = validTopEnd - safeTopStart - templateLen
+        guard searchSpan > 10 else {
+            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        let minOffset = safeTopStart + Int(CGFloat(searchSpan) * minOverlapRatio)
+        let maxOffset = min(validTopEnd - templateLen, safeTopStart + Int(CGFloat(searchSpan) * maxOverlapRatio))
+        
+        guard minOffset <= maxOffset else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
         var bestOffset = minOffset
         var maxCorrelation: Double = -1.0
-        let templateLen = min(Int(templateHeightPt), bottomHeight - Int(bottomSliceBottomCrop) - Int(bottomSliceTopCrop))
-        guard templateLen > 20 else {
-            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
-        }
-        
-        let templateStart = Int(bottomSliceTopCrop)
         let invTemplateLen = 1.0 / Double(templateLen)
         
         // Fast O(N) Prefix Sum Tables for S (topLuminance) and S^2
@@ -229,18 +240,21 @@ public final class ImageOverlapDetector {
             )
         }
         
-        let overlapHeight = validTopEnd - bestOffset
+        let topMatchY = bestOffset - effectiveCropInBottom
+        let overlapHeight = max(0, validTopEnd - topMatchY)
         let optimalSeam = findMinimalEnergySeam(
             luminance: topLuminance,
             horizontalEnergy: topProfile.horizontalEdgeEnergy,
             startRow: bestOffset,
-            endRow: min(validTopEnd, bestOffset + overlapHeight)
+            endRow: min(validTopEnd, bestOffset + templateLen)
         )
+        
+        let optimalSeamInBottom = (optimalSeam - bestOffset) + effectiveCropInBottom
         
         return OverlapMatchResult(
             offset: CGFloat(overlapHeight),
             confidence: normalizedConfidence,
-            optimalSeamY: CGFloat(optimalSeam - bestOffset)
+            optimalSeamY: CGFloat(max(0, optimalSeamInBottom))
         )
     }
     
@@ -251,8 +265,8 @@ public final class ImageOverlapDetector {
         topCropInset: CGFloat = 0,
         bottomCropInset: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.02,
-        maxOverlapRatio: CGFloat = 0.98
+        minOverlapRatio: CGFloat = 0.08,
+        maxOverlapRatio: CGFloat = 0.88
     ) -> OverlapMatchResult {
         return findOverlap(
             topSlice: topSlice,

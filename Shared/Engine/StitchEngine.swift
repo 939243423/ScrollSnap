@@ -66,10 +66,9 @@ public final class StitchEngine {
                 }
                 
                 // Adaptive Keyframe Selection & Deduplication Pass:
-                // When stitching screen recordings or densely sampled slices (e.g. 10 FPS broadcast),
-                // filter out redundant intermediate micro-scroll frames (<18% displacement / >82% overlap)
-                // so consecutive keyframes land in the optimal 35% ~ 65% overlap sweet spot.
-                if (source == .replayKitBroadcast || loadedSlices.count >= 4) && (presetMode != .movieSubtitles && presetMode != .horizontalCompare) {
+                // Only for screen recordings (replayKitBroadcast), filter out completely stationary duplicate pause frames.
+                // Never discard user-selected manual screenshots from photo library!
+                if source == .replayKitBroadcast && (presetMode != .movieSubtitles && presetMode != .horizontalCompare) {
                     loadedSlices = Self.filterRedundantFrames(slices: loadedSlices)
                 }
                 
@@ -223,8 +222,8 @@ public final class StitchEngine {
     
     // MARK: - Keyframe Selection & Deduplication
     
-    /// Filters out redundant intermediate micro-scroll frames from screen recordings
-    /// Keeps consecutive keyframes in the 20% ~ 70% displacement sweet spot (30% ~ 80% overlap)
+    /// Filters out completely redundant stationary duplicate frames from screen recordings (e.g. pauses during scrolling)
+    /// Never discards normal moving frames.
     public static func filterRedundantFrames(
         slices: [(path: String, image: CGImage)]
     ) -> [(path: String, image: CGImage)] {
@@ -234,12 +233,10 @@ public final class StitchEngine {
         var currentCandidate = slices[0]
         selected.append(currentCandidate)
         
-        var i = 1
-        while i < slices.count {
+        for i in 1..<slices.count {
             let nextSlice = slices[i]
             let h = CGFloat(currentCandidate.image.height)
             
-            // Check overlap between current candidate and next candidate
             let match = ImageOverlapDetector.findOverlap(
                 topSlice: currentCandidate.image,
                 bottomSlice: nextSlice.image
@@ -248,36 +245,17 @@ public final class StitchEngine {
             let displacement = max(0, h - match.offset)
             let displacementRatio = displacement / max(1.0, h)
             
-            // If displacement < 18% (meaning > 82% overlap), it is an intermediate micro-frame
-            // Only select when displacement reaches at least 20% OR if sudden large jump (> 75%)
-            if displacementRatio >= 0.75 {
-                // Sudden fast jump: preserve i - 1 as a bridge keyframe if available
-                if i > 1 && slices[i - 1].path != currentCandidate.path {
-                    selected.append(slices[i - 1])
+            // Only drop if it is an identical stationary frame (no scroll movement at all, e.g. pause during recording)
+            if displacementRatio < 0.03 && displacement < 25 && match.confidence > 0.85 {
+                // Stationary pause frame, skip it unless it's the very last frame
+                if i == slices.count - 1 && selected.last?.path != nextSlice.path {
+                    selected.append(nextSlice)
                 }
-                selected.append(nextSlice)
-                currentCandidate = nextSlice
-            } else if displacementRatio >= 0.20 && match.confidence >= 0.35 {
-                // Optimal keyframe: 20% ~ 70% displacement (30% ~ 80% overlap)
-                selected.append(nextSlice)
-                currentCandidate = nextSlice
-            } else if i == slices.count - 1 && displacementRatio > 0.04 {
-                // Final frame contains remaining new content at page bottom
-                selected.append(nextSlice)
+                continue
             }
-            i += 1
-        }
-        
-        // Ensure final frame is included if not present and has non-zero movement
-        if let last = slices.last, selected.last?.path != last.path {
-            let match = ImageOverlapDetector.findOverlap(
-                topSlice: selected.last!.image,
-                bottomSlice: last.image
-            )
-            let displacement = CGFloat(last.image.height) - match.offset
-            if displacement > 30 {
-                selected.append(last)
-            }
+            
+            selected.append(nextSlice)
+            currentCandidate = nextSlice
         }
         
         return selected.count >= 2 ? selected : slices
