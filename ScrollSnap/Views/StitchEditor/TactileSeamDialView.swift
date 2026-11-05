@@ -23,410 +23,159 @@ public struct TactileSeamDialView: View {
     @Binding public var offset: CGFloat
     public let optimalOffset: CGFloat
     public let range: ClosedRange<CGFloat>
+    public var sliceIndex: Int = 1
+    public var totalSlices: Int = 2
+    public var onSelectSlice: ((Int) -> Void)? = nil
     public let onSnapToOptimal: () -> Void
     public let onScrubbingChanged: ((Bool) -> Void)?
-    
-    @State private var dragInitialOffset: CGFloat? = nil
-    @State private var speedMultiplier: DialSpeedMultiplier = .standard
-    @State private var isLoupeActive: Bool = false
-    @State private var lastDetentOffset: CGFloat = 0
     
     public init(
         offset: Binding<CGFloat>,
         optimalOffset: CGFloat = 0.0,
         range: ClosedRange<CGFloat> = -600...1200,
+        sliceIndex: Int = 1,
+        totalSlices: Int = 2,
+        onSelectSlice: ((Int) -> Void)? = nil,
         onSnapToOptimal: @escaping () -> Void = {},
         onScrubbingChanged: ((Bool) -> Void)? = nil
     ) {
         self._offset = offset
         self.optimalOffset = optimalOffset
         self.range = range
+        self.sliceIndex = sliceIndex
+        self.totalSlices = totalSlices
+        self.onSelectSlice = onSelectSlice
         self.onSnapToOptimal = onSnapToOptimal
         self.onScrubbingChanged = onScrubbingChanged
     }
     
-    private var isLockedToOptimal: Bool {
+    private var isAtOptimal: Bool {
         abs(offset - optimalOffset) < 0.5
     }
     
     public var body: some View {
-        VStack(spacing: 12) {
-            // Header: Seam Energy & Status
+        VStack(spacing: 10) {
+            // Header: 接缝选择与状态
             HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: "waveform.path.ecg")
-                        .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
-                    Text("接缝对齐波形")
-                        .font(.caption.bold())
+                    Image(systemName: "arrow.up.and.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                    
+                    Text("第 \(sliceIndex) 处接缝")
+                        .font(.subheadline.weight(.bold))
+                    
+                    if totalSlices > 2 {
+                        Text("(共 \(totalSlices - 1) 处)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 
                 Spacer()
                 
-                // Alignment readout
-                HStack(spacing: 4) {
-                    Text(String(format: "%+.1f px", offset))
-                        .font(.system(.caption, design: .monospaced).bold())
-                        .foregroundStyle(isLockedToOptimal ? Color.green : Color.primary)
-                    
-                    if isLockedToOptimal {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.caption2)
-                            .foregroundStyle(Color.green)
+                if totalSlices > 2 {
+                    HStack(spacing: 8) {
+                        Button {
+                            if sliceIndex > 1 {
+                                onSelectSlice?(sliceIndex - 1)
+                                HapticFeedbackManager.shared.triggerSelection()
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .font(.caption.weight(.bold))
+                                .frame(width: 28, height: 26)
+                                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .disabled(sliceIndex <= 1)
+                        .buttonStyle(.plain)
+                        
+                        Button {
+                            if sliceIndex < totalSlices - 1 {
+                                onSelectSlice?(sliceIndex + 1)
+                                HapticFeedbackManager.shared.triggerSelection()
+                            }
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.bold))
+                                .frame(width: 28, height: 26)
+                                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .disabled(sliceIndex >= totalSlices - 1)
+                        .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(isLockedToOptimal ? Color.green.opacity(0.15) : Color.white.opacity(0.08))
-                )
+                
+                Button {
+                    onSnapToOptimal()
+                    HapticFeedbackManager.shared.triggerSnap()
+                } label: {
+                    Text("恢复自动对齐")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(isAtOptimal ? Color.clear : Color.accentColor.opacity(0.12), in: Capsule())
+                        .foregroundStyle(isAtOptimal ? Color.secondary : Color.accentColor)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 4)
             
-            // Seam Energy Curve Visualizer
-            energyWaveformView
-                .frame(height: 38)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.black.opacity(0.35))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.8)
-                )
-            
-            // Knurled Mechanical Dial Wheel with Quick Jump & Fine Stepper Buttons
-            HStack(spacing: 6) {
-                // Quick -10px button
+            // Slider 微调栏：直观、小巧
+            HStack(spacing: 12) {
                 Button {
-                    offset = max(range.lowerBound, offset - 10)
-                    HapticFeedbackManager.shared.triggerDialDetent()
-                    SoundEffectManager.shared.playRatchetTick()
-                } label: {
-                    Text("-10")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 48)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.white.opacity(0.08))
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("向左快速微调10像素")
-                
-                // Stepper - button
-                Button {
-                    let step = speedMultiplier.rawValue
-                    offset = max(range.lowerBound, offset - step)
-                    HapticFeedbackManager.shared.triggerDialDetent()
-                    SoundEffectManager.shared.playRatchetTick()
+                    offset = max(range.lowerBound, offset - 1.0)
+                    HapticFeedbackManager.shared.triggerSelection()
                 } label: {
                     Image(systemName: "minus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 48)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.white.opacity(0.08))
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("减少对齐偏移量")
-                
-                mechanicalDialView
-                    .frame(height: 52)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(white: 0.12))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.25), Color.clear, Color.black.opacity(0.6)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .overlay(
-                        // Center Reticle Needle Indicator
-                        VStack(spacing: 0) {
-                            Image(systemName: "arrowtriangle.down.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
-                            Rectangle()
-                                .fill(isLockedToOptimal ? Color.green : Color.orange)
-                                .frame(width: 2, height: 26)
-                            Image(systemName: "arrowtriangle.up.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(isLockedToOptimal ? Color.green : Color.orange)
-                        }
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("接缝对齐滚轮")
-                    .accessibilityValue("\(String(format: "%+.1f", offset)) 像素")
-                    .accessibilityAdjustableAction { direction in
-                        let step = speedMultiplier.rawValue
-                        switch direction {
-                        case .increment:
-                            offset = min(range.upperBound, offset + step)
-                        case .decrement:
-                            offset = max(range.lowerBound, offset - step)
-                        @unknown default:
-                            break
-                        }
-                        HapticFeedbackManager.shared.triggerDialDetent()
-                        SoundEffectManager.shared.playRatchetTick()
-                    }
-                
-                // Stepper + button
-                Button {
-                    let step = speedMultiplier.rawValue
-                    offset = min(range.upperBound, offset + step)
-                    HapticFeedbackManager.shared.triggerDialDetent()
-                    SoundEffectManager.shared.playRatchetTick()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 48)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.white.opacity(0.08))
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("增加对齐偏移量")
-                
-                // Quick +10px button
-                Button {
-                    offset = min(range.upperBound, offset + 10)
-                    HapticFeedbackManager.shared.triggerDialDetent()
-                    SoundEffectManager.shared.playRatchetTick()
-                } label: {
-                    Text("+10")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 48)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.white.opacity(0.08))
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("向右快速微调10像素")
-            }
-            
-            // Controls Footer
-            HStack(spacing: 8) {
-                Button {
-                    let all = DialSpeedMultiplier.allCases
-                    if let idx = all.firstIndex(of: speedMultiplier) {
-                        speedMultiplier = all[(idx + 1) % all.count]
-                    }
-                    HapticFeedbackManager.shared.triggerSelection()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "slider.horizontal.3")
-                        Text(speedMultiplier.label)
-                    }
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.white.opacity(0.08)))
+                        .font(.body.weight(.bold))
+                        .frame(width: 36, height: 36)
+                        .background(Color.primary.opacity(0.08), in: Circle())
                 }
                 .buttonStyle(.plain)
                 
-                Button {
-                    isLoupeActive.toggle()
-                    onScrubbingChanged?(isLoupeActive)
-                    HapticFeedbackManager.shared.triggerSelection()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: isLoupeActive ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                        Text(isLoupeActive ? "收起放大镜" : "2.2x 放大镜")
-                    }
-                    .font(.caption2.bold())
-                    .foregroundStyle(isLoupeActive ? Color.orange : Color.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(isLoupeActive ? Color.orange.opacity(0.18) : Color.white.opacity(0.08)))
-                }
-                .buttonStyle(.plain)
-                
-                Spacer()
-                
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                        offset = optimalOffset
-                    }
-                    HapticFeedbackManager.shared.triggerMagneticLock()
-                    SoundEffectManager.shared.playMagneticSnap()
-                    onSnapToOptimal()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "target")
-                        Text("自动对齐")
-                    }
-                    .font(.caption2.bold())
-                    .foregroundStyle(Color.green)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.green.opacity(0.16)))
-                }
-                .buttonStyle(.plain)
-                
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        offset = 0.0
-                    }
-                    HapticFeedbackManager.shared.triggerSelection()
-                } label: {
-                    Text("重置")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 2)
-        }
-        .padding(14)
-        .liquidGlassCard(cornerRadius: 20)
-    }
-    
-    // Simulated Energy Waveform (NCC Parabola with Noise)
-    private var energyWaveformView: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            let height = proxy.size.height
-            let midX = width / 2.0
-            let span = max(20.0, (range.upperBound - range.lowerBound) * 0.2)
-            
-            ZStack {
-                // Waveform curve
-                Path { path in
-                    let step = 3.0
-                    var isFirst = true
-                    for x in stride(from: 0.0, through: Double(width), by: step) {
-                        let relX = (CGFloat(x) - midX) / (width * 0.45)
-                        // Inverted Gaussian error valley: lower is better alignment
-                        let simulatedError = 1.0 - exp(-pow(relX - (optimalOffset - offset) / span, 2) * 3.5)
-                        let y = height * 0.15 + (height * 0.7) * simulatedError
-                        
-                        if isFirst {
-                            path.move(to: CGPoint(x: x, y: y))
-                            isFirst = false
-                        } else {
-                            path.addLine(to: CGPoint(x: x, y: y))
-                        }
-                    }
-                }
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.blue.opacity(0.3),
-                            isLockedToOptimal ? Color.green : Color.orange,
-                            Color.blue.opacity(0.3)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 2.2
-                )
-                
-                // Optimal Point Target Pin
-                let optimalX = midX + (optimalOffset - offset) * (width * 0.45 / span)
-                if optimalX >= 0 && optimalX <= width {
-                    Circle()
-                        .fill(isLockedToOptimal ? Color.green : Color.orange)
-                        .frame(width: 6, height: 6)
-                        .position(x: optimalX, y: height * 0.2)
-                        .shadow(color: isLockedToOptimal ? Color.green : Color.orange, radius: 4)
-                }
-            }
-        }
-    }
-    
-    // Knurled Ruler Wheel
-    private var mechanicalDialView: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            let center = width / 2.0
-            let tickSpacing: CGFloat = speedMultiplier == .micro ? 14.0 : 8.0
-            
-            Canvas { context, size in
-                let currentOffset = offset
-                let midY = size.height / 2.0
-                
-                // Draw ruler ticks
-                let minVal = Int(range.lowerBound)
-                let maxVal = Int(range.upperBound)
-                
-                for val in minVal...maxVal {
-                    let tickX = center + (CGFloat(val) - currentOffset) * tickSpacing
-                    guard tickX >= -20 && tickX <= size.width + 20 else { continue }
-                    
-                    let isMajor = val % 10 == 0
-                    let isMedium = val % 5 == 0
-                    let tickHeight: CGFloat = isMajor ? 24 : (isMedium ? 16 : 9)
-                    let tickOpacity: Double = isMajor ? 0.9 : (isMedium ? 0.6 : 0.3)
-                    
-                    let tickRect = CGRect(
-                        x: tickX - 0.5,
-                        y: midY - tickHeight / 2.0,
-                        width: 1.0,
-                        height: tickHeight
-                    )
-                    
-                    let color = (val == Int(optimalOffset)) ? Color.green : Color.white
-                    context.fill(Path(tickRect), with: .color(color.opacity(tickOpacity)))
-                }
-            }
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        if dragInitialOffset == nil {
-                            dragInitialOffset = offset
-                            onScrubbingChanged?(true)
-                        }
-                        let initial = dragInitialOffset ?? offset
-                        let sensitivity: CGFloat = 0.55 * speedMultiplier.rawValue
-                        let delta = -value.translation.width * sensitivity / (tickSpacing * 0.5)
-                        var newOffset = initial + delta
-                        newOffset = min(max(newOffset, range.lowerBound), range.upperBound)
-                        
-                        // Check if hitting detents
-                        if abs(newOffset - lastDetentOffset) >= 1.0 {
-                            lastDetentOffset = round(newOffset)
-                            HapticFeedbackManager.shared.triggerDialDetent()
-                            SoundEffectManager.shared.playRatchetTick()
-                        }
-                        
-                        // Magnetic snap when near optimal
-                        if abs(newOffset - optimalOffset) < 1.0 {
-                            newOffset = optimalOffset
-                            if lastDetentOffset != optimalOffset {
-                                lastDetentOffset = optimalOffset
-                                HapticFeedbackManager.shared.triggerMagneticLock()
-                                SoundEffectManager.shared.playMagneticSnap()
+                VStack(spacing: 2) {
+                    Slider(
+                        value: $offset,
+                        in: range,
+                        onEditingChanged: { editing in
+                            onScrubbingChanged?(editing)
+                            if !editing {
+                                HapticFeedbackManager.shared.triggerSelection()
                             }
                         }
-                        
-                        self.offset = newOffset
+                    )
+                    .tint(Color.accentColor)
+                    
+                    HStack {
+                        Text("上移")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Text(String(format: "%+.0f 像素", offset))
+                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(isAtOptimal ? .secondary : Color.accentColor)
+                        Spacer()
+                        Text("下移")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
                     }
-                    .onEnded { _ in
-                        dragInitialOffset = nil
-                        if !isLoupeActive {
-                            onScrubbingChanged?(false)
-                        }
-                    }
-            )
+                }
+                
+                Button {
+                    offset = min(range.upperBound, offset + 1.0)
+                    HapticFeedbackManager.shared.triggerSelection()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.bold))
+                        .frame(width: 36, height: 36)
+                        .background(Color.primary.opacity(0.08), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
         }
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
     }
 }

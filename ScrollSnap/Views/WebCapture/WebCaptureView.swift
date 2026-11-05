@@ -277,52 +277,74 @@ public struct WebCaptureView: View {
     private func captureFullPage() {
         guard !isCapturing else { return }
         isCapturing = true
-        captureStatusHint = "测算页面高度..."
+        captureStatusHint = "正在生成完整网页长截图..."
         HapticFeedbackManager.shared.triggerSnap()
         
-        // Universal script calculating accurate document height across SPAs and HTML5 responsive pages
-        let heightScript = """
-        Math.max(
-            document.body.scrollHeight || 0,
-            document.documentElement.scrollHeight || 0,
-            document.body.offsetHeight || 0,
-            document.documentElement.offsetHeight || 0,
-            document.body.clientHeight || 0,
-            1200
-        )
-        """
+        // 优先使用 iOS 原生 WebKit createPDF 生成全页长图（零黑屏、完整捕获视口外所有内容）
+        let pdfConfiguration = WKPDFConfiguration()
         
-        webView.evaluateJavaScript(heightScript) { result, _ in
-            let scrollHeight = (result as? CGFloat) ?? 1200
-            let captureWidth = max(webView.bounds.width, 393)
-            
-            // Safe upper-bound capping to avoid GPU texture exhaustion
-            let clampedHeight = min(scrollHeight, 18000)
-            
-            let config = WKSnapshotConfiguration()
-            config.rect = CGRect(x: 0, y: 0, width: captureWidth, height: clampedHeight)
-            config.afterScreenUpdates = true
-            
-            self.captureStatusHint = "光栅化超清切片..."
-            
-            webView.takeSnapshot(with: config) { image, error in
-                if let image = image, let data = image.jpegData(compressionQuality: 0.92) {
-                    self.finishWebCapture(image: image, data: data)
-                } else {
-                    // Fallback: If full-page snapshot exceeded WebKit texture limits, capture visible content
-                    let fallbackConfig = WKSnapshotConfiguration()
-                    fallbackConfig.afterScreenUpdates = true
-                    self.webView.takeSnapshot(with: fallbackConfig) { fallbackImg, _ in
-                        if let fallbackImg = fallbackImg, let fallbackData = fallbackImg.jpegData(compressionQuality: 0.92) {
-                            self.finishWebCapture(image: fallbackImg, data: fallbackData)
-                        } else {
-                            self.isCapturing = false
-                            self.captureStatusHint = "截图失败，请刷新后重试"
-                            HapticFeedbackManager.shared.triggerWarning()
-                        }
-                    }
+        webView.createPDF(configuration: pdfConfiguration) { result in
+            switch result {
+            case .success(let pdfData):
+                if let renderedImage = self.renderPDFDataToImage(pdfData),
+                   let data = renderedImage.jpegData(compressionQuality: 0.92) {
+                    self.finishWebCapture(image: renderedImage, data: data)
+                    return
                 }
+                // 若 PDF 栅格化失败，走备用快照逻辑
+                self.fallbackSnapshotCapture()
+                
+            case .failure:
+                self.fallbackSnapshotCapture()
             }
+        }
+    }
+    
+    private func fallbackSnapshotCapture() {
+        let fallbackConfig = WKSnapshotConfiguration()
+        fallbackConfig.afterScreenUpdates = true
+        self.webView.takeSnapshot(with: fallbackConfig) { fallbackImg, error in
+            if let fallbackImg = fallbackImg, let fallbackData = fallbackImg.jpegData(compressionQuality: 0.92) {
+                self.finishWebCapture(image: fallbackImg, data: fallbackData)
+            } else {
+                self.isCapturing = false
+                self.captureStatusHint = "截图失败，请刷新页面后重试"
+                HapticFeedbackManager.shared.triggerWarning()
+            }
+        }
+    }
+    
+    private func renderPDFDataToImage(_ data: Data) -> UIImage? {
+        guard let provider = CGDataProvider(data: data as CFData),
+              let document = CGPDFDocument(provider),
+              let page = document.page(at: 1) else {
+            return nil
+        }
+        
+        let pageRect = page.getBoxRect(.mediaBox)
+        guard pageRect.width > 0, pageRect.height > 0 else { return nil }
+        
+        // 保证清晰度同时控制内存占用，最大宽度 1170（Retina 宽度）
+        let targetWidth: CGFloat = min(max(pageRect.width * 2.0, 750), 1170)
+        let scale = targetWidth / pageRect.width
+        let scaledHeight = pageRect.height * scale
+        let targetHeight = min(scaledHeight, 18000) // 最大高度上限
+        let targetSize = CGSize(width: targetWidth, height: targetHeight)
+        
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1.0
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        
+        return renderer.image { ctx in
+            UIColor.white.set()
+            ctx.fill(CGRect(origin: .zero, size: targetSize))
+            
+            ctx.cgContext.saveGState()
+            ctx.cgContext.translateBy(x: 0, y: targetSize.height)
+            ctx.cgContext.scaleBy(x: scale, y: -scale)
+            ctx.cgContext.drawPDFPage(page)
+            ctx.cgContext.restoreGState()
         }
     }
     
@@ -339,8 +361,8 @@ public struct WebCaptureView: View {
             
             let titleClean = pageTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let session = StitchSession(
-                presetMode: .webArticle,
                 source: .webViewFullPage,
+                presetMode: .webArticle,
                 slices: [item],
                 title: titleClean.isEmpty ? "网页长截图_\(Int(Date().timeIntervalSince1970))" : titleClean
             )

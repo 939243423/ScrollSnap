@@ -294,8 +294,8 @@ public final class ImageOverlapDetector {
         context.interpolationQuality = .low
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleWidth, height: height))
         
-        let invScale = 1.0 / Double(sampleWidth * 255.0)
-        let invGradScale = 1.0 / Double(max(1, sampleWidth - 1) * 255.0)
+        let invScale = 1.0 / (Double(sampleWidth) * 255.0)
+        let invGradScale = 1.0 / (Double(max(1, sampleWidth - 1)) * 255.0)
         
         for y in 0..<height {
             let rowOffset = y * bytesPerRow

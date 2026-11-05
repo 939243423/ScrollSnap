@@ -31,13 +31,11 @@ public struct HomeStitchView: View {
     @StateObject private var storeKit = StoreKitManager.shared
     @StateObject private var quotaManager = QuotaManager.shared
     
-    @State private var selectedStitchIndex: Int = 0
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var activeSessionToEdit: StitchSession?
     @State private var isShowingWebCapture = false
     @State private var isShowingSettings = false
     @State private var isShowingPaywall = false
-    @State private var isShowingStudioShowroom = false
     @State private var isProcessingStitch = false
     @State private var isShowingBroadcastGuide = false
     @State private var isShowingActionShortcutGuide = false
@@ -73,17 +71,14 @@ public struct HomeStitchView: View {
                     // Core Actions Grid
                     coreActionsGrid
                     
-                    // Hardware & Broadcast Quick Capture Hub (Streamlined 2-Column Hub)
-                    quickCaptureHub
-                    
-                    // Recent Stitched Works 3D Stage
+                    // Recent Stitched Works
                     recentStitchesSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("滚动画布")
+            .navigationTitle("长截图")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -124,9 +119,6 @@ public struct HomeStitchView: View {
                 WebCaptureView { newSession in
                     self.activeSessionToEdit = newSession
                 }
-            }
-            .sheet(isPresented: $isShowingStudioShowroom) {
-                StudioShowroomView()
             }
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView()
@@ -182,42 +174,23 @@ public struct HomeStitchView: View {
             
             #if canImport(UIKit)
             if let img = lastSavedImage {
-                HStack(spacing: 8) {
-                    Button {
-                        UIPasteboard.general.image = img
-                        HapticFeedbackManager.shared.triggerSnap()
-                        self.toastMessage = "长截图已复制到剪贴板！"
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "doc.on.doc.fill")
-                            Text("复制长图")
-                        }
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.secondary.opacity(0.18))
-                        .foregroundStyle(.primary)
-                        .clipShape(Capsule())
+                Button {
+                    UIPasteboard.general.image = img
+                    HapticFeedbackManager.shared.triggerSnap()
+                    self.toastMessage = "长截图已复制到剪贴板！"
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc.fill")
+                        Text("复制长图")
                     }
-                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
-                    
-                    Button {
-                        isShowingStudioShowroom = true
-                        HapticFeedbackManager.shared.triggerSelection()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "cube.transparent.fill")
-                            Text("套3D机壳")
-                        }
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.purple.opacity(0.18))
-                        .foregroundStyle(Color.purple)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.secondary.opacity(0.18))
+                    .foregroundStyle(.primary)
+                    .clipShape(Capsule())
                 }
+                .buttonStyle(ScrollSnapButtonStyle.bouncy)
             }
             #endif
         }
@@ -632,42 +605,69 @@ public struct HomeStitchView: View {
     }
     
     private var coreActionsGrid: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
+            // Main Hero Action Card: Photos Picker
+            PhotosPicker(
+                selection: $selectedPhotoItems,
+                matching: .screenshots,
+                photoLibrary: .shared()
+            ) {
+                ZStack(alignment: .topTrailing) {
+                    RadialGradient(
+                        colors: [Color.accentColor.opacity(0.18), Color.clear],
+                        center: .topTrailing,
+                        startRadius: 10,
+                        endRadius: 140
+                    )
+                    
+                    HStack(spacing: 16) {
+                        LiquidGlassIconPod(
+                            systemName: "photo.on.rectangle.angled",
+                            tint: Color.accentColor,
+                            size: 46,
+                            cornerRadius: ScrollSnapTheme.Radius.md
+                        )
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("选择截图拼接")
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
+                            Text("从相册选择连续截图自动对齐拼接")
+                                .font(ScrollSnapTheme.FontToken.captionHint)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.trailing, 6)
+                    }
+                    .padding(16)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.35))
+            }
+            .buttonStyle(ScrollSnapButtonStyle.bouncy)
+            
+            // Sub Actions Row 1: Rolling Broadcast & Web Page
             HStack(spacing: 10) {
-                // Screenshots Picker
-                PhotosPicker(
-                    selection: $selectedPhotoItems,
-                    matching: .screenshots,
-                    photoLibrary: .shared()
-                ) {
+                // Rolling Screen Recording Capture
+                Button {
+                    HapticFeedbackManager.shared.triggerSelection()
+                    isShowingBroadcastGuide = true
+                } label: {
                     actionCard(
-                        title: "照片拼长图",
-                        subtitle: "选多张截图自动拼接",
-                        iconName: "photo.stack.fill",
-                        tint: Color.indigo,
-                        tag: "常用"
+                        title: "滚动录屏长截",
+                        subtitle: "滑动屏幕自动拼接",
+                        iconName: "record.circle.fill",
+                        tint: Color.orange,
+                        tag: "免切"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 
-                // Screen Recording Video Picker
-                PhotosPicker(
-                    selection: $selectedVideoPickerItems,
-                    matching: .videos,
-                    photoLibrary: .shared()
-                ) {
-                    actionCard(
-                        title: "录屏转长图",
-                        subtitle: "自动识别滑动内容",
-                        iconName: "film.stack.fill",
-                        tint: Color.purple,
-                        tag: "视频"
-                    )
-                }
-                .buttonStyle(ScrollSnapButtonStyle.bouncy)
-            }
-            
-            HStack(spacing: 10) {
                 // Web Page Capture
                 Button {
                     guard quotaManager.canStitch() else {
@@ -678,7 +678,7 @@ public struct HomeStitchView: View {
                     isShowingWebCapture = true
                 } label: {
                     actionCard(
-                        title: "网页截图",
+                        title: "网页长截图",
                         subtitle: "输入网址保存整页",
                         iconName: "safari.fill",
                         tint: Color.teal,
@@ -686,18 +686,37 @@ public struct HomeStitchView: View {
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
+            }
+            
+            // Sub Actions Row 2: Video to Stitch & Back Tap Shortcut
+            HStack(spacing: 10) {
+                // Screen Recording Video Picker
+                PhotosPicker(
+                    selection: $selectedVideoPickerItems,
+                    matching: .videos,
+                    photoLibrary: .shared()
+                ) {
+                    actionCard(
+                        title: "录屏转长图",
+                        subtitle: "从录屏视频提取长图",
+                        iconName: "film.stack.fill",
+                        tint: Color.purple,
+                        tag: "视频"
+                    )
+                }
+                .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 
-                // 3D Studio Poster
+                // Action Button / Back Tap Shortcut Guide
                 Button {
                     HapticFeedbackManager.shared.triggerSelection()
-                    isShowingStudioShowroom = true
+                    isShowingActionShortcutGuide = true
                 } label: {
                     actionCard(
-                        title: "带壳截图",
-                        subtitle: "生成手机样机海报",
-                        iconName: "cube.transparent.fill",
-                        tint: Color.pink,
-                        tag: "样机"
+                        title: "快捷指令 / 轻敲背面",
+                        subtitle: "截屏后敲击手机直接拼",
+                        iconName: "iphone.radiowaves.left.and.right",
+                        tint: Color.blue,
+                        tag: "快捷"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -754,210 +773,102 @@ public struct HomeStitchView: View {
         .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: tint.opacity(0.28))
     }
     
-    private var quickCaptureHub: some View {
-        HStack(spacing: 10) {
-            // Left: Action Button & Back Tap (15 Pro / 轻敲背面免开 App 极速拼图)
-            Button {
-                HapticFeedbackManager.shared.triggerSelection()
-                isShowingActionShortcutGuide = true
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    RadialGradient(
-                        colors: [Color.blue.opacity(0.12), Color.clear],
-                        center: .topTrailing,
-                        startRadius: 8,
-                        endRadius: 90
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .top) {
-                            LiquidGlassIconPod(
-                                systemName: "iphone.radiowaves.left.and.right",
-                                tint: Color.blue,
-                                size: 38,
-                                cornerRadius: ScrollSnapTheme.Radius.sm
-                            )
-                            Spacer()
-                            ScrollSnapBadge("快捷", tint: .blue)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("轻点背面 / 操作按钮")
-                                .font(ScrollSnapTheme.FontToken.itemTitle)
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                            Text("截屏后轻按直接拼图")
-                                .font(ScrollSnapTheme.FontToken.captionHint)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                        }
-                    }
-                    .padding(13)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 108)
-                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.blue.opacity(0.28))
-            }
-            .buttonStyle(ScrollSnapButtonStyle.bouncy)
+    private var recentStitchesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            let dir = AppGroupConstants.completedStitchesDirectory
+            let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            let imageFiles = items.filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
+                .sorted(by: { $0.lastPathComponent > $1.lastPathComponent })
             
-            // Right: ReplayKit Rolling Broadcast Capture (微信录屏长截)
-            Button {
-                HapticFeedbackManager.shared.triggerSelection()
-                isShowingBroadcastGuide = true
-            } label: {
-                ZStack(alignment: .topTrailing) {
-                    RadialGradient(
-                        colors: [Color.orange.opacity(0.12), Color.clear],
-                        center: .topTrailing,
-                        startRadius: 8,
-                        endRadius: 90
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .top) {
-                            LiquidGlassIconPod(
-                                systemName: "record.circle.fill",
-                                tint: Color.orange,
-                                size: 38,
-                                cornerRadius: ScrollSnapTheme.Radius.sm
-                            )
-                            Spacer()
-                            ScrollSnapBadge("免切回", tint: .orange)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("滚动录屏截取")
-                                .font(ScrollSnapTheme.FontToken.itemTitle)
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                            Text("边滑边录自动拼长图")
-                                .font(ScrollSnapTheme.FontToken.captionHint)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
+            HStack {
+                Text(imageFiles.isEmpty ? "历史长截图" : "历史长截图 (\(imageFiles.count))")
+                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                if !imageFiles.isEmpty {
+                    Button("清空历史") {
+                        clearCompletedHistory()
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            
+            if !imageFiles.isEmpty {
+                let columns = [
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12)
+                ]
+                
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(imageFiles, id: \.path) { fileURL in
+                        let item = CompletedStitchItem(id: fileURL.path, url: fileURL)
+                        if let image = UIImage(contentsOfFile: fileURL.path) {
+                            ZStack(alignment: .bottomTrailing) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 200, alignment: .top)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.8)
+                                    )
+                                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .onTapGesture {
+                                        HapticFeedbackManager.shared.triggerSelection()
+                                        openCompletedStitch(item)
+                                    }
+                                
+                                // 一键快捷复制按钮
+                                Button {
+                                    UIPasteboard.general.image = image
+                                    HapticFeedbackManager.shared.triggerSnap()
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "doc.on.doc")
+                                            .font(.system(size: 10, weight: .semibold))
+                                        Text("复制")
+                                            .font(.system(size: 11, weight: .semibold))
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(.ultraThinMaterial, in: Capsule())
+                                    .foregroundStyle(.primary)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(8)
+                            }
                         }
                     }
-                    .padding(13)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 108)
-                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.orange.opacity(0.28))
+            } else {
+                HStack(spacing: 12) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.title3)
+                        .foregroundStyle(.tertiary)
+                    
+                    Text("暂无长截图历史，保存后的长图会在此显示")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            .buttonStyle(ScrollSnapButtonStyle.bouncy)
         }
     }
     
-    private var recentStitchesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("历史长截图")
-                .font(.system(.footnote, design: .rounded).weight(.bold))
-                .foregroundStyle(.secondary)
-            
-            if let dir = AppGroupConstants.completedStitchesDirectory,
-               let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
-               !items.isEmpty {
-                let stitchItems = items.map { CompletedStitchItem(id: $0.path, url: $0) }
-                
-                Stage3DCoverFlowView(items: stitchItems, selectedIndex: $selectedStitchIndex) { item, isSelected in
-                    Button {
-                        HapticFeedbackManager.shared.triggerSelection()
-                        openCompletedStitch(item)
-                    } label: {
-                        if let image = UIImage(contentsOfFile: item.url.path) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .clipped()
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .strokeBorder(
-                                            isSelected ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.15),
-                                            lineWidth: isSelected ? 1.5 : 0.8
-                                        )
-                                )
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                .frame(height: 260)
-                .padding(.vertical, 8)
-            } else {
-                // Curated Interactive Sample Showcase in 3D Cover Flow
-                VStack(spacing: 8) {
-                    Stage3DCoverFlowView(items: sampleShowcaseCards, selectedIndex: $selectedStitchIndex) { card, isSelected in
-                        Button {
-                            HapticFeedbackManager.shared.triggerSelection()
-                            openSampleShowcaseEditor(card)
-                        } label: {
-                            ZStack(alignment: .bottomLeading) {
-                                LinearGradient(
-                                    colors: card.gradientColors,
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                                
-                                // Decorative Mock Layout Inside Card
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack {
-                                        Image(systemName: card.icon)
-                                            .font(.caption.bold())
-                                            .foregroundStyle(.white)
-                                        Spacer()
-                                        Text(card.pixelHeight)
-                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Capsule().fill(Color.black.opacity(0.35)))
-                                            .foregroundStyle(.white)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Text(card.category)
-                                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white.opacity(0.8))
-                                    Text(card.title)
-                                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                        .lineLimit(1)
-                                    
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "hand.tap.fill")
-                                            .font(.system(size: 9))
-                                        Text("轻触体验编辑器")
-                                            .font(.system(size: 9, weight: .medium))
-                                    }
-                                    .foregroundStyle(.white.opacity(0.9))
-                                    .padding(.top, 2)
-                                }
-                                .padding(12)
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .strokeBorder(
-                                        isSelected ? Color.accentColor : Color.white.opacity(0.18),
-                                        lineWidth: isSelected ? 2.0 : 0.8
-                                    )
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .frame(height: 250)
-                    .padding(.vertical, 4)
-                    
-                    Text("左右滑动浏览示例 · 点击卡片体验编辑器")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-            }
-        }
+    private func clearCompletedHistory() {
+        let dir = AppGroupConstants.completedStitchesDirectory
+        try? FileManager.default.removeItem(at: dir)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        HapticFeedbackManager.shared.triggerSelection()
     }
     
     // MARK: - Actions
@@ -1336,153 +1247,6 @@ public struct HomeStitchView: View {
             }
         }
     }
-    private var sampleShowcaseCards: [ShowcaseStitchCard] {
-        [
-            ShowcaseStitchCard(
-                id: "sample_chat",
-                title: "微信研发群长对话",
-                category: "聊天记录拼接",
-                pixelHeight: "3,420 px",
-                gradientColors: [Color(red: 0.12, green: 0.28, blue: 0.20), Color(red: 0.05, green: 0.14, blue: 0.10)],
-                icon: "message.badge.filled.fill",
-                preset: .chatRecord
-            ),
-            ShowcaseStitchCard(
-                id: "sample_social",
-                title: "小红书秋季穿搭清单",
-                category: "九宫格切片",
-                pixelHeight: "4,860 px",
-                gradientColors: [Color(red: 0.35, green: 0.12, blue: 0.22), Color(red: 0.18, green: 0.05, blue: 0.12)],
-                icon: "square.grid.3x3.fill",
-                preset: .continuousFeed
-            ),
-            ShowcaseStitchCard(
-                id: "sample_web",
-                title: "Safari 苹果空间计算专栏",
-                category: "长文去顶栏 · 带壳展示",
-                pixelHeight: "14,890 px",
-                gradientColors: [Color(red: 0.10, green: 0.16, blue: 0.32), Color(red: 0.05, green: 0.08, blue: 0.18)],
-                icon: "safari.fill",
-                preset: .webArticle
-            )
-        ]
-    }
-    
-    private func openSampleShowcaseEditor(_ card: ShowcaseStitchCard) {
-        let paths = ensureSampleSlicesExist(card: card)
-        let slice1 = StitchItem(
-            relativeFilePath: paths[0],
-            originalWidth: 1170,
-            originalHeight: 1800,
-            topCropInset: card.preset.defaultTopCropInset,
-            bottomCropInset: card.preset.defaultBottomCropInset,
-            calculatedOverlapWithPrevious: 0,
-            manualOffsetAdjustment: 0,
-            optimalSeamLineY: 1700
-        )
-        let slice2 = StitchItem(
-            relativeFilePath: paths[1],
-            originalWidth: 1170,
-            originalHeight: 1920,
-            topCropInset: card.preset.defaultTopCropInset,
-            bottomCropInset: card.preset.defaultBottomCropInset,
-            calculatedOverlapWithPrevious: 240,
-            manualOffsetAdjustment: 0,
-            optimalSeamLineY: 1820
-        )
-        let sampleSession = StitchSession(
-            presetMode: card.preset,
-            slices: [slice1, slice2],
-            title: card.title,
-            deviceScreenWidth: 393,
-            deviceScreenScale: 3.0
-        )
-        self.activeSessionToEdit = sampleSession
-    }
-    
-    private func ensureSampleSlicesExist(card: ShowcaseStitchCard) -> [String] {
-        let name1 = "sample_\(card.id)_1.jpg"
-        let name2 = "sample_\(card.id)_2.jpg"
-        let rel1 = "active_session/\(name1)"
-        let rel2 = "active_session/\(name2)"
-        
-        let url1 = SharedStore.shared.resolveFileURL(relativePath: rel1)
-        let url2 = SharedStore.shared.resolveFileURL(relativePath: rel2)
-        
-        if let u1 = url1, FileManager.default.fileExists(atPath: u1.path),
-           let u2 = url2, FileManager.default.fileExists(atPath: u2.path) {
-            return [rel1, rel2]
-        }
-        
-        #if canImport(UIKit)
-        let img1 = createSampleSliceImage(title: card.title, subtitle: card.category, part: 1)
-        let img2 = createSampleSliceImage(title: card.title, subtitle: card.category, part: 2)
-        
-        if let d1 = img1.jpegData(compressionQuality: 0.9) {
-            _ = SharedStore.shared.writeBroadcastSlice(data: d1, index: 101)
-        }
-        if let d2 = img2.jpegData(compressionQuality: 0.9) {
-            _ = SharedStore.shared.writeBroadcastSlice(data: d2, index: 102)
-        }
-        return ["active_session/slice_101.jpg", "active_session/slice_102.jpg"]
-        #else
-        return ["sample_1.png", "sample_2.png"]
-        #endif
-    }
-    
-    #if canImport(UIKit)
-    private func createSampleSliceImage(title: String, subtitle: String, part: Int) -> UIImage {
-        let size = CGSize(width: 1170, height: 1800)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            // Dark elegant canvas background
-            UIColor(red: 0.08, green: 0.09, blue: 0.11, alpha: 1.0).setFill()
-            ctx.fill(CGRect(origin: .zero, size: size))
-            
-            // Top Navigation Bar Mockup
-            let navRect = CGRect(x: 0, y: 0, width: size.width, height: 160)
-            UIColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1.0).setFill()
-            ctx.fill(navRect)
-            
-            let titleAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 42, weight: .bold),
-                .foregroundColor: UIColor.white
-            ]
-            let subAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 26, weight: .regular),
-                .foregroundColor: UIColor.systemGray2
-            ]
-            let bodyAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 30, weight: .medium),
-                .foregroundColor: UIColor.white.withAlphaComponent(0.92)
-            ]
-            
-            (title as NSString).draw(at: CGPoint(x: 60, y: 64), withAttributes: titleAttrs)
-            
-            // Content Cards
-            for i in 0..<4 {
-                let cardY = CGFloat(200 + i * 360)
-                let cardRect = CGRect(x: 50, y: cardY, width: size.width - 100, height: 320)
-                let path = UIBezierPath(roundedRect: cardRect, cornerRadius: 28)
-                UIColor(red: 0.15, green: 0.16, blue: 0.20, alpha: 1.0).setFill()
-                path.fill()
-                
-                // Avatar Pod
-                let avatarRect = CGRect(x: 80, y: cardY + 30, width: 70, height: 70)
-                let avatarPath = UIBezierPath(ovalIn: avatarRect)
-                (i % 2 == 0 ? UIColor.systemIndigo : UIColor.systemTeal).setFill()
-                avatarPath.fill()
-                
-                let itemTitle = "\(subtitle) · 示例切片 \(part)-\(i + 1)"
-                (itemTitle as NSString).draw(at: CGPoint(x: 175, y: cardY + 45), withAttributes: titleAttrs)
-                
-                let body = "ScrollSnap 离线长截图工具。支持自动对齐、接缝滚轮微调、隐私涂抹保护与带壳样机海报。"
-                let bodyRect = CGRect(x: 80, y: cardY + 130, width: size.width - 160, height: 160)
-                (body as NSString).draw(in: bodyRect, withAttributes: bodyAttrs)
-            }
-        }
-    }
-    #endif
     
     private func openCompletedStitch(_ item: CompletedStitchItem) {
         if let image = UIImage(contentsOfFile: item.url.path) {
@@ -1501,16 +1265,6 @@ public struct HomeStitchView: View {
             self.activeSessionToEdit = session
         }
     }
-}
-
-private struct ShowcaseStitchCard: Identifiable {
-    let id: String
-    let title: String
-    let category: String
-    let pixelHeight: String
-    let gradientColors: [Color]
-    let icon: String
-    let preset: StitchPresetMode
 }
 
 private struct CompletedStitchItem: Identifiable {
@@ -1810,8 +1564,8 @@ private struct ActionShortcutGuideSheet: View {
                     // Usage Scenario Callout
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
-                            Image(systemName: "sparkles")
-                                .foregroundStyle(.orange)
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(.blue)
                             Text("使用示例")
                                 .font(.system(size: 13, weight: .bold))
                         }

@@ -20,19 +20,19 @@ public final class ImageSlicer: Sendable {
         
         public var title: String {
             switch self {
-            case .three: return "3 联排切片"
-            case .four: return "4 宫格切片"
-            case .six: return "6 宫格切片"
-            case .nine: return "9 宫格图文"
+            case .three: return "3 图"
+            case .four: return "4 图"
+            case .six: return "6 图"
+            case .nine: return "9 图"
             }
         }
         
         public var description: String {
             switch self {
-            case .three: return "适合长图拆解"
-            case .four: return "适合图文展示"
-            case .six: return "适合问答长文"
-            case .nine: return "适合九宫格发布"
+            case .three: return "拆分为 3 张图"
+            case .four: return "拆分为 4 张图"
+            case .six: return "拆分为 6 张图"
+            case .nine: return "拆分为 9 张图"
             }
         }
     }

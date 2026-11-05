@@ -10,7 +10,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "ML6UM9AB74"
+    CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     CURRENT_PROJECT_VERSION: 1
@@ -23,14 +24,13 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ScrollSnap
+        excludes:
+          - "Resources/Info.plist"
+          - "ScrollSnap.entitlements"
       - path: Shared
     dependencies:
       - target: ScrollSnapBroadcast
       - target: ScrollSnapWidget
-    info:
-      path: ScrollSnap/Resources/Info.plist
-    entitlements:
-      path: ScrollSnap/ScrollSnap.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ruohui.scrollsnap
@@ -45,11 +45,10 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ScrollSnapBroadcast
+        excludes:
+          - "Info.plist"
+          - "ScrollSnapBroadcast.entitlements"
       - path: Shared
-    info:
-      path: ScrollSnapBroadcast/Info.plist
-    entitlements:
-      path: ScrollSnapBroadcast/ScrollSnapBroadcast.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ruohui.scrollsnap.broadcast
@@ -63,11 +62,10 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ScrollSnapWidget
+        excludes:
+          - "Info.plist"
+          - "ScrollSnapWidget.entitlements"
       - path: Shared
-    info:
-      path: ScrollSnapWidget/Info.plist
-    entitlements:
-      path: ScrollSnapWidget/ScrollSnapWidget.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ruohui.scrollsnap.widget

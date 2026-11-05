@@ -20,8 +20,8 @@ public struct CopyRecentStitchIntent: AppIntent {
     
     public func perform() async throws -> some IntentResult & ReturnsValue<String> {
         #if canImport(UIKit)
-        if let dir = AppGroupConstants.completedStitchesDirectory,
-           let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
+        let dir = AppGroupConstants.completedStitchesDirectory
+        if let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
            let latest = items.sorted(by: { ($0.path) > ($1.path) }).first,
            let image = UIImage(contentsOfFile: latest.path) {
             await MainActor.run {
@@ -59,24 +59,23 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
                 presetMode: .chatRecord
             )
             
-            if let dir = AppGroupConstants.completedStitchesDirectory {
-                let outURL = dir.appendingPathComponent("Stitch_Broadcast_\(Int(Date().timeIntervalSince1970)).jpg")
-                try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: outURL)
-                
-                if let image = UIImage(contentsOfFile: outURL.path) {
-                    await MainActor.run {
-                        UIPasteboard.general.image = image
-                    }
-                    #if canImport(Photos)
-                    try? await PHPhotoLibrary.shared().performChanges {
-                        PHAssetChangeRequest.creationRequestForAsset(from: image)
-                    }
-                    #endif
+            let dir = AppGroupConstants.completedStitchesDirectory
+            let outURL = dir.appendingPathComponent("Stitch_Broadcast_\(Int(Date().timeIntervalSince1970)).jpg")
+            try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: outURL)
+            
+            if let image = UIImage(contentsOfFile: outURL.path) {
+                await MainActor.run {
+                    UIPasteboard.general.image = image
                 }
-                SharedStore.shared.resetActiveBroadcastSession()
-                SharedStore.shared.notifyWidgetReloadDebounced()
-                return .result(dialog: "已拼接 \(broadcastSlices.count) 屏录屏内容，并保存至相册与剪贴板")
+                #if canImport(Photos)
+                try? await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.creationRequestForAsset(from: image)
+                }
+                #endif
             }
+            SharedStore.shared.resetActiveBroadcastSession()
+            SharedStore.shared.notifyWidgetReloadDebounced()
+            return .result(dialog: "已拼接 \(broadcastSlices.count) 屏录屏内容，并保存至相册与剪贴板")
         }
         
         // 2. 扫描相册中 5 分钟内的连续截屏
@@ -122,26 +121,25 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
             presetMode: .chatRecord
         )
         
-        if let dir = AppGroupConstants.completedStitchesDirectory {
-            let outURL = dir.appendingPathComponent("Stitch_Quick_\(Int(Date().timeIntervalSince1970)).jpg")
-            try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: outURL)
-            
-            if let image = UIImage(contentsOfFile: outURL.path) {
-                await MainActor.run {
-                    UIPasteboard.general.image = image
-                }
-                #if canImport(Photos)
-                try? await PHPhotoLibrary.shared().performChanges {
-                    PHAssetChangeRequest.creationRequestForAsset(from: image)
-                }
-                #endif
-            }
-            SharedStore.shared.notifyWidgetReloadDebounced()
-            return .result(dialog: "已拼接 \(paths.count) 张截图，并保存至相册与剪贴板")
-        }
-        #endif
+        let dir = AppGroupConstants.completedStitchesDirectory
+        let outURL = dir.appendingPathComponent("Stitch_Quick_\(Int(Date().timeIntervalSince1970)).jpg")
+        try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: outURL)
         
+        if let image = UIImage(contentsOfFile: outURL.path) {
+            await MainActor.run {
+                UIPasteboard.general.image = image
+            }
+            #if canImport(Photos)
+            try? await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
+            #endif
+        }
+        SharedStore.shared.notifyWidgetReloadDebounced()
+        return .result(dialog: "已拼接 \(paths.count) 张截图，并保存至相册与剪贴板")
+        #else
         return .result(dialog: "长截图生成失败")
+        #endif
     }
 }
 
@@ -171,7 +169,7 @@ public struct ScrollSnapShortcutsProvider: AppShortcutsProvider {
             phrases: [
                 "用 \(.applicationName) 拼接长截图",
                 "用 \(.applicationName) 拼合最近截图",
-                "拼合最近长截图"
+                "\(.applicationName) 拼合最近长截图"
             ],
             shortTitle: "拼接长截图",
             systemImageName: "camera.viewfinder"
@@ -180,7 +178,7 @@ public struct ScrollSnapShortcutsProvider: AppShortcutsProvider {
             intent: CopyRecentStitchIntent(),
             phrases: [
                 "复制 \(.applicationName) 最新长截图",
-                "复制最新长截图"
+                "\(.applicationName) 复制最新长截图"
             ],
             shortTitle: "复制最新长截图",
             systemImageName: "doc.on.doc.fill"

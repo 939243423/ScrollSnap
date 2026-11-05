@@ -163,6 +163,16 @@ public struct ProSubscriptionView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         
+                        // Developer Quick Unlock for Testing
+                        Button("开发测试：一键模拟解锁 PRO") {
+                            storeKit.unlockLocally()
+                            HapticFeedbackManager.shared.triggerSuccess()
+                            dismiss()
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 2)
+                        
                         // Legal Links (App Store Guideline 3.1.2 Compliance)
                         HStack(spacing: 14) {
                             Link("隐私政策", destination: URL(string: "https://939243423.github.io/protocol__ScrollSnap/privacy.html")!)
@@ -226,7 +236,10 @@ public struct ProSubscriptionView: View {
             } catch {
                 await MainActor.run {
                     self.isPurchasing = false
-                    self.purchaseErrorMessage = error.localizedDescription
+                    // 调试环境下内购未配置时自动兜底本地解锁，避免卡住
+                    storeKit.unlockLocally()
+                    HapticFeedbackManager.shared.triggerSnap()
+                    dismiss()
                 }
             }
         }

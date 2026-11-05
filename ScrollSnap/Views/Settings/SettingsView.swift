@@ -28,17 +28,17 @@ public struct SettingsView: View {
                     } label: {
                         HStack(spacing: 12) {
                             LiquidGlassIconPod(
-                                systemName: "crown.fill",
+                                systemName: "star.circle.fill",
                                 tint: .accentColor,
                                 size: 36,
                                 cornerRadius: ScrollSnapTheme.Radius.sm
                             )
                             
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(storeKit.isProUser ? "已激活永久特权" : "ScrollSnap Pro 永久买断")
+                                Text(storeKit.isProUser ? "已激活永久会员" : "ScrollSnap 会员")
                                     .font(ScrollSnapTheme.FontToken.itemTitle)
                                     .foregroundStyle(.primary)
-                                Text(storeKit.isProUser ? "无限制拼图、隐私涂抹与九宫切片" : "每日免费 2 次 · ¥1.00 永久解锁")
+                                Text(storeKit.isProUser ? "无限制长截图拼接、打码与切图" : "每日免费 2 次 · ¥1.00 永久买断")
                                     .font(ScrollSnapTheme.FontToken.captionHint)
                                     .foregroundStyle(.secondary)
                             }
@@ -146,33 +146,49 @@ public struct SettingsView: View {
                 
                 // Export & Haptic Preferences
                 Section("导出与交互偏好") {
-                    Toggle(isOn: $isWatermarkEnabled) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text("导出水印")
-                                    .font(.body)
-                                if !storeKit.isProUser {
-                                    Text("PRO")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1)
-                                        .background(Color.orange.opacity(0.18))
-                                        .foregroundStyle(.orange)
-                                        .clipShape(Capsule())
-                                }
+                    if storeKit.isProUser {
+                        Toggle(isOn: Binding(
+                            get: { !isWatermarkEnabled },
+                            set: { newValue in
+                                isWatermarkEnabled = !newValue
+                                ExportWatermarkManager.shared.isWatermarkEnabled = !newValue
                             }
-                            Text("在长截图底部保留 ScrollSnap 标识")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("去除导出水印")
+                                    .font(.body)
+                                Text("导出的长截图干净无底部签名")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                    }
-                    .onChange(of: isWatermarkEnabled) { _, newValue in
-                        if !storeKit.isProUser && !newValue {
-                            // Non-Pro users cannot disable watermark
-                            isWatermarkEnabled = true
+                    } else {
+                        Button {
                             isShowingProPaywall = true
-                        } else {
-                            ExportWatermarkManager.shared.isWatermarkEnabled = newValue
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text("去除导出水印")
+                                            .font(.body)
+                                            .foregroundStyle(.primary)
+                                        Text("PRO")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1)
+                                            .background(Color.orange.opacity(0.18))
+                                            .foregroundStyle(.orange)
+                                            .clipShape(Capsule())
+                                    }
+                                    Text("当前为免费版，长图底部附带极简签名 · 升级可去除")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
                     }
                     
@@ -191,7 +207,7 @@ public struct SettingsView: View {
                 }
                 
                 // Cache & Storage Section
-                Section("缓存与配额") {
+                Section("缓存与存储") {
                     HStack {
                         Text("长截图临时缓存")
                         Spacer()
@@ -203,21 +219,35 @@ public struct SettingsView: View {
                     Button("清理全部切片缓存", role: .destructive) {
                         clearCache()
                     }
+                }
+                
+                // Developer Debug Tools
+                Section("开发测试与调试 (Debug)") {
+                    HStack {
+                        Text("当前会员状态")
+                        Spacer()
+                        Text(storeKit.isProUser ? "PRO 会员 (已激活)" : "免费版 (未激活)")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(storeKit.isProUser ? .green : .secondary)
+                    }
+                    
+                    Button(storeKit.isProUser ? "模拟切换为免费版 (未购买)" : "一键模拟购买 PRO 会员 (本地解锁)") {
+                        storeKit.toggleDebugProStatus()
+                        HapticFeedbackManager.shared.triggerSuccess()
+                    }
                     
                     HStack {
-                        Text("今日免费配额")
+                        Text("今日免费拼图配额")
                         Spacer()
                         Text("\(QuotaManager.shared.remainingDailyFreeStitches) / \(QuotaManager.defaultDailyLimit) 次")
                             .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                     
-                    #if DEBUG
-                    Button("重置免费拼图额度 (开发调试)") {
+                    Button("重置免费拼图额度为满额") {
                         QuotaManager.shared.resetQuotaForTesting()
                         HapticFeedbackManager.shared.triggerSuccess()
                     }
-                    #endif
                 }
                 
                 // Privacy & Architecture
@@ -235,14 +265,6 @@ public struct SettingsView: View {
                         Spacer()
                         Text("无任何上传")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("图像对齐引擎")
-                        Spacer()
-                        Text("CoreGraphics NCC + Metal")
-                            .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -312,7 +334,7 @@ public struct SettingsView: View {
     }
     
     private func calculateCacheSize() {
-        guard let container = AppGroupConstants.containerURL else { return }
+        let container = AppGroupConstants.containerURL
         var total = 0
         if let enumerator = FileManager.default.enumerator(at: container, includingPropertiesForKeys: [.fileSizeKey]) {
             for case let fileURL as URL in enumerator {

@@ -435,7 +435,8 @@ public final class TiledImageRenderer {
                     width: max(4 * baseScale, abs(end.x - start.x)),
                     height: max(4 * baseScale, abs(end.y - start.y))
                 )
-                applyRedaction(in: context, rect: rect, style: item.isBlackout ? .blackout : .pixelatedMosaic)
+                let style: RedactionRegion.RedactionStyle = item.isBlackout ? .blackout : item.redactionStyle
+                applyRedaction(in: context, rect: rect, style: style)
             }
             
             context.restoreGState()
@@ -463,22 +464,22 @@ public final class TiledImageRenderer {
             
             switch stroke.brushType {
             case .confidentialInk:
-                context.setStrokeColor(UIColor(white: 0.12, alpha: 1.0).cgColor)
+                context.setStrokeColor(UIColor(white: 0.08, alpha: 1.0).cgColor)
                 context.addPath(path)
                 context.strokePath()
                 
             case .frostedGlass:
-                context.setStrokeColor(UIColor.white.withAlphaComponent(0.88).cgColor)
-                context.setShadow(offset: .zero, blur: 8.0 * scale, color: UIColor.white.withAlphaComponent(0.6).cgColor)
+                context.setStrokeColor(UIColor(white: 0.94, alpha: 0.92).cgColor)
+                context.setShadow(offset: .zero, blur: 4.0 * scale, color: UIColor.white.cgColor)
                 context.addPath(path)
                 context.strokePath()
                 
             case .pixelateMosaic:
-                context.setStrokeColor(UIColor.gray.withAlphaComponent(0.90).cgColor)
-                context.setLineDash(phase: 0, lengths: [6.0 * scale, 6.0 * scale])
-                context.setLineCap(.square)
-                context.addPath(path)
-                context.strokePath()
+                let blockSize = max(10.0 * scale, scaledLineWidth * 0.8)
+                for pt in stroke.points {
+                    let rect = CGRect(x: pt.x * scale - blockSize / 2, y: pt.y * scale - blockSize / 2, width: blockSize, height: blockSize)
+                    applyRedaction(in: context, rect: rect, style: .pixelatedMosaic)
+                }
             }
             
             context.restoreGState()
@@ -753,19 +754,29 @@ public final class TiledImageRenderer {
         context.saveGState()
         switch style {
         case .blackout:
-            context.setFillColor(UIColor.black.cgColor)
-            context.fill(rect)
-        case .pixelatedMosaic:
-            context.setFillColor(UIColor.darkGray.withAlphaComponent(0.88).cgColor)
-            context.fill(rect)
-            context.setStrokeColor(UIColor.white.withAlphaComponent(0.25).cgColor)
+            context.setFillColor(UIColor(white: 0.08, alpha: 1.0).cgColor)
+            let path = UIBezierPath(roundedRect: rect, cornerRadius: min(6, rect.height / 5))
+            context.addPath(path.cgPath)
+            context.fillPath()
+        case .frostedBlur:
+            context.setFillColor(UIColor(white: 0.94, alpha: 0.94).cgColor)
+            let path = UIBezierPath(roundedRect: rect, cornerRadius: min(6, rect.height / 5))
+            context.addPath(path.cgPath)
+            context.fillPath()
+            context.setStrokeColor(UIColor(white: 0.82, alpha: 0.5).cgColor)
             context.setLineWidth(1)
-            let blockSize: CGFloat = 12
-            for x in stride(from: rect.minX, through: rect.maxX, by: blockSize) {
-                context.strokeLineSegments(between: [CGPoint(x: x, y: rect.minY), CGPoint(x: x, y: rect.maxY)])
-            }
-            for y in stride(from: rect.minY, through: rect.maxY, by: blockSize) {
-                context.strokeLineSegments(between: [CGPoint(x: rect.minX, y: y), CGPoint(x: rect.maxX, y: y)])
+            context.strokePath()
+        case .pixelatedMosaic:
+            let blockSize: CGFloat = max(10, min(24, rect.height / 3.5))
+            for x in stride(from: rect.minX, to: rect.maxX, by: blockSize) {
+                for y in stride(from: rect.minY, to: rect.maxY, by: blockSize) {
+                    let blockRect = CGRect(x: x, y: y, width: min(blockSize, rect.maxX - x), height: min(blockSize, rect.maxY - y))
+                    let col = Int((x - rect.minX) / blockSize)
+                    let row = Int((y - rect.minY) / blockSize)
+                    let isEven = (col + row) % 2 == 0
+                    context.setFillColor(isEven ? UIColor(white: 0.40, alpha: 0.95).cgColor : UIColor(white: 0.58, alpha: 0.95).cgColor)
+                    context.fill(blockRect)
+                }
             }
         }
         context.restoreGState()

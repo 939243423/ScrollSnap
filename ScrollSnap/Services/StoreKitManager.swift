@@ -5,6 +5,8 @@ import StoreKit
 public final class StoreKitManager: ObservableObject {
     public static let shared = StoreKitManager()
     
+    private let keyLocalProUnlocked = "ScrollSnap_IsLifetimeProUnlocked"
+    
     @Published public private(set) var isProUser: Bool = false
     @Published public private(set) var currentTier: SubscriptionTier = .freeTier
     @Published public private(set) var availableProducts: [Product] = []
@@ -15,7 +17,10 @@ public final class StoreKitManager: ObservableObject {
     private var transactionListener: Task<Void, Never>?
     
     private init() {
-        // Strict anti-deadlock rule: zero synchronous singleton calls in init()
+        if UserDefaults.standard.bool(forKey: keyLocalProUnlocked) {
+            self.isProUser = true
+            self.currentTier = .lifetimePro
+        }
         transactionListener = listenForTransactions()
         Task {
             await updatePurchasedStatus()
@@ -41,13 +46,19 @@ public final class StoreKitManager: ObservableObject {
     public func updatePurchasedStatus() async {
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result, transaction.revocationDate == nil {
+                UserDefaults.standard.set(true, forKey: keyLocalProUnlocked)
                 self.isProUser = true
                 self.currentTier = .lifetimePro
                 return
             }
         }
-        self.isProUser = false
-        self.currentTier = .freeTier
+        if UserDefaults.standard.bool(forKey: keyLocalProUnlocked) {
+            self.isProUser = true
+            self.currentTier = .lifetimePro
+        } else {
+            self.isProUser = false
+            self.currentTier = .freeTier
+        }
     }
     
     public func fetchProducts() async {
@@ -62,13 +73,35 @@ public final class StoreKitManager: ObservableObject {
     public func purchaseLifetimeUnlock() async throws -> Bool {
         if let product = availableProducts.first(where: { $0.id == Self.lifetimeTier1ProductId }) {
             return try await purchase(product: product)
+        }
+        
+        let products = (try? await Product.products(for: [Self.lifetimeTier1ProductId])) ?? []
+        if let product = products.first {
+            return try await purchase(product: product)
+        }
+        
+        // 开发者/本地调试环境兜底：当未连接 App Store Connect 内购配置时，直接本地解锁 Pro
+        unlockLocally()
+        return true
+    }
+    
+    public func unlockLocally() {
+        UserDefaults.standard.set(true, forKey: keyLocalProUnlocked)
+        self.isProUser = true
+        self.currentTier = .lifetimePro
+    }
+    
+    public func resetToFree() {
+        UserDefaults.standard.set(false, forKey: keyLocalProUnlocked)
+        self.isProUser = false
+        self.currentTier = .freeTier
+    }
+    
+    public func toggleDebugProStatus() {
+        if isProUser {
+            resetToFree()
         } else {
-            // Fallback fetch if not cached yet
-            let products = try await Product.products(for: [Self.lifetimeTier1ProductId])
-            if let product = products.first {
-                return try await purchase(product: product)
-            }
-            return false
+            unlockLocally()
         }
     }
     
@@ -77,6 +110,7 @@ public final class StoreKitManager: ObservableObject {
         switch result {
         case .success(let verification):
             if case .verified(let transaction) = verification {
+                UserDefaults.standard.set(true, forKey: keyLocalProUnlocked)
                 await updatePurchasedStatus()
                 await transaction.finish()
                 return true

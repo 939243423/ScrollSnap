@@ -8,6 +8,7 @@ build/
 DerivedData/
 *.moved-aside
 *.xcuserstate
+.swiftpm/
 
 ## Output
 *.ipa

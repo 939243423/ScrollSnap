@@ -5,20 +5,18 @@ import UIKit
 #endif
 
 public enum EditorToolMode: String, CaseIterable, Identifiable {
-    case seamTuner = "接缝微调"
-    case privacyBrush = "隐私涂抹"
+    case seamTuner = "调接缝"
+    case privacyBrush = "打码"
     case annotation = "标注"
-    case socialSlicer = "九宫格切片"
-    case canvasStudio = "带壳样机"
+    case socialSlicer = "切图"
     
     public var id: String { rawValue }
     public var iconName: String {
         switch self {
-        case .seamTuner: return "dial.low"
-        case .privacyBrush: return "paintbrush.pointed"
-        case .annotation: return "pencil.tip.crop.circle"
+        case .seamTuner: return "arrow.up.and.down"
+        case .privacyBrush: return "eye.slash"
+        case .annotation: return "pencil.tip"
         case .socialSlicer: return "square.grid.3x3"
-        case .canvasStudio: return "iphone"
         }
     }
 }
@@ -31,24 +29,29 @@ public struct StitchEditorView: View {
     @StateObject private var textExtractor = TextExtractor.shared
     
     @State var session: StitchSession
-    @State private var activeToolMode: EditorToolMode = .seamTuner
+    @State private var activeToolMode: EditorToolMode? = nil
     
-    // Seam Fine-tuning State with Tactile Dial
+    // Seam Fine-tuning State
     @State private var selectedSliceIndex: Int = 1
     @State private var seamDialOffset: CGFloat = 0.0
-    @State private var canvasDragStartOffset: CGFloat? = nil
+    @State private var seamDragStartOffset: CGFloat = 0.0
     
-    // Privacy Scratch & Brush State
+    // Privacy Redaction & Brush State
     @State private var brushStrokes: [RedactionStroke] = []
-    @State private var activeBrushType: RedactionBrushType = .frostedGlass
-    @State private var brushStrokeWidth: CGFloat = 24.0
+    @State private var redactionShapeMode: RedactionShapeMode = .box
+    @State private var redactionStyleChoice: RedactionStyleChoice = .mosaic
+    @State private var brushStrokeWidth: CGFloat = 28.0
+    @State private var currentBrushStroke: RedactionStroke? = nil
     
     // Annotation Suite State
+    @State private var canvasInteractionMode: CanvasInteractionMode = .draw
     @State private var annotations: [AnnotationItem] = []
     @State private var activeAnnotationKind: AnnotationKind = .rectangle
     @State private var activeAnnotationColor: AnnotationColor = .crimsonRed
+    @State private var annotationLineWidth: CGFloat = 3.5
     @State private var nextStepBadgeNumber: Int = 1
     @State private var currentDrawingItem: AnnotationItem?
+    @State private var selectedAnnotationId: UUID? = nil
     @State private var textInputPrompt: String = ""
     @State private var isShowingTextAlert: Bool = false
     @State private var pendingTextLocation: CGPoint = .zero
@@ -58,14 +61,8 @@ public struct StitchEditorView: View {
     @State private var loupePosition: CGPoint = .zero
     @State private var loupeDisplayPosition: CGPoint? = nil
     
-    // Canvas & Mockup State
-    @State private var showDeviceFrame: Bool = false
-    @State private var frameFinish: DeviceFrameFinish = .naturalTitanium
-    @State private var canvasBackground: CanvasBackgroundStyle = .adaptiveBlur
-    @State private var canvasPadding: CGFloat = 20.0
+    // Canvas & Comparison State
     @State private var currentScrollOffset: CGFloat = 0.0
-    @State private var isShowingStudioShowroomSheet: Bool = false
-    @State private var currentStitchedPreviewImage: UIImage?
     @State private var isShowingComparisonSheet: Bool = false
     @State private var comparisonBeforeImage: UIImage?
     @State private var comparisonAfterImage: UIImage?
@@ -104,16 +101,8 @@ public struct StitchEditorView: View {
                 // Main Interactive Canvas
                 canvasScrollView
                 
-                // Top Floating Telemetry Matrix Capsule & Seam Intelligence Hint
+                // Seam Intelligence Hint
                 VStack(spacing: 6) {
-                    FloatingTelemetryIslandView(
-                        canvasWidth: Int(session.slices.first?.originalWidth ?? 1170),
-                        canvasHeight: Int(session.totalEstimatedHeight),
-                        memoryUsageMB: 34.2,
-                        memoryLimitMB: 50.0
-                    )
-                    .padding(.top, 6)
-                    
                     if hasLowConfidenceSeams && !isDismissedConfidenceWarning {
                         HStack(spacing: 8) {
                             Image(systemName: "info.circle.fill")
@@ -161,7 +150,7 @@ public struct StitchEditorView: View {
                     }
                     Spacer()
                 }
-                .allowsHitTesting(activeToolMode != .annotation && activeToolMode != .privacyBrush)
+                .allowsHitTesting(activeToolMode != .annotation && activeToolMode != .privacyBrush || canvasInteractionMode == .browse)
                 
                 // Bottom Liquid Glass Floating Modular Control Bar
                 bottomLiquidControlBar
@@ -271,13 +260,6 @@ public struct StitchEditorView: View {
                                     Label("对比原图", systemImage: "rectangle.split.2x1")
                                 }
                             }
-                            Section("带壳样机") {
-                                Button {
-                                    prepareAndOpenStudioShowroom()
-                                } label: {
-                                    Label("生成 3D 样机海报", systemImage: "cube.transparent")
-                                }
-                            }
                             Section("更多导出格式") {
                                 ForEach(ExportFormat.allCases) { format in
                                     Button {
@@ -306,16 +288,6 @@ public struct StitchEditorView: View {
                 BeforeAfterComparisonView(
                     beforeImage: comparisonBeforeImage,
                     afterImage: comparisonAfterImage
-                )
-            }
-            .sheet(isPresented: $isShowingStudioShowroomSheet) {
-                StudioShowroomView(
-                    stitchedImage: currentStitchedPreviewImage,
-                    onSavePoster: {
-                        isShowingStudioShowroomSheet = false
-                        toastMessage = "样机海报已保存至相册"
-                        withAnimation { isCopiedToClipboardToast = true }
-                    }
                 )
             }
             .sheet(isPresented: $isShowingExportSheet) {
@@ -357,17 +329,7 @@ public struct StitchEditorView: View {
         GeometryReader { proxy in
             ScrollView([.vertical, .horizontal]) {
                 VStack(spacing: 0) {
-                    if showDeviceFrame {
-                        DeviceFrameMockupView(
-                            finish: frameFinish,
-                            backgroundStyle: canvasBackground,
-                            canvasPadding: canvasPadding
-                        ) {
-                            annotatedCanvasStack
-                        }
-                    } else {
-                        annotatedCanvasStack
-                    }
+                    annotatedCanvasStack
                 }
                 .padding(.vertical, 30)
                 .padding(.horizontal, 16)
@@ -414,6 +376,24 @@ public struct StitchEditorView: View {
             // Middle: Rendered Annotations
             ForEach(annotations) { item in
                 renderAnnotationOverlay(item: item, canvasWidth: totalDisplayWidth, canvasHeight: targetDisplayHeight)
+                    .overlay {
+                        if selectedAnnotationId == item.id {
+                            selectionOverlay(for: item, canvasWidth: totalDisplayWidth, canvasHeight: targetDisplayHeight)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if canvasInteractionMode == .browse {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                                if selectedAnnotationId == item.id {
+                                    selectedAnnotationId = nil
+                                } else {
+                                    selectedAnnotationId = item.id
+                                }
+                            }
+                            HapticFeedbackManager.shared.triggerSelection()
+                        }
+                    }
             }
             
             // Rendered Privacy Frost & Mosaic Strokes
@@ -426,36 +406,37 @@ public struct StitchEditorView: View {
                 renderAnnotationOverlay(item: drawing, canvasWidth: totalDisplayWidth, canvasHeight: targetDisplayHeight)
             }
             
-            // Top: Interaction Layer for Gesture Input
-            if activeToolMode == .annotation {
+            // Current In-progress Brush Stroke
+            if let brush = currentBrushStroke {
+                renderBrushStroke(stroke: brush)
+            }
+            
+            // Top: Interaction Layer for Gesture Input (only active in Draw mode)
+            if (activeToolMode == .annotation || activeToolMode == .privacyBrush) && canvasInteractionMode == .draw {
                 Color.white.opacity(0.001)
                     .frame(width: totalDisplayWidth, height: targetDisplayHeight)
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
-                                handleAnnotationDragChanged(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
+                                if activeToolMode == .annotation {
+                                    handleAnnotationDragChanged(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
+                                } else if activeToolMode == .privacyBrush {
+                                    handlePrivacyDragChanged(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
+                                }
                             }
                             .onEnded { value in
-                                handleAnnotationDragEnded(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
-                            }
-                    )
-            } else if activeToolMode == .privacyBrush {
-                Color.white.opacity(0.001)
-                    .frame(width: totalDisplayWidth, height: targetDisplayHeight)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                handleBrushDragChanged(value: value)
-                            }
-                            .onEnded { _ in
-                                handleBrushDragEnded()
+                                if activeToolMode == .annotation {
+                                    handleAnnotationDragEnded(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
+                                } else if activeToolMode == .privacyBrush {
+                                    handlePrivacyDragEnded(value: value, canvasSize: CGSize(width: totalDisplayWidth, height: targetDisplayHeight))
+                                }
                             }
                     )
             }
         }
         .frame(width: totalDisplayWidth, height: targetDisplayHeight, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: showDeviceFrame ? 0 : 8, style: .continuous))
-        .shadow(color: Color.black.opacity(showDeviceFrame ? 0 : 0.12), radius: 14, x: 0, y: 6)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .shadow(color: Color.black.opacity(0.12), radius: 14, x: 0, y: 6)
     }
     
     private func renderHorizontalSliceView(index: Int, slice: StitchItem, targetHeight: CGFloat) -> some View {
@@ -496,48 +477,49 @@ public struct StitchEditorView: View {
                     // Seam indicator line when tuner mode is active
                     if activeToolMode == .seamTuner && index > 0 {
                         Rectangle()
-                            .fill(selectedSliceIndex == index ? Color.orange : Color.orange.opacity(0.5))
-                            .frame(height: selectedSliceIndex == index ? 2.5 : 1)
+                            .fill(selectedSliceIndex == index ? Color.accentColor : Color.secondary.opacity(0.4))
+                            .frame(height: selectedSliceIndex == index ? 2 : 1)
                             .overlay(
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.up.and.down")
-                                    Text("接缝 #\(index): \(Int(slice.effectiveOverlap)) px")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("第 \(index) 处接缝")
+                                        .font(.caption2.bold())
+                                    if abs(slice.manualOffsetAdjustment) > 0.5 {
+                                        Text("\(slice.manualOffsetAdjustment > 0 ? "+" : "")\(Int(slice.manualOffsetAdjustment))px")
+                                            .font(.caption2.monospacedDigit())
+                                            .foregroundStyle(Color.yellow)
+                                    }
                                 }
-                                .font(.caption2.bold().monospacedDigit())
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(selectedSliceIndex == index ? Color.orange : Color.secondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(selectedSliceIndex == index ? Color.accentColor : Color(white: 0.2))
                                 .foregroundStyle(.white)
                                 .clipShape(Capsule())
-                                .shadow(color: Color.black.opacity(selectedSliceIndex == index ? 0.35 : 0.15), radius: 6, y: 2)
-                                .scaleEffect(selectedSliceIndex == index ? 1.06 : 0.95)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.62), value: selectedSliceIndex)
+                                .shadow(color: Color.black.opacity(0.2), radius: 4, y: 2)
+                                .scaleEffect(selectedSliceIndex == index ? 1.05 : 0.95)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedSliceIndex)
                                 .offset(y: -14)
                                 .gesture(
-                                    DragGesture(minimumDistance: 1)
+                                    DragGesture(minimumDistance: 3)
                                         .onChanged { gesture in
-                                            if canvasDragStartOffset == nil {
-                                                canvasDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                            if selectedSliceIndex != index {
                                                 selectedSliceIndex = index
+                                                seamDragStartOffset = session.slices[index].manualOffsetAdjustment
                                             }
-                                            let initial = canvasDragStartOffset ?? session.slices[index].manualOffsetAdjustment
-                                            // Canvas preview is rendered at 1/3 scale, so 1pt screen drag = 3px native coordinate
-                                            let delta = gesture.translation.height * 3.0
-                                            session.slices[index].manualOffsetAdjustment = initial + delta
-                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
-                                                loupePosition = CGPoint(x: displayWidth / 2, y: index < sliceYOffsets.count ? sliceYOffsets[index] : 100)
-                                                loupeDisplayPosition = CGPoint(x: UIScreen.main.bounds.width / 2, y: 220)
-                                                isShowingLoupe = true
-                                            }
-                                            HapticFeedbackManager.shared.triggerDialDetent()
+                                            let newOffset = seamDragStartOffset + gesture.translation.height * 0.5
+                                            session.slices[index].manualOffsetAdjustment = max(-60, min(60, newOffset))
                                         }
                                         .onEnded { _ in
-                                            canvasDragStartOffset = nil
-                                            withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
-                                                isShowingLoupe = false
-                                            }
+                                            seamDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                            HapticFeedbackManager.shared.triggerSnap()
                                         }
                                 )
+                                .onTapGesture {
+                                    selectedSliceIndex = index
+                                    seamDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                    HapticFeedbackManager.shared.triggerSelection()
+                                }
                             )
                     }
                 }
@@ -546,9 +528,9 @@ public struct StitchEditorView: View {
                     if activeToolMode == .seamTuner && index > 0 {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.65)) {
                             selectedSliceIndex = index
+                            seamDragStartOffset = session.slices[index].manualOffsetAdjustment
                         }
                         HapticFeedbackManager.shared.triggerSelection()
-                        SoundEffectManager.shared.playRatchetTick()
                     }
                 }
             }
@@ -577,11 +559,36 @@ public struct StitchEditorView: View {
                 .position(x: rect.midX, y: rect.midY)
             
         case .arrow:
-            Path { path in
-                path.move(to: start)
-                path.addLine(to: end)
+            let angle = atan2(end.y - start.y, end.x - start.x)
+            let length = hypot(end.x - start.x, end.y - start.y)
+            let headLength: CGFloat = min(22.0, max(12.0, item.lineWidth * 3.8))
+            let headAngle: CGFloat = .pi / 6.0
+            let p1 = CGPoint(
+                x: end.x - headLength * cos(angle - headAngle),
+                y: end.y - headLength * sin(angle - headAngle)
+            )
+            let p2 = CGPoint(
+                x: end.x - headLength * cos(angle + headAngle),
+                y: end.y - headLength * sin(angle + headAngle)
+            )
+            
+            ZStack {
+                Path { path in
+                    path.move(to: start)
+                    path.addLine(to: end)
+                }
+                .stroke(color, style: StrokeStyle(lineWidth: item.lineWidth, lineCap: .round, lineJoin: .round))
+                
+                if length > 6 {
+                    Path { path in
+                        path.move(to: end)
+                        path.addLine(to: p1)
+                        path.addLine(to: p2)
+                        path.closeSubpath()
+                    }
+                    .fill(color)
+                }
             }
-            .stroke(color, style: StrokeStyle(lineWidth: item.lineWidth, lineCap: .round, lineJoin: .round))
             
         case .stepBadge:
             ZStack {
@@ -603,7 +610,7 @@ public struct StitchEditorView: View {
                     }
                 }
             }
-            .stroke(color.opacity(0.4), style: StrokeStyle(lineWidth: 18, lineCap: .round, lineJoin: .round))
+            .stroke(color.opacity(0.35), style: StrokeStyle(lineWidth: item.lineWidth * 3.5, lineCap: .round, lineJoin: .round))
             
         case .textNote:
             if !item.textContent.isEmpty {
@@ -612,7 +619,7 @@ public struct StitchEditorView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.78))
+                    .background(Color.black.opacity(0.82))
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .position(start)
             }
@@ -624,10 +631,106 @@ public struct StitchEditorView: View {
                 width: max(4, abs(end.x - start.x)),
                 height: max(4, abs(end.y - start.y))
             )
-            Rectangle()
-                .fill(item.isBlackout ? Color.black : Color.gray.opacity(0.85))
-                .frame(width: rect.width, height: rect.height)
+            ZStack {
+                switch item.redactionStyle {
+                case .pixelatedMosaic:
+                    Canvas { context, size in
+                        let tileSize: CGFloat = 8.0
+                        let cols = Int(ceil(size.width / tileSize))
+                        let rows = Int(ceil(size.height / tileSize))
+                        for r in 0..<rows {
+                            for c in 0..<cols {
+                                let tileRect = CGRect(x: CGFloat(c) * tileSize, y: CGFloat(r) * tileSize, width: tileSize, height: tileSize)
+                                let isEven = (r + c) % 2 == 0
+                                let gray = isEven ? 0.82 : 0.65
+                                context.fill(Path(tileRect), with: .color(Color(white: gray).opacity(0.95)))
+                            }
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
+                    )
+                case .frostedBlur:
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Color.white.opacity(0.55))
+                        .blur(radius: 1)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .stroke(Color.white.opacity(0.4), lineWidth: 0.5)
+                        )
+                case .blackout:
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color(white: 0.08))
+                }
+            }
+            .frame(width: rect.width, height: rect.height)
+            .position(x: rect.midX, y: rect.midY)
+        }
+    }
+    
+    private func computeBoundingRect(for item: AnnotationItem, canvasWidth: CGFloat, canvasHeight: CGFloat) -> CGRect {
+        let start = CGPoint(x: item.startPoint.x * canvasWidth, y: item.startPoint.y * canvasHeight)
+        let end = CGPoint(x: item.endPoint.x * canvasWidth, y: item.endPoint.y * canvasHeight)
+        
+        switch item.kind {
+        case .rectangle, .mosaic:
+            return CGRect(
+                x: min(start.x, end.x),
+                y: min(start.y, end.y),
+                width: max(8, abs(end.x - start.x)),
+                height: max(8, abs(end.y - start.y))
+            )
+        case .arrow:
+            return CGRect(
+                x: min(start.x, end.x) - 4,
+                y: min(start.y, end.y) - 4,
+                width: max(16, abs(end.x - start.x)) + 8,
+                height: max(16, abs(end.y - start.y)) + 8
+            )
+        case .stepBadge:
+            return CGRect(x: start.x - 14, y: start.y - 14, width: 28, height: 28)
+        case .textNote:
+            return CGRect(x: start.x - 30, y: start.y - 14, width: 60, height: 28)
+        case .highlighter:
+            let xs = item.freehandPoints.map { $0.x * canvasWidth }
+            let ys = item.freehandPoints.map { $0.y * canvasHeight }
+            let minX = xs.min() ?? start.x
+            let maxX = xs.max() ?? end.x
+            let minY = ys.min() ?? start.y
+            let maxY = ys.max() ?? end.y
+            return CGRect(x: minX - 4, y: minY - 4, width: max(8, maxX - minX + 8), height: max(8, maxY - minY + 8))
+        }
+    }
+    
+    @ViewBuilder
+    private func selectionOverlay(for item: AnnotationItem, canvasWidth: CGFloat, canvasHeight: CGFloat) -> some View {
+        let rect = computeBoundingRect(for: item, canvasWidth: canvasWidth, canvasHeight: canvasHeight)
+        
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                .frame(width: rect.width + 6, height: rect.height + 6)
                 .position(x: rect.midX, y: rect.midY)
+            
+            Button {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                    annotations.removeAll { $0.id == item.id }
+                    selectedAnnotationId = nil
+                }
+                HapticFeedbackManager.shared.triggerSelection()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.white, Color.red)
+                    .background(Circle().fill(Color.white).padding(2))
+                    .shadow(color: .black.opacity(0.25), radius: 3)
+            }
+            .buttonStyle(.plain)
+            .position(x: rect.maxX + 4, y: rect.minY - 4)
         }
     }
     
@@ -636,26 +739,26 @@ public struct StitchEditorView: View {
         let normCurrent = CGPoint(x: value.location.x / canvasSize.width, y: value.location.y / canvasSize.height)
         
         switch activeAnnotationKind {
-        case .rectangle, .arrow, .mosaic:
+        case .rectangle, .arrow:
             currentDrawingItem = AnnotationItem(
                 kind: activeAnnotationKind,
                 color: activeAnnotationColor,
-                lineWidth: 3.0,
+                lineWidth: annotationLineWidth,
                 startPoint: normStart,
-                endPoint: normCurrent,
-                isBlackout: (activeAnnotationKind == .mosaic && activeAnnotationColor == .midnightBlack)
+                endPoint: normCurrent
             )
         case .highlighter:
             if currentDrawingItem == nil {
                 currentDrawingItem = AnnotationItem(
                     kind: .highlighter,
                     color: activeAnnotationColor,
+                    lineWidth: annotationLineWidth,
                     freehandPoints: [normStart]
                 )
             } else {
                 currentDrawingItem?.freehandPoints.append(normCurrent)
             }
-        case .stepBadge, .textNote:
+        case .stepBadge, .textNote, .mosaic:
             break
         }
     }
@@ -702,20 +805,48 @@ public struct StitchEditorView: View {
         HapticFeedbackManager.shared.triggerSnap()
     }
     
-    private func handleBrushDragChanged(value: DragGesture.Value) {
-        let loc = value.location
-        if brushStrokes.isEmpty || brushStrokes.last?.points.isEmpty == true {
-            let newStroke = RedactionStroke(points: [loc], brushType: activeBrushType, lineWidth: brushStrokeWidth)
-            brushStrokes.append(newStroke)
+    private func handlePrivacyDragChanged(value: DragGesture.Value, canvasSize: CGSize) {
+        if redactionShapeMode == .brush {
+            let loc = value.location
+            if currentBrushStroke == nil {
+                currentBrushStroke = RedactionStroke(
+                    points: [loc],
+                    brushType: redactionStyleChoice.brushType,
+                    lineWidth: brushStrokeWidth
+                )
+            } else {
+                currentBrushStroke?.points.append(loc)
+            }
+            HapticFeedbackManager.shared.triggerDialDetent()
         } else {
-            let lastIdx = brushStrokes.count - 1
-            brushStrokes[lastIdx].points.append(loc)
+            let normStart = CGPoint(x: value.startLocation.x / canvasSize.width, y: value.startLocation.y / canvasSize.height)
+            let normCurrent = CGPoint(x: value.location.x / canvasSize.width, y: value.location.y / canvasSize.height)
+            currentDrawingItem = AnnotationItem(
+                kind: .mosaic,
+                color: .midnightBlack,
+                lineWidth: 2.0,
+                startPoint: normStart,
+                endPoint: normCurrent,
+                isBlackout: (redactionStyleChoice == .blackout),
+                redactionStyle: redactionStyleChoice.regionStyle
+            )
         }
-        HapticFeedbackManager.shared.triggerDialDetent()
     }
     
-    private func handleBrushDragEnded() {
-        HapticFeedbackManager.shared.triggerSnap()
+    private func handlePrivacyDragEnded(value: DragGesture.Value, canvasSize: CGSize) {
+        if redactionShapeMode == .brush {
+            if let stroke = currentBrushStroke {
+                brushStrokes.append(stroke)
+                currentBrushStroke = nil
+                HapticFeedbackManager.shared.triggerSnap()
+            }
+        } else {
+            if let drawing = currentDrawingItem {
+                annotations.append(drawing)
+                currentDrawingItem = nil
+                HapticFeedbackManager.shared.triggerSnap()
+            }
+        }
     }
     
     @ViewBuilder
@@ -731,11 +862,14 @@ public struct StitchEditorView: View {
         switch stroke.brushType {
         case .frostedGlass:
             path.stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .round, lineJoin: .round))
-                .blur(radius: 6)
+                .blur(radius: 4)
         case .pixelateMosaic:
-            path.stroke(Color.gray.opacity(0.85), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .square, lineJoin: .miter, dash: [4, 4]))
+            ZStack {
+                path.stroke(Color(white: 0.72), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .square, lineJoin: .round))
+                path.stroke(Color(white: 0.45), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .square, lineJoin: .round, dash: [stroke.lineWidth * 0.6, stroke.lineWidth * 0.6]))
+            }
         case .confidentialInk:
-            path.stroke(Color(white: 0.12), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .round, lineJoin: .round))
+            path.stroke(Color(white: 0.1), style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .round, lineJoin: .round))
         }
     }
     
@@ -757,77 +891,85 @@ public struct StitchEditorView: View {
     
     private var bottomLiquidControlBar: some View {
         VStack(spacing: 8) {
-            // Secondary expanded tool options panel
-            switch activeToolMode {
-            case .seamTuner:
-                TactileSeamDialView(
-                    offset: Binding<CGFloat>(
-                        get: {
-                            guard selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count else { return 0 }
-                            return session.slices[selectedSliceIndex].manualOffsetAdjustment
+            // Secondary expanded tool options panel (only shown if a tool is active)
+            if let mode = activeToolMode {
+                switch mode {
+                case .seamTuner:
+                    let safeIndex = max(1, min(selectedSliceIndex, max(1, session.slices.count - 1)))
+                    TactileSeamDialView(
+                        offset: Binding<CGFloat>(
+                            get: {
+                                guard safeIndex > 0 && safeIndex < session.slices.count else { return 0 }
+                                return session.slices[safeIndex].manualOffsetAdjustment
+                            },
+                            set: { newOffset in
+                                guard safeIndex > 0 && safeIndex < session.slices.count else { return }
+                                session.slices[safeIndex].manualOffsetAdjustment = newOffset
+                            }
+                        ),
+                        optimalOffset: 0.0,
+                        range: -60...60,
+                        sliceIndex: safeIndex,
+                        totalSlices: session.slices.count,
+                        onSelectSlice: { idx in
+                            selectedSliceIndex = idx
                         },
-                        set: { newOffset in
-                            guard selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count else { return }
-                            session.slices[selectedSliceIndex].manualOffsetAdjustment = newOffset
-                        }
-                    ),
-                    optimalOffset: 0.0,
-                    range: currentSliceSeamRange,
-                    onSnapToOptimal: {
-                        if selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                session.slices[selectedSliceIndex].manualOffsetAdjustment = 0
+                        onSnapToOptimal: {
+                            if safeIndex > 0 && safeIndex < session.slices.count {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                    session.slices[safeIndex].manualOffsetAdjustment = 0
+                                }
                             }
-                        }
-                    },
-                    onScrubbingChanged: { isScrubbing in
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
-                            if isScrubbing {
-                                let displayW = (session.slices.first?.originalWidth ?? 393) / 3.0
-                                let seamY = selectedSliceIndex < sliceYOffsets.count ? sliceYOffsets[selectedSliceIndex] : 100
-                                loupePosition = CGPoint(x: displayW / 2, y: seamY)
-                                loupeDisplayPosition = CGPoint(x: UIScreen.main.bounds.width / 2, y: 220)
-                                isShowingLoupe = true
-                            } else {
-                                isShowingLoupe = false
-                            }
-                        }
-                    }
-                )
-            case .privacyBrush:
-                LiquidBrushRedactionView(
-                    strokes: $brushStrokes,
-                    activeBrush: $activeBrushType,
-                    brushWidth: $brushStrokeWidth
-                )
-            case .annotation:
-                annotationToolsPanel
-            case .socialSlicer:
-                socialSlicerPanel
-            case .canvasStudio:
-                canvasStudioPanel
+                        },
+                        onScrubbingChanged: nil
+                    )
+                case .privacyBrush:
+                    LiquidBrushRedactionView(
+                        shapeMode: $redactionShapeMode,
+                        styleChoice: $redactionStyleChoice,
+                        brushWidth: $brushStrokeWidth,
+                        interactionMode: $canvasInteractionMode,
+                        strokes: $brushStrokes,
+                        annotations: $annotations,
+                        onAutoSanitize: {
+                            runVisionAutoSanitization()
+                        },
+                        isSanitizing: privacySanitizer.isDetecting
+                    )
+                case .annotation:
+                    annotationToolsPanel
+                case .socialSlicer:
+                    socialSlicerPanel
+                }
             }
             
-            // Primary 5-Tab Liquid Glass Bar
+            // Primary 4-Tab Liquid Glass Bar
             HStack(spacing: 8) {
                 ForEach(EditorToolMode.allCases) { mode in
                     Button {
                         HapticFeedbackManager.shared.triggerSelection()
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            activeToolMode = mode
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                            if activeToolMode == mode {
+                                activeToolMode = nil
+                                selectedAnnotationId = nil
+                            } else {
+                                activeToolMode = mode
+                                canvasInteractionMode = .draw
+                                selectedAnnotationId = nil
+                            }
                         }
                     } label: {
-                        VStack(spacing: 3) {
+                        VStack(spacing: 4) {
                             Image(systemName: mode.iconName)
                                 .font(.system(size: 16, weight: activeToolMode == mode ? .bold : .medium))
                             Text(mode.rawValue)
-                                .font(.system(size: 10, weight: activeToolMode == mode ? .semibold : .regular))
+                                .font(.system(size: 11, weight: activeToolMode == mode ? .bold : .regular))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
                         }
                         .foregroundStyle(activeToolMode == mode ? Color.accentColor : Color.secondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 8)
                         .background(
                             activeToolMode == mode
                             ? Color.accentColor.opacity(0.12)
@@ -846,102 +988,196 @@ public struct StitchEditorView: View {
         .padding(.bottom, 16)
     }
     
-    // Sub-panel: Annotation Tools (Now with AI Privacy & OCR Buttons)
+    // Sub-panel: Annotation Tools (Clean & Focused on Markup)
     private var annotationToolsPanel: some View {
-        VStack(spacing: 8) {
-            // Smart Action Strip
-            HStack(spacing: 10) {
-                Button {
-                    runVisionAutoSanitization()
-                } label: {
-                    HStack(spacing: 4) {
-                        if privacySanitizer.isDetecting {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "shield.checkerboard")
+        VStack(spacing: 10) {
+            // Row 1: Mode Switcher (Draw vs Browse) & Smart Actions
+            HStack(spacing: 8) {
+                HStack(spacing: 2) {
+                    Button {
+                        canvasInteractionMode = .draw
+                        HapticFeedbackManager.shared.triggerSelection()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pencil.tip.crop.circle")
+                            Text("绘制")
                         }
-                        Text("自动遮挡隐私")
-                            .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 11, weight: canvasInteractionMode == .draw ? .bold : .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(canvasInteractionMode == .draw ? Color.accentColor : Color.clear)
+                        .foregroundStyle(canvasInteractionMode == .draw ? Color.white : Color.secondary)
+                        .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.orange.opacity(0.18))
-                    .foregroundStyle(Color.orange)
-                    .clipShape(Capsule())
+                    .buttonStyle(.plain)
+                    
+                    Button {
+                        canvasInteractionMode = .browse
+                        HapticFeedbackManager.shared.triggerSelection()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "hand.draw")
+                            Text("浏览/选择")
+                        }
+                        .font(.system(size: 11, weight: canvasInteractionMode == .browse ? .bold : .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(canvasInteractionMode == .browse ? Color.accentColor : Color.clear)
+                        .foregroundStyle(canvasInteractionMode == .browse ? Color.white : Color.secondary)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .disabled(privacySanitizer.isDetecting)
+                .padding(3)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(Capsule())
                 
+                Spacer()
+                
+                // OCR Text Extraction
                 Button {
                     runFullTextOCR()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "doc.text.viewfinder")
-                        Text("提取长图文字")
-                            .font(.system(size: 11, weight: .bold))
+                        Text("提取文字")
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 9)
                     .padding(.vertical, 5)
                     .background(Color.indigo.opacity(0.18))
                     .foregroundStyle(Color.indigo)
                     .clipShape(Capsule())
                 }
                 
-                Spacer()
-                
+                // Undo
                 Button {
-                    if !annotations.isEmpty {
-                        annotations.removeLast()
-                        HapticFeedbackManager.shared.triggerSelection()
-                    }
+                    handleAnnotationUndo()
                 } label: {
-                    Image(systemName: "arrow.uturn.backward")
-                        .font(.system(size: 13, weight: .semibold))
+                    Image(systemName: "arrow.uturn.backward.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(nonMosaicAnnotationsCount == 0 ? Color.secondary.opacity(0.3) : Color.primary)
                 }
-                .disabled(annotations.isEmpty)
+                .disabled(nonMosaicAnnotationsCount == 0)
+                .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                
+                // Clear all annotations
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        annotations.removeAll { $0.kind != .mosaic }
+                        selectedAnnotationId = nil
+                    }
+                    HapticFeedbackManager.shared.triggerWarning()
+                } label: {
+                    Image(systemName: "trash.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(nonMosaicAnnotationsCount == 0 ? Color.secondary.opacity(0.3) : Color.red.opacity(0.85))
+                }
+                .disabled(nonMosaicAnnotationsCount == 0)
+                .buttonStyle(ScrollSnapButtonStyle.bouncy)
             }
+            .padding(.horizontal, 4)
             
             Divider().opacity(0.3)
             
-            HStack(spacing: 14) {
-                annotationKindButton(kind: .rectangle, icon: "rectangle")
-                annotationKindButton(kind: .arrow, icon: "arrow.up.right")
-                annotationKindButton(kind: .stepBadge, icon: "1.circle.fill")
-                annotationKindButton(kind: .highlighter, icon: "pencil.tip")
-                annotationKindButton(kind: .textNote, icon: "text.bubble")
-                annotationKindButton(kind: .mosaic, icon: "checkerboard.rectangle")
+            // Row 2: 5 Tools (Rectangle, Arrow, Highlighter, Text, Step Badge)
+            HStack(spacing: 8) {
+                annotationToolButton(kind: .rectangle, title: "方框", icon: "rectangle")
+                annotationToolButton(kind: .arrow, title: "箭头", icon: "arrow.up.right")
+                annotationToolButton(kind: .highlighter, title: "荧光笔", icon: "pencil.tip")
+                annotationToolButton(kind: .textNote, title: "文字", icon: "textformat")
+                annotationToolButton(kind: .stepBadge, title: "序号", icon: "1.circle.fill")
             }
+            .padding(.horizontal, 4)
             
-            // Color Palette Selector
+            Divider().opacity(0.3)
+            
+            // Row 3: Stroke Width & Color Selector
             HStack(spacing: 10) {
-                ForEach([AnnotationColor.crimsonRed, .electricOrange, .neonYellow, .mintGreen, .deepIndigo, .midnightBlack], id: \.self) { color in
-                    Circle()
-                        .fill(color.swiftUIColor)
-                        .frame(width: 18, height: 18)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white, lineWidth: activeAnnotationColor == color ? 2.5 : 0)
-                        )
-                        .onTapGesture {
-                            activeAnnotationColor = color
-                            HapticFeedbackManager.shared.triggerSelection()
-                        }
+                Text("粗细")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                
+                ForEach([(2.0, "细"), (4.0, "中"), (7.0, "粗")], id: \.0) { width, title in
+                    Button {
+                        annotationLineWidth = width
+                        HapticFeedbackManager.shared.triggerSelection()
+                    } label: {
+                        Text(title)
+                            .font(.system(size: 11, weight: annotationLineWidth == width ? .bold : .regular))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3.5)
+                            .background(annotationLineWidth == width ? Color.primary.opacity(0.15) : Color.clear)
+                            .foregroundStyle(annotationLineWidth == width ? Color.accentColor : Color.secondary)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 7) {
+                    ForEach([AnnotationColor.crimsonRed, .electricOrange, .neonYellow, .mintGreen, .deepIndigo, .midnightBlack, .pureWhite], id: \.self) { color in
+                        Circle()
+                            .fill(color.swiftUIColor)
+                            .frame(width: 17, height: 17)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.primary.opacity(0.2), lineWidth: color == .pureWhite ? 1 : 0)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.accentColor, lineWidth: activeAnnotationColor == color ? 2.5 : 0)
+                                    .scaleEffect(1.3)
+                            )
+                            .onTapGesture {
+                                activeAnnotationColor = color
+                                HapticFeedbackManager.shared.triggerSelection()
+                            }
+                    }
                 }
             }
+            .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .liquidGlassCard(cornerRadius: 18, strokeOpacity: 0.25)
+        .padding(12)
+        .liquidGlassCard(cornerRadius: 18)
     }
     
-    private func annotationKindButton(kind: AnnotationKind, icon: String) -> some View {
+    private var nonMosaicAnnotationsCount: Int {
+        annotations.filter { $0.kind != .mosaic }.count
+    }
+    
+    private func handleAnnotationUndo() {
+        if let lastIdx = annotations.lastIndex(where: { $0.kind != .mosaic }) {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                _ = annotations.remove(at: lastIdx)
+                selectedAnnotationId = nil
+            }
+            HapticFeedbackManager.shared.triggerSelection()
+        }
+    }
+    
+    private func annotationToolButton(kind: AnnotationKind, title: String, icon: String) -> some View {
         Button {
-            activeAnnotationKind = kind
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                activeAnnotationKind = kind
+                canvasInteractionMode = .draw
+            }
             HapticFeedbackManager.shared.triggerSelection()
         } label: {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: activeAnnotationKind == kind ? .bold : .regular))
-                .foregroundStyle(activeAnnotationKind == kind ? Color.accentColor : Color.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                Text(title)
+                    .font(.system(size: 11, weight: activeAnnotationKind == kind ? .bold : .medium))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(activeAnnotationKind == kind ? Color.accentColor : Color.primary.opacity(0.08))
+            .foregroundStyle(activeAnnotationKind == kind ? Color.white : Color.primary)
+            .clipShape(Capsule())
         }
+        .buttonStyle(.plain)
     }
     
     // Sub-panel: Social Slicer (Interactive 3x3 Stage)
@@ -987,7 +1223,7 @@ public struct StitchEditorView: View {
                         } else {
                             Image(systemName: "square.grid.3x3.fill")
                         }
-                        Text("拆解为 \(selectedSlicePreset.rawValue) 宫格")
+                        Text("切为 \(selectedSlicePreset.rawValue) 张图")
                             .font(.caption.bold())
                     }
                     .foregroundStyle(.white)
@@ -997,50 +1233,6 @@ public struct StitchEditorView: View {
                     .clipShape(Capsule())
                 }
                 .disabled(isSlicing)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .liquidGlassCard(cornerRadius: 20)
-    }
-    
-    // Sub-panel: Canvas & Mockup Studio
-    private var canvasStudioPanel: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 12) {
-                Toggle(isOn: $showDeviceFrame.animation()) {
-                    Text("手机外壳")
-                        .font(.caption.bold())
-                }
-                .toggleStyle(.button)
-                .tint(.accentColor)
-                
-                if showDeviceFrame {
-                    Picker("机身颜色", selection: $frameFinish) {
-                        ForEach(DeviceFrameFinish.allCases) { finish in
-                            Text(finish.rawValue).tag(finish)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .font(.caption)
-                }
-            }
-            
-            if showDeviceFrame {
-                HStack(spacing: 8) {
-                    ForEach(CanvasBackgroundStyle.allCases) { bg in
-                        Button {
-                            canvasBackground = bg
-                        } label: {
-                            Text(bg.rawValue)
-                                .font(.system(size: 10, weight: canvasBackground == bg ? .bold : .regular))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(canvasBackground == bg ? Color.accentColor.opacity(0.2) : Color.clear)
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
             }
         }
         .padding(.horizontal, 14)
@@ -1138,7 +1330,6 @@ public struct StitchEditorView: View {
     
     private func adjustSliceOverlap(sliceIndex: Int, delta: CGFloat) {
         guard sliceIndex > 0 && sliceIndex < session.slices.count else { return }
-        let current = session.slices[sliceIndex].effectiveOverlap
         session.slices[sliceIndex].manualOverlapAdjustment += delta
         
         // Tactile Magnetic Haptics on 44pt / 88pt sweet spot
@@ -1147,27 +1338,6 @@ public struct StitchEditorView: View {
             HapticFeedbackManager.shared.triggerSnap()
         } else {
             HapticFeedbackManager.shared.triggerSelection()
-        }
-    }
-    
-    // 3D Studio Preparation
-    private func prepareAndOpenStudioShowroom() {
-        HapticFeedbackManager.shared.triggerSelection()
-        Task {
-            let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
-            try? TiledImageRenderer.renderStitchedImageToFile(
-                session: session,
-                annotations: annotations,
-                brushStrokes: brushStrokes,
-                outputURL: tempOutput,
-                format: .jpeg,
-                quality: 0.85
-            )
-            let img = UIImage(contentsOfFile: tempOutput.path)
-            await MainActor.run {
-                self.currentStitchedPreviewImage = img
-                self.isShowingStudioShowroomSheet = true
-            }
         }
     }
     
@@ -1275,8 +1445,6 @@ public struct StitchEditorView: View {
                 session: session,
                 annotations: annotations,
                 brushStrokes: brushStrokes,
-                deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
-                canvasBackground: showDeviceFrame ? canvasBackground : nil,
                 outputURL: tempOutput,
                 format: .jpeg
             )
@@ -1321,8 +1489,6 @@ public struct StitchEditorView: View {
                 session: session,
                 annotations: annotations,
                 brushStrokes: brushStrokes,
-                deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
-                canvasBackground: showDeviceFrame ? canvasBackground : nil,
                 outputURL: tempOutput,
                 format: .jpeg
             )
@@ -1344,14 +1510,39 @@ public struct StitchEditorView: View {
     }
     
     private func handleUndoAction() {
-        if !brushStrokes.isEmpty {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-                _ = brushStrokes.removeLast()
+        if activeToolMode == .privacyBrush {
+            if redactionShapeMode == .brush && !brushStrokes.isEmpty {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                    _ = brushStrokes.removeLast()
+                }
+                HapticFeedbackManager.shared.triggerSelection()
+            } else if let lastMosaicIdx = annotations.lastIndex(where: { $0.kind == .mosaic }) {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                    _ = annotations.remove(at: lastMosaicIdx)
+                    selectedAnnotationId = nil
+                }
+                HapticFeedbackManager.shared.triggerSelection()
+            } else if !brushStrokes.isEmpty {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                    _ = brushStrokes.removeLast()
+                }
+                HapticFeedbackManager.shared.triggerSelection()
+            }
+        } else if let lastIdx = annotations.lastIndex(where: { $0.kind != .mosaic }) {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                _ = annotations.remove(at: lastIdx)
+                selectedAnnotationId = nil
             }
             HapticFeedbackManager.shared.triggerSelection()
         } else if !annotations.isEmpty {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
                 _ = annotations.removeLast()
+                selectedAnnotationId = nil
+            }
+            HapticFeedbackManager.shared.triggerSelection()
+        } else if !brushStrokes.isEmpty {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                _ = brushStrokes.removeLast()
             }
             HapticFeedbackManager.shared.triggerSelection()
         }
@@ -1383,8 +1574,6 @@ public struct StitchEditorView: View {
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
-                    deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
-                    canvasBackground: showDeviceFrame ? canvasBackground : nil,
                     outputURL: tempOutput,
                     format: .jpeg,
                     quality: 0.95
@@ -1451,8 +1640,6 @@ public struct StitchEditorView: View {
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
-                    deviceFrameFinish: showDeviceFrame ? frameFinish : nil,
-                    canvasBackground: showDeviceFrame ? canvasBackground : nil,
                     outputURL: outputURL,
                     format: selectedExportFormat
                 )

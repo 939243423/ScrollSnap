@@ -3,6 +3,8 @@ import SwiftUI
 import ActivityKit
 
 public struct StitchActivityWidget: Widget {
+    public init() {}
+    
     public var body: some WidgetConfiguration {
         ActivityConfiguration(for: StitchActivityAttributes.self) { context in
             // Lock Screen Live Activity banner

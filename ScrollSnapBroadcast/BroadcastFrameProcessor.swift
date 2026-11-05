@@ -95,7 +95,7 @@ public final class BroadcastFrameProcessor {
                     let yVal = Double(buffer[rowOffset + x])
                     rowSum += yVal
                 }
-                projection[idx] = rowSum / Double(sampleCols.count * 255.0)
+                projection[idx] = rowSum / (Double(sampleCols.count) * 255.0)
             } else {
                 // 32BGRA packed decode
                 for x in sampleCols {
@@ -105,7 +105,7 @@ public final class BroadcastFrameProcessor {
                     let r = Double(buffer[pixelOffset + 2])
                     rowSum += (0.299 * r + 0.587 * g + 0.114 * b)
                 }
-                projection[idx] = rowSum / Double(sampleCols.count * 255.0)
+                projection[idx] = rowSum / (Double(sampleCols.count) * 255.0)
             }
         }
         return projection

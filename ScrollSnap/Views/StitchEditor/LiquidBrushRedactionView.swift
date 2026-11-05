@@ -1,89 +1,203 @@
 import SwiftUI
 
 public struct LiquidBrushRedactionView: View {
-    @Binding public var strokes: [RedactionStroke]
-    @Binding public var activeBrush: RedactionBrushType
+    @Binding public var shapeMode: RedactionShapeMode
+    @Binding public var styleChoice: RedactionStyleChoice
     @Binding public var brushWidth: CGFloat
-    
-    @State private var currentPoints: [CGPoint] = []
+    @Binding public var interactionMode: CanvasInteractionMode
+    @Binding public var strokes: [RedactionStroke]
+    @Binding public var annotations: [AnnotationItem]
+    public var onAutoSanitize: (() -> Void)?
+    public var isSanitizing: Bool
     
     public init(
+        shapeMode: Binding<RedactionShapeMode>,
+        styleChoice: Binding<RedactionStyleChoice>,
+        brushWidth: Binding<CGFloat>,
+        interactionMode: Binding<CanvasInteractionMode>,
         strokes: Binding<[RedactionStroke]>,
-        activeBrush: Binding<RedactionBrushType>,
-        brushWidth: Binding<CGFloat>
+        annotations: Binding<[AnnotationItem]>,
+        onAutoSanitize: (() -> Void)? = nil,
+        isSanitizing: Bool = false
     ) {
-        self._strokes = strokes
-        self._activeBrush = activeBrush
+        self._shapeMode = shapeMode
+        self._styleChoice = styleChoice
         self._brushWidth = brushWidth
+        self._interactionMode = interactionMode
+        self._strokes = strokes
+        self._annotations = annotations
+        self.onAutoSanitize = onAutoSanitize
+        self.isSanitizing = isSanitizing
+    }
+    
+    private var totalRedactionsCount: Int {
+        let mosaicAnnotations = annotations.filter { $0.kind == .mosaic }.count
+        return strokes.count + mosaicAnnotations
     }
     
     public var body: some View {
-        VStack(spacing: 12) {
-            // Brush Bar Controls
+        VStack(spacing: 10) {
+            // Row 1: Mode Switcher (Draw vs Browse) & Actions
             HStack(spacing: 8) {
-                // Brush Type Switcher
-                ForEach(RedactionBrushType.allCases) { brush in
+                // Draw vs Browse Segmented Pill
+                HStack(spacing: 2) {
                     Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
-                            activeBrush = brush
-                        }
+                        interactionMode = .draw
                         HapticFeedbackManager.shared.triggerSelection()
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: brush.iconName)
-                            Text(brush.rawValue)
+                            Image(systemName: "pencil.tip.crop.circle")
+                            Text("遮挡")
                         }
-                        .font(.caption2.bold())
+                        .font(.system(size: 11, weight: interactionMode == .draw ? .bold : .medium))
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
+                        .padding(.vertical, 5)
                         .background(
-                            Capsule()
-                                .fill(activeBrush == brush ? Color.accentColor : Color.white.opacity(0.08))
+                            interactionMode == .draw
+                            ? Color.accentColor
+                            : Color.clear
                         )
-                        .foregroundStyle(activeBrush == brush ? Color.white : Color.primary)
+                        .foregroundStyle(interactionMode == .draw ? Color.white : Color.secondary)
+                        .clipShape(Capsule())
                     }
-                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                    .buttonStyle(.plain)
+                    
+                    Button {
+                        interactionMode = .browse
+                        HapticFeedbackManager.shared.triggerSelection()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "hand.draw")
+                            Text("浏览/选择")
+                        }
+                        .font(.system(size: 11, weight: interactionMode == .browse ? .bold : .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            interactionMode == .browse
+                            ? Color.accentColor
+                            : Color.clear
+                        )
+                        .foregroundStyle(interactionMode == .browse ? Color.white : Color.secondary)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
+                .padding(3)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(Capsule())
                 
                 Spacer()
                 
-                // Undo Button with Spring Bounce
-                Button {
-                    if !strokes.isEmpty {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-                            strokes.removeLast()
+                // One-tap Auto Privacy Detection
+                if let onAutoSanitize = onAutoSanitize {
+                    Button {
+                        onAutoSanitize()
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isSanitizing {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "shield.checkerboard")
+                            }
+                            Text("自动打码")
                         }
-                        HapticFeedbackManager.shared.triggerSelection()
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.orange.opacity(0.18))
+                        .foregroundStyle(Color.orange)
+                        .clipShape(Capsule())
                     }
+                    .disabled(isSanitizing)
+                    .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                }
+                
+                // Undo Button
+                Button {
+                    handleUndo()
                 } label: {
                     Image(systemName: "arrow.uturn.backward.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(strokes.isEmpty ? Color.gray.opacity(0.3) : Color.white)
+                        .font(.system(size: 20))
+                        .foregroundStyle(totalRedactionsCount == 0 ? Color.secondary.opacity(0.3) : Color.primary)
                 }
-                .disabled(strokes.isEmpty)
+                .disabled(totalRedactionsCount == 0)
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
                 
-                // Clear All Button with Warning Haptic
+                // Clear All Button
                 Button {
-                    if !strokes.isEmpty {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                            strokes.removeAll()
-                        }
-                        HapticFeedbackManager.shared.triggerWarning()
-                    }
+                    handleClearAll()
                 } label: {
                     Image(systemName: "trash.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(strokes.isEmpty ? Color.gray.opacity(0.3) : Color.red.opacity(0.85))
+                        .font(.system(size: 20))
+                        .foregroundStyle(totalRedactionsCount == 0 ? Color.secondary.opacity(0.3) : Color.red.opacity(0.85))
                 }
-                .disabled(strokes.isEmpty)
+                .disabled(totalRedactionsCount == 0)
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
             }
             .padding(.horizontal, 4)
             
-            // Brush Width Quick Selector
+            Divider().opacity(0.4)
+            
+            // Row 2: Shape Mode (Box vs Brush) & Style Choice (Mosaic vs Blur vs Blackout)
             HStack(spacing: 12) {
-                Text("笔刷粗细")
+                // Shape Mode
+                HStack(spacing: 4) {
+                    ForEach(RedactionShapeMode.allCases) { mode in
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                                shapeMode = mode
+                                interactionMode = .draw
+                            }
+                            HapticFeedbackManager.shared.triggerSelection()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: mode.iconName)
+                                Text(mode.rawValue)
+                            }
+                            .font(.system(size: 12, weight: shapeMode == mode ? .bold : .medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(shapeMode == mode ? Color.accentColor : Color.primary.opacity(0.08))
+                            .foregroundStyle(shapeMode == mode ? Color.white : Color.primary)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                
+                Spacer()
+                
+                // Style Selector (Mosaic, Blur, Blackout)
+                HStack(spacing: 6) {
+                    ForEach(RedactionStyleChoice.allCases) { style in
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                                styleChoice = style
+                            }
+                            HapticFeedbackManager.shared.triggerSelection()
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: style.iconName)
+                                    .font(.system(size: 10))
+                                Text(style.rawValue)
+                                    .font(.system(size: 11, weight: styleChoice == style ? .bold : .medium))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(styleChoice == style ? Color.primary.opacity(0.18) : Color.clear)
+                            .foregroundStyle(styleChoice == style ? Color.accentColor : Color.secondary)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+            
+            // Row 3: Brush/Box Thickness Selector & Count
+            HStack(spacing: 12) {
+                Text("粗细")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 
@@ -93,9 +207,9 @@ public struct LiquidBrushRedactionView: View {
                         HapticFeedbackManager.shared.triggerSelection()
                     } label: {
                         Circle()
-                            .fill(brushWidth == size ? Color.white : Color.gray.opacity(0.4))
+                            .fill(brushWidth == size ? Color.accentColor : Color.gray.opacity(0.35))
                             .frame(width: size * 0.45, height: size * 0.45)
-                            .padding(6)
+                            .padding(4)
                             .background(
                                 Circle()
                                     .strokeBorder(brushWidth == size ? Color.accentColor : Color.clear, lineWidth: 1.5)
@@ -106,13 +220,42 @@ public struct LiquidBrushRedactionView: View {
                 
                 Spacer()
                 
-                Text("\(strokes.count) 处遮挡")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                if totalRedactionsCount > 0 {
+                    Text("已遮挡 \(totalRedactionsCount) 处")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 4)
         }
-        .padding(14)
+        .padding(12)
         .liquidGlassCard(cornerRadius: 18)
+    }
+    
+    private func handleUndo() {
+        if shapeMode == .brush && !strokes.isEmpty {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                _ = strokes.removeLast()
+            }
+            HapticFeedbackManager.shared.triggerSelection()
+        } else if let lastMosaicIdx = annotations.lastIndex(where: { $0.kind == .mosaic }) {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                _ = annotations.remove(at: lastMosaicIdx)
+            }
+            HapticFeedbackManager.shared.triggerSelection()
+        } else if !strokes.isEmpty {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.7)) {
+                _ = strokes.removeLast()
+            }
+            HapticFeedbackManager.shared.triggerSelection()
+        }
+    }
+    
+    private func handleClearAll() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            strokes.removeAll()
+            annotations.removeAll(where: { $0.kind == .mosaic })
+        }
+        HapticFeedbackManager.shared.triggerWarning()
     }
 }

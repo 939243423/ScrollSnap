@@ -46,6 +46,7 @@ public struct AnnotationItem: Identifiable, Codable, Sendable {
     public var stepNumber: Int
     public var textContent: String
     public var isBlackout: Bool
+    public var redactionStyle: RedactionRegion.RedactionStyle
     
     public init(
         id: UUID = UUID(),
@@ -57,7 +58,8 @@ public struct AnnotationItem: Identifiable, Codable, Sendable {
         freehandPoints: [CGPoint] = [],
         stepNumber: Int = 1,
         textContent: String = "",
-        isBlackout: Bool = false
+        isBlackout: Bool = false,
+        redactionStyle: RedactionRegion.RedactionStyle = .pixelatedMosaic
     ) {
         self.id = id
         self.kind = kind
@@ -69,6 +71,7 @@ public struct AnnotationItem: Identifiable, Codable, Sendable {
         self.stepNumber = stepNumber
         self.textContent = textContent
         self.isBlackout = isBlackout
+        self.redactionStyle = redactionStyle
     }
     
     public var boundingBox: CGRect {

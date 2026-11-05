@@ -26,8 +26,8 @@ public struct RecentStitchProvider: TimelineProvider {
     }
     
     private func fetchLatestEntry() -> RecentStitchEntry {
-        if let dir = AppGroupConstants.completedStitchesDirectory,
-           let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
+        let dir = AppGroupConstants.completedStitchesDirectory
+        if let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]),
            let latest = items.sorted(by: { $0.path > $1.path }).first {
             return RecentStitchEntry(
                 date: Date(),
@@ -105,6 +105,8 @@ public struct RecentStitchWidgetView: View {
 
 public struct RecentStitchWidget: Widget {
     public let kind: String = "RecentStitchWidget"
+    
+    public init() {}
     
     public var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: RecentStitchProvider()) { entry in
