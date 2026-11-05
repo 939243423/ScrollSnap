@@ -62,7 +62,7 @@ public struct StitchEditorView: View {
     @State private var loupeDisplayPosition: CGPoint? = nil
     
     // Canvas & Comparison State
-    @State private var currentScrollOffset: CGFloat = 0.0
+    @StateObject private var scrollController = CanvasScrollController()
     @State private var isShowingComparisonSheet: Bool = false
     @State private var comparisonBeforeImage: UIImage?
     @State private var comparisonAfterImage: UIImage?
@@ -133,24 +133,20 @@ public struct StitchEditorView: View {
                     Spacer()
                 }
                 
-                // Floating Minimap Radar Scrubbing HUD (Docked on Right Edge)
-                VStack {
-                    Spacer().frame(height: 70)
-                    HStack {
+                // Floating Quick Scrubber (Docked on Right Edge)
+                if session.presetMode != .horizontalCompare {
+                    VStack {
                         Spacer()
-                        CanvasMinimapView(
-                            totalHeight: session.totalEstimatedHeight / 3.0,
-                            visibleViewportHeight: 520,
-                            currentScrollOffset: $currentScrollOffset,
-                            onScrubToNormalizedY: { normalized in
-                                currentScrollOffset = normalized * (session.totalEstimatedHeight / 3.0 - 520)
-                            }
-                        )
-                        .padding(.trailing, 10)
+                        HStack {
+                            Spacer()
+                            CanvasMinimapView(controller: scrollController)
+                                .padding(.trailing, 2)
+                        }
+                        Spacer()
                     }
-                    Spacer()
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .allowsHitTesting(activeToolMode != .annotation && activeToolMode != .privacyBrush || canvasInteractionMode == .browse)
                 }
-                .allowsHitTesting(activeToolMode != .annotation && activeToolMode != .privacyBrush || canvasInteractionMode == .browse)
                 
                 // Bottom Liquid Glass Floating Modular Control Bar
                 bottomLiquidControlBar
@@ -334,7 +330,15 @@ public struct StitchEditorView: View {
                 .padding(.vertical, 30)
                 .padding(.horizontal, 16)
                 .frame(minWidth: proxy.size.width)
+                #if canImport(UIKit)
+                .background(
+                    ScrollViewAccessor { scrollView in
+                        scrollController.attach(to: scrollView)
+                    }
+                )
+                #endif
             }
+            .scrollIndicators(.hidden)
         }
     }
     
@@ -1723,6 +1727,41 @@ public struct TextExtractorSheet: View {
                 }
             }
         }
+    }
+}
+
+private struct ScrollViewAccessor: UIViewRepresentable {
+    let onAttach: (UIScrollView) -> Void
+    
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        DispatchQueue.main.async {
+            if let scrollView = findParentScrollView(of: view) {
+                onAttach(scrollView)
+            }
+        }
+        return view
+    }
+    
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            if let scrollView = findParentScrollView(of: uiView) {
+                onAttach(scrollView)
+            }
+        }
+    }
+    
+    private func findParentScrollView(of view: UIView) -> UIScrollView? {
+        var current: UIView? = view
+        while let parent = current?.superview {
+            if let scroll = parent as? UIScrollView {
+                return scroll
+            }
+            current = parent
+        }
+        return nil
     }
 }
 #endif
