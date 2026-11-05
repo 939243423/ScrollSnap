@@ -507,8 +507,10 @@ public struct StitchEditorView: View {
                                                 selectedSliceIndex = index
                                                 seamDragStartOffset = session.slices[index].manualOffsetAdjustment
                                             }
-                                            let newOffset = seamDragStartOffset + gesture.translation.height * 0.5
-                                            session.slices[index].manualOffsetAdjustment = max(-60, min(60, newOffset))
+                                            // Canvas is previewed at 1/3 scale, 1pt screen drag = 3px native coordinate
+                                            let newOffset = seamDragStartOffset + gesture.translation.height * 3.0
+                                            let range = currentSliceSeamRange
+                                            session.slices[index].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
                                         }
                                         .onEnded { _ in
                                             seamDragStartOffset = session.slices[index].manualOffsetAdjustment
@@ -908,7 +910,7 @@ public struct StitchEditorView: View {
                             }
                         ),
                         optimalOffset: 0.0,
-                        range: -60...60,
+                        range: currentSliceSeamRange,
                         sliceIndex: safeIndex,
                         totalSlices: session.slices.count,
                         onSelectSlice: { idx in
