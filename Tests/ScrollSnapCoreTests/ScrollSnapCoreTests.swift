@@ -237,4 +237,15 @@ final class ScrollSnapCoreTests: XCTestCase {
         let totalLayoutHeight = layouts.reduce(0.0) { $0 + $1.canvasHeight }
         XCTAssertEqual(totalLayoutHeight, session.totalEstimatedHeight, accuracy: 0.001)
     }
+    
+    // MARK: - 8. Tactile Dial Multipliers & Broadened Overlap Search Tests
+    
+    func testDialSpeedMultipliers() {
+        let multipliers = DialSpeedMultiplier.allCases
+        XCTAssertEqual(multipliers.count, 4)
+        XCTAssertEqual(DialSpeedMultiplier.micro.rawValue, 0.5)
+        XCTAssertEqual(DialSpeedMultiplier.standard.rawValue, 1.0)
+        XCTAssertEqual(DialSpeedMultiplier.fast.rawValue, 10.0)
+        XCTAssertEqual(DialSpeedMultiplier.jump.rawValue, 50.0)
+    }
 }

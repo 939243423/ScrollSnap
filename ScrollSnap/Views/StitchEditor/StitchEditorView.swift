@@ -36,6 +36,7 @@ public struct StitchEditorView: View {
     // Seam Fine-tuning State with Tactile Dial
     @State private var selectedSliceIndex: Int = 1
     @State private var seamDialOffset: CGFloat = 0.0
+    @State private var canvasDragStartOffset: CGFloat? = nil
     
     // Privacy Scratch & Brush State
     @State private var brushStrokes: [RedactionStroke] = []
@@ -515,9 +516,14 @@ public struct StitchEditorView: View {
                                 .gesture(
                                     DragGesture(minimumDistance: 1)
                                         .onChanged { gesture in
-                                            selectedSliceIndex = index
-                                            let delta = gesture.translation.height * 0.4
-                                            session.slices[index].manualOffsetAdjustment += delta
+                                            if canvasDragStartOffset == nil {
+                                                canvasDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                                selectedSliceIndex = index
+                                            }
+                                            let initial = canvasDragStartOffset ?? session.slices[index].manualOffsetAdjustment
+                                            // Canvas preview is rendered at 1/3 scale, so 1pt screen drag = 3px native coordinate
+                                            let delta = gesture.translation.height * 3.0
+                                            session.slices[index].manualOffsetAdjustment = initial + delta
                                             withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
                                                 loupePosition = CGPoint(x: displayWidth / 2, y: index < sliceYOffsets.count ? sliceYOffsets[index] : 100)
                                                 loupeDisplayPosition = CGPoint(x: UIScreen.main.bounds.width / 2, y: 220)
@@ -526,6 +532,7 @@ public struct StitchEditorView: View {
                                             HapticFeedbackManager.shared.triggerDialDetent()
                                         }
                                         .onEnded { _ in
+                                            canvasDragStartOffset = nil
                                             withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
                                                 isShowingLoupe = false
                                             }
@@ -732,6 +739,20 @@ public struct StitchEditorView: View {
         }
     }
     
+    // MARK: - Dynamic Seam Range
+    
+    private var currentSliceSeamRange: ClosedRange<CGFloat> {
+        guard selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count else {
+            return -600...1200
+        }
+        let slice = session.slices[selectedSliceIndex]
+        let baseOverlap = slice.calculatedOverlapWithPrevious
+        let h = slice.originalHeight
+        let minAdj = -max(baseOverlap + 120.0, 600.0)
+        let maxAdj = max(800.0, h * 0.85 - baseOverlap)
+        return minAdj...maxAdj
+    }
+    
     // MARK: - Liquid Glass Bottom Control Bar
     
     private var bottomLiquidControlBar: some View {
@@ -751,7 +772,7 @@ public struct StitchEditorView: View {
                         }
                     ),
                     optimalOffset: 0.0,
-                    range: -50...50,
+                    range: currentSliceSeamRange,
                     onSnapToOptimal: {
                         if selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {

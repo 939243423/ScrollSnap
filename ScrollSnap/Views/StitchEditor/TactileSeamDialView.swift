@@ -3,6 +3,22 @@ import SwiftUI
 import UIKit
 #endif
 
+public enum DialSpeedMultiplier: CGFloat, CaseIterable {
+    case micro = 0.5
+    case standard = 1.0
+    case fast = 10.0
+    case jump = 50.0
+    
+    public var label: String {
+        switch self {
+        case .micro: return "0.5x"
+        case .standard: return "1.0x"
+        case .fast: return "10x"
+        case .jump: return "50x"
+        }
+    }
+}
+
 public struct TactileSeamDialView: View {
     @Binding public var offset: CGFloat
     public let optimalOffset: CGFloat
@@ -11,14 +27,14 @@ public struct TactileSeamDialView: View {
     public let onScrubbingChanged: ((Bool) -> Void)?
     
     @State private var dragInitialOffset: CGFloat? = nil
-    @State private var isFineGrained: Bool = false
+    @State private var speedMultiplier: DialSpeedMultiplier = .standard
     @State private var isLoupeActive: Bool = false
     @State private var lastDetentOffset: CGFloat = 0
     
     public init(
         offset: Binding<CGFloat>,
         optimalOffset: CGFloat = 0.0,
-        range: ClosedRange<CGFloat> = -50...50,
+        range: ClosedRange<CGFloat> = -600...1200,
         onSnapToOptimal: @escaping () -> Void = {},
         onScrubbingChanged: ((Bool) -> Void)? = nil
     ) {
@@ -79,10 +95,29 @@ public struct TactileSeamDialView: View {
                         .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.8)
                 )
             
-            // Knurled Mechanical Dial Wheel with Stepper Buttons
-            HStack(spacing: 8) {
+            // Knurled Mechanical Dial Wheel with Quick Jump & Fine Stepper Buttons
+            HStack(spacing: 6) {
+                // Quick -10px button
                 Button {
-                    let step: CGFloat = isFineGrained ? 0.5 : 1.0
+                    offset = max(range.lowerBound, offset - 10)
+                    HapticFeedbackManager.shared.triggerDialDetent()
+                    SoundEffectManager.shared.playRatchetTick()
+                } label: {
+                    Text("-10")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 48)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("向左快速微调10像素")
+                
+                // Stepper - button
+                Button {
+                    let step = speedMultiplier.rawValue
                     offset = max(range.lowerBound, offset - step)
                     HapticFeedbackManager.shared.triggerDialDetent()
                     SoundEffectManager.shared.playRatchetTick()
@@ -135,7 +170,7 @@ public struct TactileSeamDialView: View {
                     .accessibilityLabel("接缝对齐滚轮")
                     .accessibilityValue("\(String(format: "%+.1f", offset)) 像素")
                     .accessibilityAdjustableAction { direction in
-                        let step: CGFloat = isFineGrained ? 0.5 : 1.0
+                        let step = speedMultiplier.rawValue
                         switch direction {
                         case .increment:
                             offset = min(range.upperBound, offset + step)
@@ -148,8 +183,9 @@ public struct TactileSeamDialView: View {
                         SoundEffectManager.shared.playRatchetTick()
                     }
                 
+                // Stepper + button
                 Button {
-                    let step: CGFloat = isFineGrained ? 0.5 : 1.0
+                    let step = speedMultiplier.rawValue
                     offset = min(range.upperBound, offset + step)
                     HapticFeedbackManager.shared.triggerDialDetent()
                     SoundEffectManager.shared.playRatchetTick()
@@ -165,17 +201,38 @@ public struct TactileSeamDialView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("增加对齐偏移量")
+                
+                // Quick +10px button
+                Button {
+                    offset = min(range.upperBound, offset + 10)
+                    HapticFeedbackManager.shared.triggerDialDetent()
+                    SoundEffectManager.shared.playRatchetTick()
+                } label: {
+                    Text("+10")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 48)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("向右快速微调10像素")
             }
             
             // Controls Footer
             HStack(spacing: 8) {
                 Button {
-                    isFineGrained.toggle()
+                    let all = DialSpeedMultiplier.allCases
+                    if let idx = all.firstIndex(of: speedMultiplier) {
+                        speedMultiplier = all[(idx + 1) % all.count]
+                    }
                     HapticFeedbackManager.shared.triggerSelection()
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: isFineGrained ? "scope" : "slider.horizontal.3")
-                        Text(isFineGrained ? "0.5x" : "1.0x")
+                        Image(systemName: "slider.horizontal.3")
+                        Text(speedMultiplier.label)
                     }
                     .font(.caption2.bold())
                     .padding(.horizontal, 8)
@@ -249,6 +306,7 @@ public struct TactileSeamDialView: View {
             let width = proxy.size.width
             let height = proxy.size.height
             let midX = width / 2.0
+            let span = max(20.0, (range.upperBound - range.lowerBound) * 0.2)
             
             ZStack {
                 // Waveform curve
@@ -258,7 +316,7 @@ public struct TactileSeamDialView: View {
                     for x in stride(from: 0.0, through: Double(width), by: step) {
                         let relX = (CGFloat(x) - midX) / (width * 0.45)
                         // Inverted Gaussian error valley: lower is better alignment
-                        let simulatedError = 1.0 - exp(-pow(relX - (optimalOffset - offset) / 40.0, 2) * 3.5)
+                        let simulatedError = 1.0 - exp(-pow(relX - (optimalOffset - offset) / span, 2) * 3.5)
                         let y = height * 0.15 + (height * 0.7) * simulatedError
                         
                         if isFirst {
@@ -283,7 +341,7 @@ public struct TactileSeamDialView: View {
                 )
                 
                 // Optimal Point Target Pin
-                let optimalX = midX + (optimalOffset - offset) * (width * 0.45 / 40.0)
+                let optimalX = midX + (optimalOffset - offset) * (width * 0.45 / span)
                 if optimalX >= 0 && optimalX <= width {
                     Circle()
                         .fill(isLockedToOptimal ? Color.green : Color.orange)
@@ -300,7 +358,7 @@ public struct TactileSeamDialView: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             let center = width / 2.0
-            let tickSpacing: CGFloat = isFineGrained ? 14.0 : 8.0
+            let tickSpacing: CGFloat = speedMultiplier == .micro ? 14.0 : 8.0
             
             Canvas { context, size in
                 let currentOffset = offset
@@ -338,7 +396,7 @@ public struct TactileSeamDialView: View {
                             onScrubbingChanged?(true)
                         }
                         let initial = dragInitialOffset ?? offset
-                        let sensitivity: CGFloat = isFineGrained ? 0.25 : 0.55
+                        let sensitivity: CGFloat = 0.55 * speedMultiplier.rawValue
                         let delta = -value.translation.width * sensitivity / (tickSpacing * 0.5)
                         var newOffset = initial + delta
                         newOffset = min(max(newOffset, range.lowerBound), range.upperBound)

@@ -65,6 +65,23 @@ public final class StitchEngine {
                     }
                 }
                 
+                // Adaptive Keyframe Selection & Deduplication Pass:
+                // When stitching screen recordings or densely sampled slices (e.g. 10 FPS broadcast),
+                // filter out redundant intermediate micro-scroll frames (<18% displacement / >82% overlap)
+                // so consecutive keyframes land in the optimal 35% ~ 65% overlap sweet spot.
+                if (source == .replayKitBroadcast || loadedSlices.count >= 4) && (presetMode != .movieSubtitles && presetMode != .horizontalCompare) {
+                    loadedSlices = Self.filterRedundantFrames(slices: loadedSlices)
+                }
+                
+                // Session Persistence Isolation:
+                // Copies slices to a permanent sessions/<sessionId>/ directory so that resetting active_session
+                // in the broadcast extension does not invalidate or blank the active editor canvas.
+                let sessionId = UUID()
+                let persistedPaths = SharedStore.shared.persistSessionSlices(
+                    fromRelativePaths: loadedSlices.map(\.path),
+                    sessionId: sessionId
+                )
+                
                 // Detect static navigation bar and bottom bar height from first two slices
                 var detectedTopBar: CGFloat = 0
                 var detectedBottomBar: CGFloat = 0
@@ -82,7 +99,7 @@ public final class StitchEngine {
                 
                 for (index, slice) in loadedSlices.enumerated() {
                     let cgImage = slice.image
-                    let path = slice.path
+                    let persistentPath = index < persistedPaths.count ? persistedPaths[index] : slice.path
                     let width = CGFloat(cgImage.width)
                     let height = CGFloat(cgImage.height)
                     
@@ -171,7 +188,7 @@ public final class StitchEngine {
                     
                     let item = StitchItem(
                         id: UUID(),
-                        relativeFilePath: path,
+                        relativeFilePath: persistentPath,
                         originalWidth: width,
                         originalHeight: height,
                         topCropInset: topCrop,
@@ -187,7 +204,7 @@ public final class StitchEngine {
                 }
                 
                 let session = StitchSession(
-                    id: UUID(),
+                    id: sessionId,
                     createdAt: Date(),
                     source: source,
                     presetMode: presetMode,
@@ -202,5 +219,67 @@ public final class StitchEngine {
                 continuation.resume(returning: session)
             }
         }
+    }
+    
+    // MARK: - Keyframe Selection & Deduplication
+    
+    /// Filters out redundant intermediate micro-scroll frames from screen recordings
+    /// Keeps consecutive keyframes in the 20% ~ 70% displacement sweet spot (30% ~ 80% overlap)
+    public static func filterRedundantFrames(
+        slices: [(path: String, image: CGImage)]
+    ) -> [(path: String, image: CGImage)] {
+        guard slices.count >= 3 else { return slices }
+        
+        var selected: [(path: String, image: CGImage)] = []
+        var currentCandidate = slices[0]
+        selected.append(currentCandidate)
+        
+        var i = 1
+        while i < slices.count {
+            let nextSlice = slices[i]
+            let h = CGFloat(currentCandidate.image.height)
+            
+            // Check overlap between current candidate and next candidate
+            let match = ImageOverlapDetector.findOverlap(
+                topSlice: currentCandidate.image,
+                bottomSlice: nextSlice.image
+            )
+            
+            let displacement = max(0, h - match.offset)
+            let displacementRatio = displacement / max(1.0, h)
+            
+            // If displacement < 18% (meaning > 82% overlap), it is an intermediate micro-frame
+            // Only select when displacement reaches at least 20% OR if sudden large jump (> 75%)
+            if displacementRatio >= 0.75 {
+                // Sudden fast jump: preserve i - 1 as a bridge keyframe if available
+                if i > 1 && slices[i - 1].path != currentCandidate.path {
+                    selected.append(slices[i - 1])
+                }
+                selected.append(nextSlice)
+                currentCandidate = nextSlice
+            } else if displacementRatio >= 0.20 && match.confidence >= 0.35 {
+                // Optimal keyframe: 20% ~ 70% displacement (30% ~ 80% overlap)
+                selected.append(nextSlice)
+                currentCandidate = nextSlice
+            } else if i == slices.count - 1 && displacementRatio > 0.04 {
+                // Final frame contains remaining new content at page bottom
+                selected.append(nextSlice)
+            }
+            i += 1
+        }
+        
+        // Ensure final frame is included if not present and has non-zero movement
+        if let last = slices.last, selected.last?.path != last.path {
+            let match = ImageOverlapDetector.findOverlap(
+                topSlice: selected.last!.image,
+                bottomSlice: last.image
+            )
+            let displacement = CGFloat(last.image.height) - match.offset
+            if displacement > 30 {
+                selected.append(last)
+            }
+        }
+        
+        return selected.count >= 2 ? selected : slices
     }
 }

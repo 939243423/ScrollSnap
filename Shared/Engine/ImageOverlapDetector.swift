@@ -83,8 +83,8 @@ public final class ImageOverlapDetector {
         bottomSliceTopCrop: CGFloat = 0,
         bottomSliceBottomCrop: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.10,
-        maxOverlapRatio: CGFloat = 0.90
+        minOverlapRatio: CGFloat = 0.02,
+        maxOverlapRatio: CGFloat = 0.98
     ) -> OverlapMatchResult {
         let width = topSlice.width
         let topHeight = topSlice.height
@@ -251,8 +251,8 @@ public final class ImageOverlapDetector {
         topCropInset: CGFloat = 0,
         bottomCropInset: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.10,
-        maxOverlapRatio: CGFloat = 0.90
+        minOverlapRatio: CGFloat = 0.02,
+        maxOverlapRatio: CGFloat = 0.98
     ) -> OverlapMatchResult {
         return findOverlap(
             topSlice: topSlice,

@@ -980,7 +980,7 @@ public struct HomeStitchView: View {
                 let session = try await StitchEngine.shared.stitchSlices(
                     fileRelativePaths: activeBroadcastSlices,
                     source: .replayKitBroadcast,
-                    presetMode: .chatRecord
+                    presetMode: .smartAuto
                 )
                 await MainActor.run {
                     self.activeSessionToEdit = session
