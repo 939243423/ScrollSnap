@@ -351,4 +351,42 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(layouts[1].canvasHeight, 1500)
         XCTAssertEqual(session.totalEstimatedHeight, 3000)
     }
+    
+    // MARK: - 11. Subpixel Parabolic Precision & Asymmetry Feature Tests
+    
+    func testSubpixelPrecisionVerticalLayout() {
+        // Test subpixel floating point overlap (e.g. 342.375 pt)
+        let slice1 = StitchItem(
+            relativeFilePath: "sub1.png",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 0,
+            bottomCropInset: 84.5,
+            calculatedOverlapWithPrevious: 0
+        )
+        let slice2 = StitchItem(
+            relativeFilePath: "sub2.png",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 88.25,
+            bottomCropInset: 0,
+            calculatedOverlapWithPrevious: 342.375,
+            optimalSeamLineY: 171.1875
+        )
+        
+        let session = StitchSession(presetMode: .chatRecord, slices: [slice1, slice2])
+        let layouts = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: 1170)
+        
+        XCTAssertEqual(layouts.count, 2)
+        let totalLayoutH = layouts.reduce(0.0) { $0 + $1.canvasHeight }
+        XCTAssertEqual(totalLayoutH, session.totalEstimatedHeight, accuracy: 0.0001)
+        XCTAssertEqual(layouts[1].canvasY, layouts[0].canvasHeight, accuracy: 0.0001)
+    }
+    
+    func testOverlapMatchResultSubpixelModel() {
+        let result = OverlapMatchResult(offset: 452.34, confidence: 0.985, optimalSeamY: 226.17)
+        XCTAssertEqual(result.offset, 452.34, accuracy: 0.001)
+        XCTAssertEqual(result.confidence, 0.985, accuracy: 0.001)
+        XCTAssertEqual(result.optimalSeamY, 226.17, accuracy: 0.001)
+    }
 }

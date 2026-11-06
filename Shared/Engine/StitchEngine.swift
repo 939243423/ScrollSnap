@@ -186,13 +186,27 @@ public final class StitchEngine {
                         } else {
                             let prevImage = loadedSlices[index - 1].image
                             let prevItem = items[index - 1]
+                            
+                            // Multi-Slice Velocity Continuity Prior:
+                            // If preceding slice had a confident match, compute its implied scroll displacement
+                            // to break periodic aliasing ties on repetitive feed cards or button rows.
+                            var expectedDisplacement: CGFloat? = nil
+                            if index >= 2 && prevItem.confidence > 0.60 && prevItem.calculatedOverlapWithPrevious > 20 {
+                                let prevH = prevItem.originalHeight
+                                let prevDisplacement = prevH - prevItem.topCropInset - prevItem.calculatedOverlapWithPrevious
+                                if prevDisplacement > 40 {
+                                    expectedDisplacement = prevDisplacement
+                                }
+                            }
+                            
                             let match = ImageOverlapDetector.findOverlap(
                                 topSlice: prevImage,
                                 bottomSlice: cgImage,
                                 topSliceTopCrop: prevItem.topCropInset,
                                 topSliceBottomCrop: prevItem.bottomCropInset,
                                 bottomSliceTopCrop: topCrop,
-                                bottomSliceBottomCrop: bottomCrop
+                                bottomSliceBottomCrop: bottomCrop,
+                                expectedDisplacement: expectedDisplacement
                             )
                             overlapOffset = match.offset
                             seamLineY = match.optimalSeamY
