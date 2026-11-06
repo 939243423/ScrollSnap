@@ -321,4 +321,34 @@ final class ScrollSnapCoreTests: XCTestCase {
         let totalLayoutH = layouts.reduce(0.0) { $0 + $1.canvasHeight }
         XCTAssertEqual(totalLayoutH, session.totalEstimatedHeight, accuracy: 0.001)
     }
+    
+    // MARK: - 10. Multi-Band Consensus & High-Precision Stitching
+    
+    func testDiscontinuousSlicesZeroOffsetSafety() {
+        // When slices have zero overlap or are completely dissimilar,
+        // calculatedOverlap must be 0 and vertical layout stacks them sequentially without clipping
+        let slice1 = StitchItem(
+            relativeFilePath: "photo_a.jpg",
+            originalWidth: 1000,
+            originalHeight: 1500,
+            calculatedOverlapWithPrevious: 0
+        )
+        let slice2 = StitchItem(
+            relativeFilePath: "photo_b.jpg",
+            originalWidth: 1000,
+            originalHeight: 1500,
+            calculatedOverlapWithPrevious: 0 // Discontinuous safe stack
+        )
+        
+        let session = StitchSession(
+            presetMode: .chatRecord,
+            slices: [slice1, slice2]
+        )
+        
+        let layouts = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: 1000)
+        XCTAssertEqual(layouts.count, 2)
+        XCTAssertEqual(layouts[0].canvasHeight, 1500)
+        XCTAssertEqual(layouts[1].canvasHeight, 1500)
+        XCTAssertEqual(session.totalEstimatedHeight, 3000)
+    }
 }
