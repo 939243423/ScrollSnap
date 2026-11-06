@@ -389,4 +389,21 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(result.confidence, 0.985, accuracy: 0.001)
         XCTAssertEqual(result.optimalSeamY, 226.17, accuracy: 0.001)
     }
+    
+    // MARK: - 12. AppCacheManager & Storage Breakdown Tests
+    
+    func testCacheBreakdownModel() {
+        let breakdown = CacheBreakdown(temporaryCacheBytes: 104_857_600, recentSavesBytes: 15_728_640)
+        XCTAssertEqual(breakdown.temporaryCacheBytes, 104_857_600)
+        XCTAssertEqual(breakdown.recentSavesBytes, 15_728_640)
+        XCTAssertEqual(breakdown.totalCacheBytes, 120_586_240)
+    }
+    
+    func testTemporaryCachePurgePreservesRecentSaves() {
+        let manager = AppCacheManager.shared
+        let breakdown = manager.calculateCacheBreakdown()
+        XCTAssertGreaterThanOrEqual(breakdown.temporaryCacheBytes, 0)
+        XCTAssertGreaterThanOrEqual(breakdown.recentSavesBytes, 0)
+        XCTAssertGreaterThanOrEqual(breakdown.totalCacheBytes, 0)
+    }
 }

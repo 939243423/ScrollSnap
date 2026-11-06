@@ -22,6 +22,9 @@ struct ScrollSnapApp: App {
                         PhotoLibraryObserver.shared.scanRecentScreenshots()
                         QuotaManager.shared.refreshQuota()
                         NotificationCenter.default.post(name: NSNotification.Name("RefreshBroadcastSession"), object: nil)
+                        Task.detached(priority: .background) {
+                            AppCacheManager.shared.cleanupStaleCacheOnStartup()
+                        }
                     }
                 }
         }

@@ -12,7 +12,9 @@ public struct SettingsView: View {
     @State private var isShowingProPaywall = false
     @State private var isShowingWhatsNew = false
     @State private var isShowingShareAppSheet = false
-    @State private var cacheSizeBytes: Int = 0
+    @State private var temporaryCacheBytes: Int64 = 0
+    @State private var recentSavesBytes: Int64 = 0
+    @State private var isShowingClearRecentAlert = false
     @State private var isWatermarkEnabled: Bool = ExportWatermarkManager.shared.isWatermarkEnabled
     @State private var isSoundEnabled: Bool = SoundEffectManager.shared.isSoundEnabled
     
@@ -207,17 +209,31 @@ public struct SettingsView: View {
                 }
                 
                 // Cache & Storage Section
-                Section("缓存与存储") {
+                Section("存储与缓存") {
                     HStack {
-                        Text("长截图临时缓存")
+                        Text("临时制作缓存")
                         Spacer()
-                        Text(formatBytes(cacheSizeBytes))
+                        Text(formatBytes(temporaryCacheBytes))
                             .font(.subheadline.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                     
-                    Button("清理全部切片缓存", role: .destructive) {
-                        clearCache()
+                    HStack {
+                        Text("最近保存记录")
+                        Spacer()
+                        Text(formatBytes(recentSavesBytes))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Button("清理临时缓存", role: .destructive) {
+                        clearTemporaryCache()
+                    }
+                    
+                    if recentSavesBytes > 0 {
+                        Button("清空最近保存历史", role: .destructive) {
+                            isShowingClearRecentAlert = true
+                        }
                     }
                 }
                 
@@ -322,6 +338,14 @@ public struct SettingsView: View {
             .sheet(isPresented: $isShowingWhatsNew) {
                 WhatsNewSheetView()
             }
+            .alert("清空最近保存历史", isPresented: $isShowingClearRecentAlert) {
+                Button("清空", role: .destructive) {
+                    clearRecentSaves()
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("清空后将从首页移除最近保存的长图快捷预览，不会影响系统相册中已保存的照片。")
+            }
             .sheet(isPresented: $isShowingShareAppSheet) {
                 #if canImport(UIKit)
                 if let shareURL = URL(string: "https://apps.apple.com/app/id\(StoreReviewManager.appStoreAppId)") {
@@ -336,29 +360,29 @@ public struct SettingsView: View {
     }
     
     private func calculateCacheSize() {
-        let container = AppGroupConstants.containerURL
-        var total = 0
-        if let enumerator = FileManager.default.enumerator(at: container, includingPropertiesForKeys: [.fileSizeKey]) {
-            for case let fileURL as URL in enumerator {
-                if let resource = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
-                   let size = resource.fileSize {
-                    total += size
-                }
-            }
-        }
-        self.cacheSizeBytes = total
+        let breakdown = AppCacheManager.shared.calculateCacheBreakdown()
+        self.temporaryCacheBytes = breakdown.temporaryCacheBytes
+        self.recentSavesBytes = breakdown.recentSavesBytes
     }
     
-    private func clearCache() {
-        SharedStore.shared.resetActiveBroadcastSession()
+    private func clearTemporaryCache() {
+        AppCacheManager.shared.clearTemporaryCache()
         calculateCacheSize()
         HapticFeedbackManager.shared.triggerSuccess()
     }
     
-    private func formatBytes(_ bytes: Int) -> String {
+    private func clearRecentSaves() {
+        AppCacheManager.shared.clearRecentSaves()
+        calculateCacheSize()
+        HapticFeedbackManager.shared.triggerSuccess()
+        NotificationCenter.default.post(name: NSNotification.Name("RefreshCompletedStitches"), object: nil)
+    }
+    
+    private func formatBytes(_ bytes: Int64) -> String {
+        if bytes == 0 { return "0 MB" }
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB, .useKB]
         formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(bytes))
+        return formatter.string(fromByteCount: bytes)
     }
 }

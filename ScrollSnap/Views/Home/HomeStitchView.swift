@@ -121,6 +121,7 @@ public struct HomeStitchView: View {
             }
             .sheet(item: $activeSessionToEdit, onDismiss: {
                 refreshCompletedStitches()
+                AppCacheManager.shared.clearTemporaryCache()
             }) { session in
                 StitchEditorView(session: session)
             }
@@ -129,7 +130,9 @@ public struct HomeStitchView: View {
                     self.activeSessionToEdit = newSession
                 }
             }
-            .sheet(isPresented: $isShowingSettings) {
+            .sheet(isPresented: $isShowingSettings, onDismiss: {
+                refreshCompletedStitches()
+            }) {
                 SettingsView()
             }
             .sheet(isPresented: $isShowingPaywall) {
@@ -155,6 +158,9 @@ public struct HomeStitchView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshBroadcastSession"))) { _ in
                 refreshActiveBroadcastSlices()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCompletedStitches"))) { _ in
+                refreshCompletedStitches()
             }
             .onChange(of: selectedPhotoItems) { _, items in
                 handleSelectedPhotoPickerItems(items)
@@ -876,6 +882,11 @@ public struct HomeStitchView: View {
         isProcessingStitch = true
         Task {
             var tempURL: URL?
+            defer {
+                if let url = tempURL {
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
             if let movie = try? await item.loadTransferable(type: MovieFile.self) {
                 tempURL = movie.url
             } else if let movieData = try? await item.loadTransferable(type: Data.self) {
@@ -970,6 +981,9 @@ public struct HomeStitchView: View {
             do {
                 let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
                 let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_\(Int(Date().timeIntervalSince1970)).jpg")
+                defer {
+                    try? FileManager.default.removeItem(at: tempOutput)
+                }
                 try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
                 
                 #if canImport(UIKit)
@@ -1128,6 +1142,9 @@ public struct HomeStitchView: View {
                     }
                     
                     let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_Video_\(Int(Date().timeIntervalSince1970)).jpg")
+                    defer {
+                        try? FileManager.default.removeItem(at: tempOutput)
+                    }
                     try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
                     
                     #if canImport(UIKit)

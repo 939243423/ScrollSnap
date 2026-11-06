@@ -286,7 +286,12 @@ public struct StitchEditorView: View {
                     afterImage: comparisonAfterImage
                 )
             }
-            .sheet(isPresented: $isShowingExportSheet) {
+            .sheet(isPresented: $isShowingExportSheet, onDismiss: {
+                if let url = exportedFileURL {
+                    try? FileManager.default.removeItem(at: url)
+                    exportedFileURL = nil
+                }
+            }) {
                 if let url = exportedFileURL {
                     ShareSheetView(activityItems: [url])
                 }
@@ -315,6 +320,13 @@ public struct StitchEditorView: View {
                 }
                 .keyboardShortcut("z", modifiers: .command)
                 .opacity(0)
+            }
+            .onDisappear {
+                if let url = exportedFileURL {
+                    try? FileManager.default.removeItem(at: url)
+                    exportedFileURL = nil
+                }
+                AppCacheManager.shared.cleanupSession(sessionId: session.id)
             }
         }
     }
@@ -1364,6 +1376,7 @@ public struct StitchEditorView: View {
                 quality: 0.90
             )
             let afterImg = UIImage(contentsOfFile: tempAfter.path)
+            try? FileManager.default.removeItem(at: tempAfter)
             
             // Generate real un-cropped stacked "Before" image to visually demonstrate duplicate nav bar removal
             var beforeImg: UIImage?
@@ -1400,6 +1413,7 @@ public struct StitchEditorView: View {
     private func runVisionAutoSanitization() {
         Task {
             let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            defer { try? FileManager.default.removeItem(at: tempOutput) }
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 outputURL: tempOutput,
@@ -1426,6 +1440,7 @@ public struct StitchEditorView: View {
     private func runFullTextOCR() {
         Task {
             let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            defer { try? FileManager.default.removeItem(at: tempOutput) }
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 outputURL: tempOutput,
@@ -1450,6 +1465,7 @@ public struct StitchEditorView: View {
         
         Task {
             let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            defer { try? FileManager.default.removeItem(at: tempOutput) }
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 annotations: annotations,
@@ -1494,6 +1510,7 @@ public struct StitchEditorView: View {
         
         Task {
             let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+            defer { try? FileManager.default.removeItem(at: tempOutput) }
             try? TiledImageRenderer.renderStitchedImageToFile(
                 session: session,
                 annotations: annotations,
@@ -1576,6 +1593,7 @@ public struct StitchEditorView: View {
         
         isExporting = true
         let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_\(Int(Date().timeIntervalSince1970)).jpg")
+        defer { try? FileManager.default.removeItem(at: tempOutput) }
         
         Task {
             do {
