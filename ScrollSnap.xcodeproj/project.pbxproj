@@ -32,6 +32,9 @@
 		38CF34B6AC05A4197606EC89 /* ScrollSnapApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86B9FB998C2BEE9625BBFF20 /* ScrollSnapApp.swift */; };
 		3D7D19DEE94807B10B420BD2 /* ImageSlicer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E432D1AE37565B102A157C21 /* ImageSlicer.swift */; };
 		3D8381909CF17844C226E4B8 /* SoundEffectManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81734FCE097E0FEB46DBD7D /* SoundEffectManager.swift */; };
+		B6A1E4C82D7F4B0E89A12302 /* AppCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12301 /* AppCacheManager.swift */; };
+		B6A1E4C82D7F4B0E89A12303 /* AppCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12301 /* AppCacheManager.swift */; };
+		B6A1E4C82D7F4B0E89A12304 /* AppCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12301 /* AppCacheManager.swift */; };
 		3EBDCB1EEC5E2C1C9AC284EE /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DE000ADC8BF01B4B2FC0696 /* AppGroupConstants.swift */; };
 		3FDE22E4D6CF52DC0D1C2F5F /* FloatingChromeRemover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DD7096F3D8AAD722AFD841A /* FloatingChromeRemover.swift */; };
 		3FEBD4A48A91BF7635C33B8F /* TiledImageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6774710346654B41CA507E0D /* TiledImageRenderer.swift */; };
@@ -166,6 +169,7 @@
 		6C7ABA5E4901FE4BC9A4B35E /* StitchActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StitchActivityWidget.swift; sourceTree = "<group>"; };
 		86B9FB998C2BEE9625BBFF20 /* ScrollSnapApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollSnapApp.swift; sourceTree = "<group>"; };
 		8A64DA563FCD3D90B695C477 /* ScrollSnapTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollSnapTheme.swift; sourceTree = "<group>"; };
+		B6A1E4C82D7F4B0E89A12301 /* AppCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCacheManager.swift; sourceTree = "<group>"; };
 		8DE000ADC8BF01B4B2FC0696 /* AppGroupConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupConstants.swift; sourceTree = "<group>"; };
 		8F63D75D0A440A1F46BCDA9C /* SocialGridStageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialGridStageView.swift; sourceTree = "<group>"; };
 		904727AD8DAAC95F37D9E111 /* VideoFrameExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrameExtractor.swift; sourceTree = "<group>"; };
@@ -363,6 +367,7 @@
 		A8021816A5A4557082669FD6 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B6A1E4C82D7F4B0E89A12301 /* AppCacheManager.swift */,
 				A1CAE29CB8D6A8AC5215243F /* CrossProcessNotifier.swift */,
 				0E2507E6F588BE6DCD924FE2 /* HapticFeedbackManager.swift */,
 				3BDAD4A24B16B3AF141A2C3E /* SharedStore.swift */,
@@ -550,6 +555,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B6A1E4C82D7F4B0E89A12302 /* AppCacheManager.swift in Sources */,
 				F56E8EF528C2BFAE6B212347 /* AnnotationItem.swift in Sources */,
 				3EBDCB1EEC5E2C1C9AC284EE /* AppGroupConstants.swift in Sources */,
 				C96D528652B09555B41A561C /* BroadcastFrameProcessor.swift in Sources */,
@@ -580,6 +586,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B6A1E4C82D7F4B0E89A12303 /* AppCacheManager.swift in Sources */,
 				079DB438FC6CF6EC06796554 /* AnnotationItem.swift in Sources */,
 				BBF6736B6176E99E7C79863F /* AppGroupConstants.swift in Sources */,
 				79467B5B744A8945C15AF4B6 /* CrossProcessNotifier.swift in Sources */,
@@ -611,6 +618,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B6A1E4C82D7F4B0E89A12304 /* AppCacheManager.swift in Sources */,
 				1FC96C0ED8346593020F4C5D /* AnnotationItem.swift in Sources */,
 				D219D4D7308987CDC0D22BB9 /* AppGroupConstants.swift in Sources */,
 				DCEA366FD37F2E6DFAEF67BD /* BeforeAfterComparisonView.swift in Sources */,

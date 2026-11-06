@@ -17,7 +17,7 @@ struct ScrollSnapApp: App {
                 .onAppear {
                     setupDarwinObservers()
                 }
-                .onChange(of: scenePhase) { _, newPhase in
+                .onChange(of: scenePhase) { newPhase in
                     if newPhase == .active {
                         PhotoLibraryObserver.shared.scanRecentScreenshots()
                         QuotaManager.shared.refreshQuota()
