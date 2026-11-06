@@ -88,10 +88,19 @@ public final class StitchEngine {
                 var isSplitScreenMedia: Bool = false
                 
                 if loadedSlices.count >= 2 {
-                    let scrollZone = ImageOverlapDetector.detectAdaptiveScrollZone(
+                    var scrollZone = ImageOverlapDetector.detectAdaptiveScrollZone(
                         topImage: loadedSlices[0].image,
                         bottomImage: loadedSlices[1].image
                     )
+                    if scrollZone.confidence < 0.45 && loadedSlices.count >= 3 {
+                        let secondZone = ImageOverlapDetector.detectAdaptiveScrollZone(
+                            topImage: loadedSlices[1].image,
+                            bottomImage: loadedSlices[2].image
+                        )
+                        if secondZone.confidence > scrollZone.confidence {
+                            scrollZone = secondZone
+                        }
+                    }
                     detectedTopBar = scrollZone.topAnchorHeight
                     detectedBottomBar = scrollZone.bottomAnchorHeight
                     isSplitScreenMedia = scrollZone.isSplitScreenMedia

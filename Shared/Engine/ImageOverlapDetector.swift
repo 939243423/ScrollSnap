@@ -85,56 +85,66 @@ public final class ImageOverlapDetector {
         let featA = profileTop.combinedFeature
         let featB = profileBottom.combinedFeature
         
-        // Step 1: Detect dominant scroll displacement in lower-middle body (50% ~ 85% height)
-        let probeStart = Int(Double(height) * 0.55)
+        // Step 1: Detect dominant scroll displacement in lower-middle body
+        // Multi-point probe candidates (55%, 68%, 45%, 75%) guarantee locking onto active scrolling content
+        // even on sparse chat records or pages with large blank gaps
+        let candidateRatios: [Double] = [0.55, 0.68, 0.45, 0.75]
         let probeLen = min(140, Int(Double(height) * 0.12))
         var dominantDisplacement: Int = 0
         var probeConfidence: Double = 0.0
+        var activeProbeStart: Int = Int(Double(height) * 0.55)
         
-        if probeStart + probeLen < height - 50 {
-            let template = Array(featB[probeStart..<(probeStart + probeLen)])
+        let invT = 1.0 / Double(probeLen)
+        let searchMin = Int(Double(height) * 0.12)
+        let searchMax = min(height - probeLen, Int(Double(height) * 0.88))
+        
+        for ratio in candidateRatios {
+            let pStart = Int(Double(height) * ratio)
+            guard pStart + probeLen < height - 50 else { continue }
+            
+            let template = Array(featB[pStart..<(pStart + probeLen)])
             var sumT = 0.0
             var sumSqT = 0.0
-            let invT = 1.0 / Double(probeLen)
             for v in template {
                 sumT += v
                 sumSqT += v * v
             }
             let varT = max(0.0, sumSqT - (sumT * sumT) * invT)
+            guard varT > 0.0001 else { continue }
             
-            if varT > 0.0001 {
-                let searchMin = Int(Double(height) * 0.15)
-                let searchMax = min(height - probeLen, Int(Double(height) * 0.85))
-                
-                var bestOffset = probeStart
-                var maxR = -1.0
-                
-                for offset in stride(from: searchMin, through: searchMax, by: 2) {
-                    var sumS = 0.0
-                    var sumSqS = 0.0
-                    var dot = 0.0
-                    for i in 0..<probeLen {
-                        let s = featA[offset + i]
-                        let t = template[i]
-                        sumS += s
-                        sumSqS += s * s
-                        dot += s * t
-                    }
-                    let varS = max(0.0, sumSqS - (sumS * sumS) * invT)
-                    guard varS > 0.0001 else { continue }
-                    let denom = sqrt(varS * varT)
-                    if denom > 0.0001 {
-                        let r = (dot - (sumS * sumT) * invT) / denom
-                        if r > maxR {
-                            maxR = r
-                            bestOffset = offset
-                        }
+            var bestOffset = pStart
+            var maxR = -1.0
+            
+            for offset in stride(from: searchMin, through: searchMax, by: 2) {
+                var sumS = 0.0
+                var sumSqS = 0.0
+                var dot = 0.0
+                for i in 0..<probeLen {
+                    let s = featA[offset + i]
+                    let t = template[i]
+                    sumS += s
+                    sumSqS += s * s
+                    dot += s * t
+                }
+                let varS = max(0.0, sumSqS - (sumS * sumS) * invT)
+                guard varS > 0.0001 else { continue }
+                let denom = sqrt(varS * varT)
+                if denom > 0.0001 {
+                    let r = (dot - (sumS * sumT) * invT) / denom
+                    if r > maxR {
+                        maxR = r
+                        bestOffset = offset
                     }
                 }
-                
-                probeConfidence = max(0.0, min(1.0, maxR))
-                if probeConfidence > 0.35 {
-                    dominantDisplacement = probeStart - bestOffset
+            }
+            
+            let candConf = max(0.0, min(1.0, maxR))
+            if candConf > probeConfidence {
+                probeConfidence = candConf
+                dominantDisplacement = pStart - bestOffset
+                activeProbeStart = pStart
+                if candConf > 0.65 {
+                    break
                 }
             }
         }
@@ -181,10 +191,10 @@ public final class ImageOverlapDetector {
         
         // Step 4: Refine split boundary using motion coherence when dominant displacement is known
         var finalTopAnchor = CGFloat(detectedTop > 40 ? detectedTop : 0)
-        if dominantDisplacement > 30 && probeConfidence > 0.40 {
-            let searchUpwardLimit = max(0, Int(Double(height) * 0.10))
-            var motionSplitY = probeStart
-            for y in stride(from: probeStart, through: searchUpwardLimit, by: -4) {
+        if dominantDisplacement > 30 && probeConfidence > 0.35 {
+            let searchUpwardLimit = max(0, Int(Double(height) * 0.08))
+            var motionSplitY = activeProbeStart
+            for y in stride(from: activeProbeStart, through: searchUpwardLimit, by: -4) {
                 let yInA = y - dominantDisplacement
                 guard yInA >= 0, yInA < height else {
                     motionSplitY = y
@@ -197,7 +207,7 @@ public final class ImageOverlapDetector {
                 }
             }
             
-            if motionSplitY > 200 && CGFloat(motionSplitY) > finalTopAnchor {
+            if motionSplitY > 160 && CGFloat(motionSplitY) > finalTopAnchor {
                 finalTopAnchor = CGFloat(motionSplitY)
             }
         }

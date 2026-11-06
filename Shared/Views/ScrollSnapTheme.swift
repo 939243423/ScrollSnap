@@ -287,18 +287,14 @@ public struct ScrollSnapCardModifier: ViewModifier {
     public func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
-            #if os(visionOS)
-            .glassBackgroundEffect(in: shape)
-            #else
-            .background(.ultraThinMaterial, in: shape)
-            #endif
-            .overlay(
-                shape.strokeBorder(
-                    strokeColor ?? ScrollSnapTheme.Colors.glassStroke,
-                    lineWidth: strokeWidth
-                )
-            )
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: shape)
+            .overlay {
+                if let stroke = strokeColor {
+                    shape.strokeBorder(stroke, lineWidth: strokeWidth)
+                }
+            }
             .clipShape(shape)
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 }
 

@@ -115,7 +115,7 @@ public struct ProSubscriptionView: View {
                         if storeKit.isProUser {
                             HStack {
                                 Image(systemName: "checkmark.seal.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.accentColor)
                                 Text("已解锁全部功能")
                                     .font(.subheadline.bold())
                             }

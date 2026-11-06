@@ -15,14 +15,10 @@ public struct LiquidGlassCardModifier: ViewModifier {
     
     public func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        
         content
-            #if os(visionOS)
-            .glassBackgroundEffect(in: shape)
-            #else
-            .background(.ultraThinMaterial, in: shape)
-            #endif
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: shape)
             .clipShape(shape)
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
     }
 }
 
@@ -79,13 +75,7 @@ public struct LiquidGlassIconPod: View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         
         ZStack {
-            #if os(visionOS)
-            Color.clear
-                .glassBackgroundEffect(in: shape)
-            #else
-            tint.opacity(0.12)
-                .background(.ultraThinMaterial, in: shape)
-            #endif
+            tint.opacity(0.10)
             
             Image(systemName: systemName)
                 .font(.system(size: size * 0.46, weight: .semibold))

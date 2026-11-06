@@ -93,27 +93,27 @@ public struct HomeStitchView: View {
                         isShowingPaywall = true
                     } label: {
                         if storeKit.isProUser {
-                            HStack(spacing: 3) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .bold))
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Color.accentColor)
                                 Text("永久会员")
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.primary)
                             }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4.5)
-                            .background(Color.green.opacity(0.12), in: Capsule())
-                            .foregroundStyle(Color.green)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 4)
                         } else {
-                            HStack(spacing: 3) {
+                            HStack(spacing: 4) {
                                 Text("免费版")
-                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
                                 Text("\(quotaManager.remainingDailyFreeStitches)/\(QuotaManager.defaultDailyLimit)")
-                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             }
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4.5)
-                            .background(Color.secondary.opacity(0.12), in: Capsule())
-                            .foregroundStyle(quotaManager.remainingDailyFreeStitches > 0 ? Color.secondary : Color.orange)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+                            .foregroundStyle(.secondary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -283,7 +283,7 @@ public struct HomeStitchView: View {
             .clipShape(Capsule())
         }
         .padding(ScrollSnapTheme.Spacing.md)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.red.opacity(0.35))
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
     }
     
     private var activeBroadcastAlertBanner: some View {
@@ -332,7 +332,7 @@ public struct HomeStitchView: View {
             .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
         .padding(ScrollSnapTheme.Spacing.md)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.orange.opacity(0.35))
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
     }
     
     private func checkClipboardForURL() {
@@ -399,7 +399,7 @@ public struct HomeStitchView: View {
             .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
         .padding(ScrollSnapTheme.Spacing.md + 2)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.teal.opacity(0.35))
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
     }
     
     private func recentScreenRecordingBanner(_ video: PHAsset) -> some View {
@@ -450,7 +450,7 @@ public struct HomeStitchView: View {
             .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
         .padding(ScrollSnapTheme.Spacing.md)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.purple.opacity(0.35))
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
     }
     
     private var recentDetectedScreenshotsBanner: some View {
@@ -501,7 +501,7 @@ public struct HomeStitchView: View {
             .buttonStyle(ScrollSnapButtonStyle.circleDismiss)
         }
         .padding(ScrollSnapTheme.Spacing.md)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.35))
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
     }
     
     @ViewBuilder
@@ -525,58 +525,50 @@ public struct HomeStitchView: View {
                 matching: .screenshots,
                 photoLibrary: .shared()
             ) {
-                ZStack(alignment: .topTrailing) {
-                    RadialGradient(
-                        colors: [Color.accentColor.opacity(0.18), Color.clear],
-                        center: .topTrailing,
-                        startRadius: 10,
-                        endRadius: 140
+                HStack(spacing: 16) {
+                    LiquidGlassIconPod(
+                        systemName: "photo.on.rectangle.angled",
+                        tint: Color.accentColor,
+                        size: 46,
+                        cornerRadius: ScrollSnapTheme.Radius.md
                     )
                     
-                    HStack(spacing: 16) {
-                        LiquidGlassIconPod(
-                            systemName: "photo.on.rectangle.angled",
-                            tint: Color.accentColor,
-                            size: 46,
-                            cornerRadius: ScrollSnapTheme.Radius.md
-                        )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("选择截图拼接")
-                                .font(.system(size: 17, weight: .bold, design: .rounded))
-                                .foregroundStyle(.primary)
-                            Text("从相册选择连续截图自动对齐拼接")
-                                .font(ScrollSnapTheme.FontToken.captionHint)
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .padding(.trailing, 6)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("选择截图拼接")
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                        Text("从相册选择连续截图自动拼接")
+                            .font(ScrollSnapTheme.FontToken.captionHint)
+                            .foregroundStyle(.secondary)
                     }
-                    .padding(16)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .padding(.trailing, 4)
                 }
+                .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.35))
+                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
             }
             .buttonStyle(ScrollSnapButtonStyle.bouncy)
             
-            // Sub Actions Row 1: Rolling Broadcast & Web Page
+            // Sub Actions Row 1: Real Tools (录屏转长图 & 网页长截图)
             HStack(spacing: 10) {
-                // Rolling Screen Recording Capture
-                Button {
-                    HapticFeedbackManager.shared.triggerSelection()
-                    isShowingBroadcastGuide = true
-                } label: {
+                // Screen Recording Video Picker
+                PhotosPicker(
+                    selection: $selectedVideoPickerItems,
+                    matching: .videos,
+                    photoLibrary: .shared()
+                ) {
                     actionCard(
-                        title: "滚动录屏长截",
-                        subtitle: "边录边划自动拼",
-                        iconName: "record.circle.fill",
+                        title: "录屏转长图",
+                        subtitle: "相册视频自动提取",
+                        iconName: "film.stack.fill",
                         tint: Color.accentColor,
-                        tag: "免切"
+                        tag: "相册"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -592,7 +584,7 @@ public struct HomeStitchView: View {
                 } label: {
                     actionCard(
                         title: "网页长截图",
-                        subtitle: "输入网址整页截",
+                        subtitle: "输入网址整页截取",
                         iconName: "safari.fill",
                         tint: Color.accentColor,
                         tag: "网页"
@@ -601,20 +593,19 @@ public struct HomeStitchView: View {
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
             }
             
-            // Sub Actions Row 2: Video to Stitch & Back Tap Shortcut
+            // Sub Actions Row 2: Guides & Shortcuts (滚动录屏指南 & 轻点背面快捷拼)
             HStack(spacing: 10) {
-                // Screen Recording Video Picker
-                PhotosPicker(
-                    selection: $selectedVideoPickerItems,
-                    matching: .videos,
-                    photoLibrary: .shared()
-                ) {
+                // Rolling Screen Recording Capture Guide
+                Button {
+                    HapticFeedbackManager.shared.triggerSelection()
+                    isShowingBroadcastGuide = true
+                } label: {
                     actionCard(
-                        title: "录屏转长图",
-                        subtitle: "相册视频提取拼接",
-                        iconName: "film.stack.fill",
+                        title: "滚动录屏长截",
+                        subtitle: "边录屏边滑动拼图",
+                        iconName: "record.circle.fill",
                         tint: Color.accentColor,
-                        tag: "视频"
+                        tag: "免切"
                     )
                 }
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -644,46 +635,37 @@ public struct HomeStitchView: View {
         tint: Color,
         tag: String? = nil
     ) -> some View {
-        ZStack(alignment: .topTrailing) {
-            RadialGradient(
-                colors: [tint.opacity(0.12), Color.clear],
-                center: .topTrailing,
-                startRadius: 8,
-                endRadius: 90
-            )
-            
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top) {
-                    LiquidGlassIconPod(
-                        systemName: iconName,
-                        tint: tint,
-                        size: 38,
-                        cornerRadius: ScrollSnapTheme.Radius.sm
-                    )
-                    Spacer()
-                    if let tag = tag {
-                        ScrollSnapBadge(tag, tint: tint)
-                    }
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(ScrollSnapTheme.FontToken.itemTitle)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                    Text(subtitle)
-                        .font(ScrollSnapTheme.FontToken.captionHint)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                LiquidGlassIconPod(
+                    systemName: iconName,
+                    tint: tint,
+                    size: 38,
+                    cornerRadius: ScrollSnapTheme.Radius.sm
+                )
+                Spacer()
+                if let tag = tag {
+                    ScrollSnapBadge(tag, tint: tint)
                 }
             }
-            .padding(13)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(ScrollSnapTheme.FontToken.itemTitle)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Text(subtitle)
+                    .font(ScrollSnapTheme.FontToken.captionHint)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
         }
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 108)
-        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: tint.opacity(0.28))
+        .frame(height: 104)
+        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
     }
     
     private var recentStitchesSection: some View {

@@ -99,7 +99,7 @@ public struct SettingsView: View {
                                     .foregroundStyle(.primary)
                             } icon: {
                                 Image(systemName: "square.and.arrow.up")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Color.accentColor)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
