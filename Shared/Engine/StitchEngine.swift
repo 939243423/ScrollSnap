@@ -81,16 +81,20 @@ public final class StitchEngine {
                     sessionId: sessionId
                 )
                 
-                // Detect static navigation bar and bottom bar height from first two slices
+                // Adaptive Scroll Zone Analysis:
+                // Detects navigation bars, input bars, and split-screen media players (e.g. Xiaohongshu video notes, Bilibili)
                 var detectedTopBar: CGFloat = 0
                 var detectedBottomBar: CGFloat = 0
+                var isSplitScreenMedia: Bool = false
+                
                 if loadedSlices.count >= 2 {
-                    let chrome = ImageOverlapDetector.detectStaticChromeRegions(
+                    let scrollZone = ImageOverlapDetector.detectAdaptiveScrollZone(
                         topImage: loadedSlices[0].image,
                         bottomImage: loadedSlices[1].image
                     )
-                    detectedTopBar = chrome.topBarHeight
-                    detectedBottomBar = chrome.bottomBarHeight
+                    detectedTopBar = scrollZone.topAnchorHeight
+                    detectedBottomBar = scrollZone.bottomAnchorHeight
+                    isSplitScreenMedia = scrollZone.isSplitScreenMedia
                 }
                 
                 var items: [StitchItem] = []
@@ -107,7 +111,7 @@ public final class StitchEngine {
                     
                     switch presetMode {
                     case .chatRecord, .smartAuto:
-                        // First slice keeps top nav; last slice keeps bottom input bar
+                        // First slice keeps top nav/video player; last slice keeps bottom input bar
                         if index == 0 {
                             topCrop = 0
                             bottomCrop = totalCount > 1 ? detectedBottomBar : 0
@@ -119,11 +123,34 @@ public final class StitchEngine {
                             bottomCrop = detectedBottomBar
                         }
                     case .webArticle:
-                        if index > 0 { topCrop = detectedTopBar }
-                        if index < totalCount - 1 { bottomCrop = detectedBottomBar }
+                        if index == 0 {
+                            topCrop = 0
+                            bottomCrop = totalCount > 1 ? detectedBottomBar : 0
+                        } else if index == totalCount - 1 {
+                            topCrop = detectedTopBar
+                            bottomCrop = 0
+                        } else {
+                            topCrop = detectedTopBar
+                            bottomCrop = detectedBottomBar
+                        }
                     case .continuousFeed:
-                        topCrop = 0
-                        bottomCrop = 0
+                        if isSplitScreenMedia {
+                            // In split-screen media apps (e.g. Xiaohongshu video notes), automatically deduplicate
+                            // the upper video player and bottom input bar even in continuous mode to avoid repeating the video
+                            if index == 0 {
+                                topCrop = 0
+                                bottomCrop = totalCount > 1 ? detectedBottomBar : 0
+                            } else if index == totalCount - 1 {
+                                topCrop = detectedTopBar
+                                bottomCrop = 0
+                            } else {
+                                topCrop = detectedTopBar
+                                bottomCrop = detectedBottomBar
+                            }
+                        } else {
+                            topCrop = 0
+                            bottomCrop = 0
+                        }
                     case .movieSubtitles:
                         // Movie subtitles: slice 0 retains 100% full frame; slices 1..N retain bottom 18% subtitle bar
                         if index == 0 {

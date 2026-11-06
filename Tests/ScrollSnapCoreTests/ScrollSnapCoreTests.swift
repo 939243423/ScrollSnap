@@ -248,4 +248,77 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(DialSpeedMultiplier.fast.rawValue, 10.0)
         XCTAssertEqual(DialSpeedMultiplier.jump.rawValue, 50.0)
     }
+    
+    // MARK: - 9. Multi-Scenario Adaptive Scroll Zone & Feature Profiles
+    
+    func testCombinedFeatureProfileComputation() {
+        let lum = [0.2, 0.4, 0.8, 1.0]
+        let edge = [0.1, 0.5, 0.0, 0.6]
+        let profile = ImageProfile1D(luminance: lum, horizontalEdgeEnergy: edge)
+        
+        XCTAssertEqual(profile.luminance.count, 4)
+        XCTAssertEqual(profile.horizontalEdgeEnergy.count, 4)
+        XCTAssertEqual(profile.combinedFeature.count, 4)
+        
+        // 0.2 * 0.35 + 0.1 * 0.65 = 0.07 + 0.065 = 0.135
+        XCTAssertEqual(profile.combinedFeature[0], 0.135, accuracy: 0.001)
+        // 0.4 * 0.35 + 0.5 * 0.65 = 0.14 + 0.325 = 0.465
+        XCTAssertEqual(profile.combinedFeature[1], 0.465, accuracy: 0.001)
+    }
+    
+    func testScrollZoneDetectionResultModel() {
+        let result = ScrollZoneDetectionResult(
+            topAnchorHeight: 850,
+            bottomAnchorHeight: 120,
+            isSplitScreenMedia: true,
+            scrollVelocityEstimate: 320,
+            confidence: 0.95
+        )
+        
+        XCTAssertEqual(result.topAnchorHeight, 850)
+        XCTAssertEqual(result.bottomAnchorHeight, 120)
+        XCTAssertTrue(result.isSplitScreenMedia)
+        XCTAssertEqual(result.scrollVelocityEstimate, 320)
+        XCTAssertEqual(result.confidence, 0.95, accuracy: 0.001)
+    }
+    
+    func testSplitScreenMediaVerticalLayoutTiling() {
+        let slice1 = StitchItem(
+            relativeFilePath: "note_s1.jpg",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 0,
+            bottomCropInset: 120,
+            calculatedOverlapWithPrevious: 0
+        )
+        let slice2 = StitchItem(
+            relativeFilePath: "note_s2.jpg",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 1000,
+            bottomCropInset: 0,
+            calculatedOverlapWithPrevious: 400,
+            optimalSeamLineY: 200
+        )
+        
+        let session = StitchSession(
+            presetMode: .chatRecord,
+            slices: [slice1, slice2]
+        )
+        
+        let layouts = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: 1170)
+        XCTAssertEqual(layouts.count, 2)
+        
+        // Slice 1: starts at top 0, includes video player and comments up to seam
+        XCTAssertEqual(layouts[0].sourceYStart, 0)
+        XCTAssertEqual(layouts[0].canvasY, 0)
+        
+        // Slice 2: starts after cropped top 1000 + seam 200 = 1200
+        XCTAssertEqual(layouts[1].sourceYStart, 1200)
+        XCTAssertEqual(layouts[1].canvasY, layouts[0].canvasHeight, accuracy: 0.001)
+        
+        // Continuous tiling without gaps
+        let totalLayoutH = layouts.reduce(0.0) { $0 + $1.canvasHeight }
+        XCTAssertEqual(totalLayoutH, session.totalEstimatedHeight, accuracy: 0.001)
+    }
 }
