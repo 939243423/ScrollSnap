@@ -65,7 +65,7 @@ public struct SettingsView: View {
                                     .foregroundStyle(.primary)
                             } icon: {
                                 Image(systemName: "star.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.accentColor)
                             }
                             Spacer()
                             Image(systemName: "arrow.up.right")
@@ -83,7 +83,7 @@ public struct SettingsView: View {
                                     .foregroundStyle(.primary)
                             } icon: {
                                 Image(systemName: "envelope.fill")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(Color.accentColor)
                             }
                             Spacer()
                             Text(StoreReviewManager.developerEmail)
@@ -122,7 +122,7 @@ public struct SettingsView: View {
                                     .foregroundStyle(.primary)
                             } icon: {
                                 Image(systemName: "newspaper.fill")
-                                    .foregroundStyle(.purple)
+                                    .foregroundStyle(Color.accentColor)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -137,7 +137,7 @@ public struct SettingsView: View {
                                 .foregroundStyle(.primary)
                         } icon: {
                             Image(systemName: "info.circle")
-                                .foregroundStyle(.gray)
+                                .foregroundStyle(.secondary)
                         }
                         Spacer()
                         Text("\(whatsNew.currentVersion) (\(whatsNew.currentBuild))")

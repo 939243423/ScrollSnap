@@ -423,4 +423,18 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(profile.luminance.count, 50)
         XCTAssertEqual(profile.horizontalEdgeEnergy.count, 50)
     }
+    
+    // MARK: - 14. Theme Tokens & Brand Accent Tests
+    
+    func testThemeTokens() {
+        XCTAssertEqual(ScrollSnapTheme.Radius.md, 14)
+        XCTAssertEqual(ScrollSnapTheme.Radius.lg, 18)
+        XCTAssertEqual(ScrollSnapTheme.Spacing.md, 12)
+        XCTAssertEqual(ScrollSnapTheme.Spacing.lg, 16)
+        
+        let accent = ScrollSnapTheme.Colors.brandAccent
+        XCTAssertNotNil(accent)
+        let gradient = ScrollSnapTheme.Colors.primaryGradient
+        XCTAssertNotNil(gradient)
+    }
 }

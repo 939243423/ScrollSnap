@@ -63,11 +63,28 @@ public enum ScrollSnapTheme {
     
     // MARK: - Color & Gradient Tokens (主题色与渐变层次)
     public enum Colors {
-        /// 主品牌连贯渐变 (靛蓝 -> 电光蓝)
+        #if canImport(UIKit)
+        /// 自适应 Apple HIG 规范的高级电光皇家蓝 (浅色: #2970FA / 深色: #5994FF)
+        public static let brandAccent = Color(uiColor: UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return UIColor(red: 0.35, green: 0.58, blue: 1.00, alpha: 1.0)
+            default:
+                return UIColor(red: 0.16, green: 0.44, blue: 0.98, alpha: 1.0)
+            }
+        })
+        #else
+        public static let brandAccent = Color(red: 0.16, green: 0.44, blue: 0.98)
+        #endif
+        
+        /// 主品牌连贯渐变 (皇家电光蓝高光平滑过渡，纯净克制)
         public static let primaryGradient = LinearGradient(
-            colors: [Color.indigo, Color.blue],
-            startPoint: .leading,
-            endPoint: .trailing
+            colors: [
+                Color(red: 0.14, green: 0.40, blue: 0.96),
+                Color(red: 0.24, green: 0.52, blue: 1.00)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
         
         /// 录屏与视频提取渐变 (深紫 -> 靛蓝)

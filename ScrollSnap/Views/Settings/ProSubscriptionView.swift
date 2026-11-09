@@ -27,7 +27,7 @@ public struct ProSubscriptionView: View {
                                 .scaledToFit()
                                 .frame(width: 84, height: 84)
                                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                                .shadow(color: Color.indigo.opacity(0.4), radius: 16, y: 8)
+                                .shadow(color: ScrollSnapTheme.Colors.brandAccent.opacity(0.28), radius: 16, y: 8)
                         } else {
                             ZStack {
                                 Circle()

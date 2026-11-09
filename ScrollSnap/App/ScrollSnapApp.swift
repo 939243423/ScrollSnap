@@ -13,7 +13,7 @@ struct ScrollSnapApp: App {
     var body: some Scene {
         WindowGroup {
             HomeStitchView()
-                .tint(Color(red: 0.29, green: 0.33, blue: 0.41))
+                .tint(ScrollSnapTheme.Colors.brandAccent)
                 .onAppear {
                     setupDarwinObservers()
                 }

@@ -38,25 +38,25 @@ public final class WhatsNewManager: ObservableObject {
             iconName: "photo.on.rectangle.angled",
             title: "自动拼接长图",
             description: "从相册选图或通过录屏直接截取，自动计算重叠并精准拼合为高清长图。",
-            iconColor: .blue
+            iconColor: .accentColor
         ),
         WhatsNewFeature(
             iconName: "arrow.up.and.down",
             title: "微调接缝",
             description: "点按接缝标签或滑块微调对齐，支持放大镜实时查看接缝细节。",
-            iconColor: .orange
+            iconColor: .accentColor
         ),
         WhatsNewFeature(
             iconName: "eye.slash",
             title: "一键打码遮挡",
             description: "本地自动识别手机号与头像，提供模糊、马赛克与涂黑保护隐私。",
-            iconColor: .indigo
+            iconColor: .accentColor
         ),
         WhatsNewFeature(
             iconName: "square.grid.3x3",
             title: "切图与批注",
             description: "自由将长图切分为 3/6/9 宫格存入相册，支持箭头矩形批注与提取长图文字。",
-            iconColor: .teal
+            iconColor: .accentColor
         )
     ]
     

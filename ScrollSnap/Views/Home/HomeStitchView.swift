@@ -771,7 +771,7 @@ public struct HomeStitchView: View {
                     Spacer()
                 }
                 .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
             }
         }
     }
@@ -1244,7 +1244,7 @@ private struct BroadcastGuideSheet: View {
                     VStack(spacing: 8) {
                         LiquidGlassIconPod(
                             systemName: "record.circle.fill",
-                            tint: .orange,
+                            tint: Color.accentColor,
                             size: 54,
                             cornerRadius: ScrollSnapTheme.Radius.md
                         )
@@ -1268,14 +1268,14 @@ private struct BroadcastGuideSheet: View {
                         
                         ZStack {
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.orange.opacity(0.15))
+                                .fill(Color.accentColor.opacity(0.12))
                             
                             HStack(spacing: 8) {
                                 Image(systemName: "record.circle.fill")
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.accentColor)
                                 Text("启动 ScrollSnap 录屏")
                                     .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Color.accentColor)
                             }
                             
                             // ReplayKit Broadcast Picker covering the button to receive tap
@@ -1285,7 +1285,7 @@ private struct BroadcastGuideSheet: View {
                         .frame(height: 50)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .strokeBorder(Color.orange.opacity(0.4), lineWidth: 1)
+                                .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 1)
                         )
                     }
                     .padding(.horizontal, 4)
@@ -1298,28 +1298,28 @@ private struct BroadcastGuideSheet: View {
                             title: "长按控制中心的录屏按钮",
                             description: "打开控制中心，长按录屏图标，勾选「ScrollSnap」后点击「开始直播」。",
                             iconName: "hand.tap.fill",
-                            tint: .blue
+                            tint: Color.accentColor
                         )
                         guideStepCard(
                             stepNumber: "2",
                             title: "切换到目标应用",
                             description: "切回微信、网页或聊天记录等需要长截图的界面，等待 3 秒倒计时结束。",
                             iconName: "app.badge.fill",
-                            tint: .purple
+                            tint: Color.accentColor
                         )
                         guideStepCard(
                             stepNumber: "3",
                             title: "匀速向下滑动",
                             description: "平稳向下滑动屏幕，系统会在后台自动去除重合部分。",
                             iconName: "arrow.down.circle.fill",
-                            tint: .orange
+                            tint: Color.accentColor
                         )
                         guideStepCard(
                             stepNumber: "4",
                             title: "点击顶部红点停止录屏",
                             description: "滑完后点击灵动岛或状态栏红点停止录制，打开 ScrollSnap 即可查看长图。",
                             iconName: "checkmark.seal.fill",
-                            tint: .green
+                            tint: Color.accentColor
                         )
                     }
                     
@@ -1327,7 +1327,7 @@ private struct BroadcastGuideSheet: View {
                     HStack(spacing: 12) {
                         Image(systemName: "lock.shield.fill")
                             .font(.title3)
-                            .foregroundStyle(.teal)
+                            .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("本地离线处理 · 不上传网络")
                                 .font(.system(size: 12, weight: .bold))
@@ -1338,7 +1338,7 @@ private struct BroadcastGuideSheet: View {
                         }
                     }
                     .padding(14)
-                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.teal.opacity(0.3))
+                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.primary.opacity(0.08))
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
@@ -1399,7 +1399,7 @@ private struct ActionShortcutGuideSheet: View {
                     VStack(spacing: 8) {
                         LiquidGlassIconPod(
                             systemName: "iphone.radiowaves.left.and.right",
-                            tint: .blue,
+                            tint: Color.accentColor,
                             size: 54,
                             cornerRadius: ScrollSnapTheme.Radius.md
                         )
@@ -1433,8 +1433,8 @@ private struct ActionShortcutGuideSheet: View {
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.blue.opacity(0.18))
-                            .foregroundStyle(Color.blue)
+                            .background(Color.accentColor.opacity(0.12))
+                            .foregroundStyle(Color.accentColor)
                             .clipShape(Capsule())
                         }
                         
@@ -1463,9 +1463,9 @@ private struct ActionShortcutGuideSheet: View {
                         // Method 1: Back Tap (Every iPhone)
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                ScrollSnapBadge("方案 A · 所有 iPhone 通用", tint: .indigo)
+                                ScrollSnapBadge("方案 A · 所有 iPhone 通用", tint: .accentColor)
                                 Spacer()
-                                Text("最推荐").font(.caption2.bold()).foregroundStyle(.indigo)
+                                Text("最推荐").font(.caption2.bold()).foregroundStyle(Color.accentColor)
                             }
                             Text("轻点背面两下拼长图")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
@@ -1481,14 +1481,14 @@ private struct ActionShortcutGuideSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(16)
-                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.indigo.opacity(0.3))
+                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.2))
                         
                         // Method 2: Action Button (15 Pro / 16)
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
-                                ScrollSnapBadge("方案 B · iPhone 15 Pro / 16", tint: .blue)
+                                ScrollSnapBadge("方案 B · iPhone 15 Pro / 16", tint: .accentColor)
                                 Spacer()
-                                Text("侧键直出").font(.caption2.bold()).foregroundStyle(.blue)
+                                Text("侧键直出").font(.caption2.bold()).foregroundStyle(Color.accentColor)
                             }
                             Text("长按操作按钮 (Action Button)")
                                 .font(.system(size: 15, weight: .bold, design: .rounded))
@@ -1504,14 +1504,14 @@ private struct ActionShortcutGuideSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(16)
-                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.blue.opacity(0.3))
+                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.2))
                     }
                     
                     // Usage Scenario Callout
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image(systemName: "info.circle.fill")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.accentColor)
                             Text("使用示例")
                                 .font(.system(size: 13, weight: .bold))
                         }
@@ -1521,7 +1521,7 @@ private struct ActionShortcutGuideSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
-                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.orange.opacity(0.25))
+                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.primary.opacity(0.08))
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
