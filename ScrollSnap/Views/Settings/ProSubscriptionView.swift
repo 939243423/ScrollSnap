@@ -31,17 +31,11 @@ public struct ProSubscriptionView: View {
                         } else {
                             ZStack {
                                 Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.orange.opacity(0.2), Color.indigo.opacity(0.2)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
+                                    .fill(Color.accentColor.opacity(0.12))
                                     .frame(width: 80, height: 80)
-                                Image(systemName: "crown.fill")
+                                Image(systemName: "checkmark.seal.fill")
                                     .symbolRenderingMode(.hierarchical)
-                                    .foregroundStyle(Color.orange)
+                                    .foregroundStyle(Color.accentColor)
                                     .font(.system(size: 38))
                             }
                         }
@@ -62,7 +56,7 @@ public struct ProSubscriptionView: View {
                     HStack(spacing: 14) {
                         LiquidGlassIconPod(
                             systemName: "clock.arrow.circlepath",
-                            tint: .orange,
+                            tint: .accentColor,
                             size: 40,
                             cornerRadius: ScrollSnapTheme.Radius.sm
                         )

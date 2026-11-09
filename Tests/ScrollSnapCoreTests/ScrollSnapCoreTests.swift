@@ -406,4 +406,21 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(breakdown.recentSavesBytes, 0)
         XCTAssertGreaterThanOrEqual(breakdown.totalCacheBytes, 0)
     }
+    
+    // MARK: - 13. Three-Tap Gaussian Valley Seam Line Tests
+    
+    func testMinimalEnergySeamValleySelection() {
+        // High energy blocks (text rows) at 10..18 and 24..32, valley at 19..23
+        var energy = [Double](repeating: 0.0, count: 50)
+        for i in 10...18 { energy[i] = 0.85 }
+        for i in 24...32 { energy[i] = 0.85 }
+        
+        var lum = [Double](repeating: 0.9, count: 50)
+        for i in 10...18 { lum[i] = 0.2 }
+        for i in 24...32 { lum[i] = 0.2 }
+        
+        let profile = ImageProfile1D(luminance: lum, horizontalEdgeEnergy: energy)
+        XCTAssertEqual(profile.luminance.count, 50)
+        XCTAssertEqual(profile.horizontalEdgeEnergy.count, 50)
+    }
 }

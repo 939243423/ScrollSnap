@@ -475,6 +475,32 @@ public final class ImageOverlapDetector {
             sumSqS[i + 1] = sumSqS[i] + v * v
         }
         
+        // Helper: Finds the highest feature-variance row near baseStart to avoid blank empty margins
+        let findRichAnchor: (Int, Int, Int) -> Int = { baseStart, maxShift, len in
+            var bestAnchor = baseStart
+            var maxVar = -1.0
+            let limit = min(baseStart + maxShift, bottomHeight - effectiveBottomCrop - len)
+            guard baseStart <= limit else { return baseStart }
+            for anchor in stride(from: baseStart, through: limit, by: 4) {
+                let span = bottomFeatures[anchor..<(anchor + len)]
+                var sum = 0.0
+                var sumSq = 0.0
+                for v in span {
+                    sum += v
+                    sumSq += v * v
+                }
+                let variance = max(0.0, sumSq - (sum * sum) / Double(len))
+                if variance > maxVar {
+                    maxVar = variance
+                    bestAnchor = anchor
+                }
+                if variance > 0.02 {
+                    return anchor // Strong textual or edge features found
+                }
+            }
+            return bestAnchor
+        }
+        
         // Multi-Band Spatial Consensus:
         // Evaluates 3 distinct vertical bands in bottomSlice to outvote sticky date headers and floating widgets
         var candidateBands: [(impliedDy: CGFloat, correlation: Double, bestOffset: CGFloat)] = []
@@ -484,21 +510,22 @@ public final class ImageOverlapDetector {
                 guard let topBase = topPtr.baseAddress,
                       let botBase = botPtr.baseAddress else { return }
                 
-                // Band 1: Primary template at top of scroll zone
+                // Band 1: Primary template with feature-rich anchor search
+                let band1Start = findRichAnchor(templateStart, min(60, searchSpan / 4), templateLen)
                 let match1 = matchTemplateBand(
                     topBase: topBase,
                     botBase: botBase,
                     sumS: sumS,
                     sumSqS: sumSqS,
                     validTopEnd: validTopEnd,
-                    templateStart: templateStart,
+                    templateStart: band1Start,
                     templateLen: templateLen,
                     minOffset: minOffset,
                     maxOffset: maxOffset
                 )
                 if match1.maxCorrelation > 0.20 {
                     candidateBands.append((
-                        impliedDy: match1.bestOffset - CGFloat(templateStart),
+                        impliedDy: match1.bestOffset - CGFloat(band1Start),
                         correlation: match1.maxCorrelation,
                         bestOffset: match1.bestOffset
                     ))
@@ -506,9 +533,10 @@ public final class ImageOverlapDetector {
                 
                 let activeBottomSpan = (bottomHeight - effectiveBottomCrop) - templateStart
                 
-                // Band 2: Middle band
-                if activeBottomSpan >= 140 {
-                    let band2Start = templateStart + Int(Double(activeBottomSpan) * 0.32)
+                // Band 2: Middle band (active if activeBottomSpan >= 80)
+                if activeBottomSpan >= 80 {
+                    let rawBand2 = templateStart + Int(Double(activeBottomSpan) * 0.32)
+                    let band2Start = findRichAnchor(rawBand2, 40, templateLen)
                     let band2Delta = band2Start - templateStart
                     let minOff2 = max(validTopStart, minOffset + band2Delta)
                     let maxOff2 = min(validTopEnd - templateLen, maxOffset + band2Delta)
@@ -534,9 +562,10 @@ public final class ImageOverlapDetector {
                     }
                 }
                 
-                // Band 3: Lower band
-                if activeBottomSpan >= 260 {
-                    let band3Start = templateStart + Int(Double(activeBottomSpan) * 0.60)
+                // Band 3: Lower band (active if activeBottomSpan >= 160)
+                if activeBottomSpan >= 160 {
+                    let rawBand3 = templateStart + Int(Double(activeBottomSpan) * 0.62)
+                    let band3Start = findRichAnchor(rawBand3, 40, templateLen)
                     let band3Delta = band3Start - templateStart
                     let minOff3 = max(validTopStart, minOffset + band3Delta)
                     let maxOff3 = min(validTopEnd - templateLen, maxOffset + band3Delta)
@@ -786,18 +815,24 @@ public final class ImageOverlapDetector {
         var minSmoothedEnergy = Double.greatestFiniteMagnitude
         var bestRow = midRow
         
-        for y in (startRow + 3)..<(endRow - 3) {
-            var sumNeighborhoodE = 0.0
-            for k in -2...2 {
-                let row = y + k
-                let hE = horizontalEnergy[row]
-                let vE = abs(luminance[row + 1] - luminance[row - 1])
-                sumNeighborhoodE += (hE * 0.70 + vE * 0.25)
-            }
-            let avgE = sumNeighborhoodE * 0.20
+        for y in (startRow + 2)..<(endRow - 2) {
+            // 3-tap Gaussian-weighted energy kernel [0.25, 0.50, 0.25]:
+            // Captures exact interline whitespace valleys without bleeding from tight text ascenders/descenders
+            let hE_m1 = horizontalEnergy[y - 1]
+            let hE_0  = horizontalEnergy[y]
+            let hE_p1 = horizontalEnergy[y + 1]
+            let vE_m1 = abs(luminance[y] - luminance[y - 2])
+            let vE_0  = abs(luminance[y + 1] - luminance[y - 1])
+            let vE_p1 = abs(luminance[y + 2] - luminance[y])
+            
+            let e_m1 = hE_m1 * 0.70 + vE_m1 * 0.25
+            let e_0  = hE_0  * 0.70 + vE_0  * 0.25
+            let e_p1 = hE_p1 * 0.70 + vE_p1 * 0.25
+            
+            let avgE = e_0 * 0.50 + (e_m1 + e_p1) * 0.25
             
             // Center distance penalty: ensures wide blank margins choose their balanced center
-            let centerDistPenalty = (abs(Double(y - midRow)) / windowLen) * 0.04
+            let centerDistPenalty = (abs(Double(y - midRow)) / windowLen) * 0.03
             let totalE = avgE + centerDistPenalty
             
             if totalE < minSmoothedEnergy {

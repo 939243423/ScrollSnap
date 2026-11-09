@@ -105,15 +105,15 @@ public struct HomeStitchView: View {
                             .padding(.vertical, 4)
                         } else {
                             HStack(spacing: 4) {
-                                Text("免费版")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                Text("\(quotaManager.remainingDailyFreeStitches)/\(QuotaManager.defaultDailyLimit)")
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Color.accentColor)
+                                Text("免费版 \(quotaManager.remainingDailyFreeStitches)/\(QuotaManager.defaultDailyLimit)")
+                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.primary)
                             }
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 4)
                             .padding(.vertical, 4)
-                            .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
-                            .foregroundStyle(.secondary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -296,18 +296,18 @@ public struct HomeStitchView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.orange.opacity(0.18))
+                    .fill(Color.accentColor.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: "record.circle.fill")
                     .font(.body)
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(Color.accentColor)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("滚动录屏完成")
                         .font(ScrollSnapTheme.FontToken.itemTitle)
-                    ScrollSnapBadge("\(activeBroadcastSlices.count) 屏", tint: .orange)
+                    ScrollSnapBadge("\(activeBroadcastSlices.count) 屏", tint: .accentColor)
                 }
                 Text("轻触立即拼接为长图")
                     .font(ScrollSnapTheme.FontToken.captionHint)
@@ -323,7 +323,7 @@ public struct HomeStitchView: View {
             .font(.system(.caption, design: .rounded).weight(.bold))
             .padding(.horizontal, ScrollSnapTheme.Spacing.md)
             .padding(.vertical, ScrollSnapTheme.Spacing.xs)
-            .background(Color.orange)
+            .background(Color.accentColor)
             .foregroundStyle(.white)
             .clipShape(Capsule())
             
@@ -359,11 +359,11 @@ public struct HomeStitchView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.teal.opacity(0.18))
+                    .fill(Color.accentColor.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: "safari.fill")
                     .font(.body)
-                    .foregroundStyle(Color.teal)
+                    .foregroundStyle(Color.accentColor)
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -372,7 +372,7 @@ public struct HomeStitchView: View {
                         .font(ScrollSnapTheme.FontToken.itemTitle)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
-                    ScrollSnapBadge("0 截屏", tint: .teal)
+                    ScrollSnapBadge("网页", tint: .accentColor)
                 }
                 Text(url.host ?? url.absoluteString)
                     .font(ScrollSnapTheme.FontToken.captionHint)
@@ -391,7 +391,7 @@ public struct HomeStitchView: View {
             .minimumScaleFactor(0.85)
             .padding(.horizontal, ScrollSnapTheme.Spacing.md)
             .padding(.vertical, ScrollSnapTheme.Spacing.xs)
-            .background(Color.teal)
+            .background(Color.accentColor)
             .foregroundStyle(.white)
             .clipShape(Capsule())
             
@@ -413,18 +413,18 @@ public struct HomeStitchView: View {
         return HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.purple.opacity(0.15))
+                    .fill(Color.accentColor.opacity(0.12))
                     .frame(width: 40, height: 40)
                 Image(systemName: "film.stack.fill")
                     .font(.body)
-                    .foregroundStyle(Color.purple)
+                    .foregroundStyle(Color.accentColor)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text("相册新录屏")
                         .font(ScrollSnapTheme.FontToken.itemTitle)
-                    ScrollSnapBadge("\(durationSec)s", tint: .purple)
+                    ScrollSnapBadge("\(durationSec)s", tint: .accentColor)
                 }
                 Text("自动提取画面并拼接为长图")
                     .font(ScrollSnapTheme.FontToken.captionHint)
@@ -441,7 +441,7 @@ public struct HomeStitchView: View {
             .font(.system(.caption, design: .rounded).weight(.bold))
             .padding(.horizontal, ScrollSnapTheme.Spacing.md)
             .padding(.vertical, ScrollSnapTheme.Spacing.xs)
-            .background(Color.purple)
+            .background(Color.accentColor)
             .foregroundStyle(.white)
             .clipShape(Capsule())
             .disabled(isProcessingStitch)
