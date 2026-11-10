@@ -36,8 +36,8 @@ public final class WhatsNewManager: ObservableObject {
     public let features: [WhatsNewFeature] = [
         WhatsNewFeature(
             iconName: "photo.stack",
-            title: "微信发图防折叠",
-            description: "多张连续聊天或文章截图一键合并为高清长图，彻底解决微信多图自动折叠成卡片的烦恼，好友直接顺畅阅读。",
+            title: "聊天记录智能拼接",
+            description: "自动识别微信等聊天页面的导航栏与输入框，保留首尾完整界面，中间对话无缝消除重复。",
             iconColor: .accentColor
         ),
         WhatsNewFeature(
@@ -48,8 +48,8 @@ public final class WhatsNewManager: ObservableObject {
         ),
         WhatsNewFeature(
             iconName: "arrow.up.and.down",
-            title: "微调接缝与放大镜",
-            description: "点按接缝标签或滑块微调对齐，配合放大镜实时查看接缝细节，消除任何视觉接缝裂痕。",
+            title: "拼图对比与逐张浏览",
+            description: "支持左右拖动滑块对比拼接效果，也可以像画册一样横向逐张滑动浏览原始截图。",
             iconColor: .accentColor
         ),
         WhatsNewFeature(

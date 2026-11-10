@@ -3,19 +3,34 @@ import SwiftUI
 import UIKit
 #endif
 
-/// 拼图前后对比视图 (Interactive Before/After Split Curtain)
-/// 支持左右拖动滑块，对比原始截图与拼接效果
+public enum ComparisonTabMode: String, CaseIterable, Identifiable {
+    case splitCurtain = "滑动对比"
+    case swipeGallery = "逐张浏览"
+    public var id: String { rawValue }
+}
+
+/// 拼图对比与逐张原图画廊视图 (Before/After Comparison & Slice Gallery)
+/// 支持左右拉动帘幕对比拼接效果，也支持像微信画册一样横向逐张滑动画廊浏览原图
 public struct BeforeAfterComparisonView: View {
     public let beforeImage: UIImage?
     public let afterImage: UIImage?
+    public var session: StitchSession?
     
     @Environment(\.dismiss) private var dismiss
+    @State private var tabMode: ComparisonTabMode = .splitCurtain
     @State private var splitRatio: CGFloat = 0.5
     @State private var isDragging: Bool = false
+    @State private var currentSliceIndex: Int = 0
+    @State private var loadedSliceImages: [UIImage] = []
     
-    public init(beforeImage: UIImage? = nil, afterImage: UIImage? = nil) {
+    public init(
+        beforeImage: UIImage? = nil,
+        afterImage: UIImage? = nil,
+        session: StitchSession? = nil
+    ) {
         self.beforeImage = beforeImage
         self.afterImage = afterImage
+        self.session = session
     }
     
     public var body: some View {
@@ -23,131 +38,13 @@ public struct BeforeAfterComparisonView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                GeometryReader { proxy in
-                    let size = proxy.size
-                    let splitX = size.width * splitRatio
-                    
-                    ZStack(alignment: .leading) {
-                        // 1. Right Layer: "After" ScrollSnap Seamless Stitched Image
-                        if let after = afterImage {
-                            Image(uiImage: after)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: size.width, height: size.height)
-                        } else {
-                            placeholderView(
-                                title: "拼接长图",
-                                subtitle: "自动去除重合部分",
-                                color: .indigo
-                            )
-                            .frame(width: size.width, height: size.height)
-                        }
-                        
-                        // 2. Left Layer: "Before" Raw Overlapping Screenshots (Clipped to splitX)
-                        Group {
-                            if let before = beforeImage {
-                                Image(uiImage: before)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: size.width, height: size.height)
-                            } else {
-                                placeholderView(
-                                    title: "原始截图",
-                                    subtitle: "包含重叠部分",
-                                    color: .orange
-                                )
-                                .frame(width: size.width, height: size.height)
-                            }
-                        }
-                        .frame(width: max(0, splitX), alignment: .leading)
-                        .clipped()
-                        
-                        // 3. Center Split Handle Bar (Liquid Glass Light Saber)
-                        HStack(spacing: 0) {
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.1), Color.white, Color.white.opacity(0.1)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .frame(width: 2)
-                                .shadow(color: .white.opacity(0.8), radius: 4)
-                        }
-                        .position(x: splitX, y: size.height / 2)
-                        
-                        // 4. Center Drag Pill Indicator
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 9, weight: .bold))
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .bold))
-                        }
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.white).shadow(color: .black.opacity(0.3), radius: 8, y: 2))
-                        .position(x: splitX, y: size.height / 2)
-                        .scaleEffect(isDragging ? 1.15 : 1.0)
-                        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("对比滑块")
-                        .accessibilityValue("左侧原图显示 \(Int(splitRatio * 100))%，右侧拼接图显示 \(Int((1 - splitRatio) * 100))%")
-                        .accessibilityAdjustableAction { direction in
-                            switch direction {
-                            case .increment:
-                                splitRatio = min(0.95, splitRatio + 0.1)
-                            case .decrement:
-                                splitRatio = max(0.05, splitRatio - 0.1)
-                            @unknown default:
-                                break
-                            }
-                            HapticFeedbackManager.shared.triggerSelection()
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { val in
-                                isDragging = true
-                                let newRatio = min(max(val.location.x / size.width, 0.05), 0.95)
-                                if abs(newRatio - 0.5) < 0.02 && abs(splitRatio - 0.5) >= 0.02 {
-                                    HapticFeedbackManager.shared.triggerSnap()
-                                } else {
-                                    HapticFeedbackManager.shared.triggerSelection()
-                                }
-                                self.splitRatio = newRatio
-                            }
-                            .onEnded { _ in
-                                isDragging = false
-                            }
-                    )
-                }
-                
-                // Bottom Floating Badge Readout
-                VStack {
-                    Spacer()
-                    HStack {
-                        HStack(spacing: 4) {
-                            Circle().fill(Color.orange).frame(width: 6, height: 6)
-                            Text("左：原始截图")
-                        }
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Circle().fill(Color.indigo).frame(width: 6, height: 6)
-                            Text("右：拼接长图")
-                        }
-                    }
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .liquidGlassPill()
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 20)
+                if tabMode == .splitCurtain {
+                    splitCurtainView
+                } else {
+                    swipeGalleryView
                 }
             }
-            .navigationTitle("拼图对比")
+            .navigationTitle(tabMode == .splitCurtain ? "拼图前后对比" : "逐张浏览原图")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -156,7 +53,178 @@ public struct BeforeAfterComparisonView: View {
                     }
                     .font(.body.weight(.semibold))
                 }
+                
+                if !loadedSliceImages.isEmpty {
+                    ToolbarItem(placement: .principal) {
+                        Picker("对比模式", selection: $tabMode) {
+                            ForEach(ComparisonTabMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 170)
+                    }
+                }
             }
+            .onAppear {
+                loadSessionSliceImages()
+            }
+        }
+    }
+    
+    private func loadSessionSliceImages() {
+        guard let session = session else { return }
+        var imgs: [UIImage] = []
+        for slice in session.slices {
+            if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+               let img = UIImage(contentsOfFile: fileURL.path) {
+                imgs.append(img)
+            }
+        }
+        self.loadedSliceImages = imgs
+    }
+    
+    // MARK: - Mode 1: Split Curtain Comparison
+    
+    private var splitCurtainView: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            let splitX = size.width * splitRatio
+            
+            ZStack(alignment: .leading) {
+                // 1. Right Layer: "After" ScrollSnap Seamless Stitched Image
+                if let after = afterImage {
+                    Image(uiImage: after)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: size.width, height: size.height)
+                } else {
+                    placeholderView(
+                        title: "拼接长图",
+                        subtitle: "自动去除重合部分",
+                        color: Color.accentColor
+                    )
+                    .frame(width: size.width, height: size.height)
+                }
+                
+                // 2. Left Layer: "Before" Raw Overlapping Screenshots (Clipped to splitX)
+                Group {
+                    if let before = beforeImage {
+                        Image(uiImage: before)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: size.width, height: size.height)
+                    } else {
+                        placeholderView(
+                            title: "原始截图",
+                            subtitle: "包含重叠部分",
+                            color: .secondary
+                        )
+                        .frame(width: size.width, height: size.height)
+                    }
+                }
+                .frame(width: max(0, splitX), alignment: .leading)
+                .clipped()
+                
+                // 3. Center Split Handle Bar
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.1), Color.white, Color.white.opacity(0.1)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 2)
+                    .shadow(color: .white.opacity(0.8), radius: 4)
+                    .position(x: splitX, y: size.height / 2)
+                
+                // 4. Center Drag Pill Indicator
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 9, weight: .bold))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.white).shadow(color: .black.opacity(0.3), radius: 8, y: 2))
+                .position(x: splitX, y: size.height / 2)
+                .scaleEffect(isDragging ? 1.15 : 1.0)
+                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("对比滑块")
+                .accessibilityValue("左侧原图显示 \(Int(splitRatio * 100))%，右侧拼接图显示 \(Int((1 - splitRatio) * 100))%")
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { val in
+                        isDragging = true
+                        let newRatio = min(max(val.location.x / size.width, 0.05), 0.95)
+                        if abs(newRatio - 0.5) < 0.02 && abs(splitRatio - 0.5) >= 0.02 {
+                            HapticFeedbackManager.shared.triggerSnap()
+                        } else {
+                            HapticFeedbackManager.shared.triggerSelection()
+                        }
+                        self.splitRatio = newRatio
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                    }
+            )
+        }
+        .overlay(alignment: .bottom) {
+            HStack {
+                HStack(spacing: 4) {
+                    Circle().fill(Color.secondary).frame(width: 6, height: 6)
+                    Text("左：原始截图")
+                }
+                Spacer()
+                HStack(spacing: 4) {
+                    Circle().fill(Color.accentColor).frame(width: 6, height: 6)
+                    Text("右：拼接长图")
+                }
+            }
+            .font(.caption2.bold())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .liquidGlassPill()
+            .padding(.horizontal, 24)
+            .padding(.bottom, 20)
+        }
+    }
+    
+    // MARK: - Mode 2: Swipeable Slice Gallery (WeChat-style inspection)
+    
+    private var swipeGalleryView: some View {
+        ZStack(alignment: .bottom) {
+            TabView(selection: $currentSliceIndex) {
+                ForEach(Array(loadedSliceImages.enumerated()), id: \.offset) { index, img in
+                    GeometryReader { geo in
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                    }
+                    .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            
+            // Bottom Info Capsule
+            HStack(spacing: 6) {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.caption2)
+                Text("第 \(currentSliceIndex + 1) / \(loadedSliceImages.count) 张 · 左右滑动浏览原图")
+                    .font(.caption2.weight(.medium))
+            }
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .liquidGlassPill()
+            .padding(.bottom, 36)
         }
     }
     
@@ -164,7 +232,7 @@ public struct BeforeAfterComparisonView: View {
         ZStack {
             color.opacity(0.18)
             VStack(spacing: 8) {
-                Image(systemName: color == .indigo ? "wand.and.stars" : "photo.on.rectangle.angled")
+                Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 36))
                     .foregroundStyle(color)
                 Text(title)

@@ -244,7 +244,7 @@ public struct StitchEditorView: View {
                                 Button {
                                     copyDirectlyToClipboard(isWeChatSharing: true)
                                 } label: {
-                                    Label("发微信防折叠 (复制长图)", systemImage: "paperplane")
+                                    Label("复制长图发微信", systemImage: "paperplane")
                                 }
                             }
                             if !session.sourceAssetIdentifiers.isEmpty {
@@ -290,7 +290,8 @@ public struct StitchEditorView: View {
             .sheet(isPresented: $isShowingComparisonSheet) {
                 BeforeAfterComparisonView(
                     beforeImage: comparisonBeforeImage,
-                    afterImage: comparisonAfterImage
+                    afterImage: comparisonAfterImage,
+                    session: session
                 )
             }
             .sheet(isPresented: $isShowingExportSheet, onDismiss: {
@@ -1536,7 +1537,7 @@ public struct StitchEditorView: View {
                     SoundEffectManager.shared.playMagneticSnap()
                     StoreReviewManager.shared.recordSuccessfulExport()
                     self.toastMessage = isWeChatSharing
-                        ? "长截图已复制！去微信长按粘贴发送，告别多图折叠"
+                        ? "长截图已复制，去微信长按粘贴即可发送"
                         : "已复制长截图到剪贴板，可直接粘贴"
                     showToast()
                 }
