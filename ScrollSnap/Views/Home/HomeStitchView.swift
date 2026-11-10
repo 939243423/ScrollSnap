@@ -475,9 +475,10 @@ public struct HomeStitchView: View {
                 HStack(spacing: 6) {
                     Text("检测到连续截图")
                         .font(ScrollSnapTheme.FontToken.itemTitle)
+                    ScrollSnapBadge("防折叠", tint: .accentColor)
                     ScrollSnapBadge("\(count) 张", tint: .accentColor)
                 }
-                Text("已按时间排好顺序，可直接拼接")
+                Text("一键合并为单张长图，微信发送不再被折叠为相册")
                     .font(ScrollSnapTheme.FontToken.captionHint)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -485,7 +486,7 @@ public struct HomeStitchView: View {
             
             Spacer()
             
-            Button("一键拼接") {
+            Button("一键防折叠拼图") {
                 HapticFeedbackManager.shared.triggerSnap()
                 stitchRecentAssets(photoObserver.recentScreenshotAssets)
             }
@@ -540,10 +541,13 @@ public struct HomeStitchView: View {
                     )
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("选择截图拼接")
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundStyle(.primary)
-                        Text("从相册选择连续截图自动拼接")
+                        HStack(spacing: 6) {
+                            Text("选择截图拼接")
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .foregroundStyle(.primary)
+                            ScrollSnapBadge("防折叠", tint: .accentColor)
+                        }
+                        Text("多图合并为单张长图 · 微信发送不折叠")
                             .font(ScrollSnapTheme.FontToken.captionHint)
                             .foregroundStyle(.secondary)
                     }

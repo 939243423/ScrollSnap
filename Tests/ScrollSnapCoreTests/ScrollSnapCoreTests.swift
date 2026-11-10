@@ -437,4 +437,37 @@ final class ScrollSnapCoreTests: XCTestCase {
         let gradient = ScrollSnapTheme.Colors.primaryGradient
         XCTAssertNotNil(gradient)
     }
+    
+    // MARK: - 15. Dynamic Scroll Zone & Multi-Scenario Region Classifier Tests
+    
+    func testScrollZoneDetectionModel() {
+        let zone = ScrollZoneDetectionResult(
+            topAnchorHeight: 180,
+            bottomAnchorHeight: 160,
+            isSplitScreenMedia: false,
+            isChatAppDetected: true,
+            scrollVelocityEstimate: 145.0,
+            confidence: 0.92
+        )
+        XCTAssertEqual(zone.topAnchorHeight, 180)
+        XCTAssertEqual(zone.bottomAnchorHeight, 160)
+        XCTAssertFalse(zone.isSplitScreenMedia)
+        XCTAssertTrue(zone.isChatAppDetected)
+        XCTAssertEqual(zone.scrollVelocityEstimate, 145.0)
+        XCTAssertEqual(zone.confidence, 0.92)
+    }
+    
+    func testSplitScreenMediaZoneModel() {
+        let mediaZone = ScrollZoneDetectionResult(
+            topAnchorHeight: 520,
+            bottomAnchorHeight: 120,
+            isSplitScreenMedia: true,
+            isChatAppDetected: false,
+            scrollVelocityEstimate: 85.0,
+            confidence: 0.88
+        )
+        XCTAssertEqual(mediaZone.topAnchorHeight, 520)
+        XCTAssertTrue(mediaZone.isSplitScreenMedia)
+        XCTAssertFalse(mediaZone.isChatAppDetected)
+    }
 }

@@ -15,7 +15,7 @@ public final class VideoFrameExtractor {
     public func extractFrames(
         from asset: AVAsset,
         maxKeyframes: Int = 30,
-        candidateStepSeconds: Double = 0.08, // Sample candidates at ~12.5 fps for high velocity capture
+        candidateStepSeconds: Double = 0.04, // High-frequency 25 fps candidate sampling for rapid flick resilience
         onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> [UIImage] {
         #if canImport(UIKit)
@@ -43,12 +43,35 @@ public final class VideoFrameExtractor {
         // Pass 1: Fast Probe with downscaled thumbnails (width: 160, height: 360)
         // Memory-safe: decodes small thumbnails for optical displacement analysis with zero memory pressure.
         generator.maximumSize = CGSize(width: 160, height: 360)
+        
+        // Dynamic Scroll Zone Probe on initial keyframes to isolate active scrolling content
+        var activeTopRatio: Double = 0.14
+        var activeBottomRatio: Double = 0.10
+        if candidateTimes.count >= 2,
+           let img0 = try? generator.copyCGImage(at: candidateTimes[0], actualTime: nil),
+           let img1 = try? generator.copyCGImage(at: candidateTimes[min(3, candidateTimes.count - 1)], actualTime: nil) {
+            let zone = ImageOverlapDetector.detectAdaptiveScrollZone(topImage: img0, bottomImage: img1)
+            let h = Double(img0.height)
+            if h > 50 {
+                if zone.topAnchorHeight > 10 {
+                    activeTopRatio = max(0.10, min(0.65, Double(zone.topAnchorHeight) / h))
+                }
+                if zone.bottomAnchorHeight > 10 {
+                    activeBottomRatio = max(0.06, min(0.35, Double(zone.bottomAnchorHeight) / h))
+                }
+            }
+        }
+        
         var candidates: [(time: CMTime, profile: [Double])] = []
         
         for cmTime in candidateTimes {
             autoreleasepool {
                 if let cgImage = try? generator.copyCGImage(at: cmTime, actualTime: nil) {
-                    let profile = calculate1DLuminanceProfile(cgImage: cgImage)
+                    let profile = calculate1DLuminanceProfile(
+                        cgImage: cgImage,
+                        topRatio: activeTopRatio,
+                        bottomRatio: activeBottomRatio
+                    )
                     if !profile.isEmpty {
                         candidates.append((time: cmTime, profile: profile))
                     }
@@ -118,7 +141,11 @@ public final class VideoFrameExtractor {
     
     // MARK: - Fast 1D Luminance Profile & Vertical Shift Estimation (<0.2ms per comparison)
     
-    private func calculate1DLuminanceProfile(cgImage: CGImage) -> [Double] {
+    private func calculate1DLuminanceProfile(
+        cgImage: CGImage,
+        topRatio: Double = 0.14,
+        bottomRatio: Double = 0.10
+    ) -> [Double] {
         let fullHeight = min(cgImage.height, 600)
         let width = min(cgImage.width, 160)
         
@@ -132,9 +159,9 @@ public final class VideoFrameExtractor {
         let stepY = max(1, cgImage.height / fullHeight)
         let stepX = max(1, cgImage.width / width)
         
-        // Exclude static status bar (top 15%) and home indicator (bottom 10%)
-        let startY = Int(Double(fullHeight) * 0.15)
-        let endY = Int(Double(fullHeight) * 0.90)
+        // Exclude dynamically detected static top zone and bottom bar
+        let startY = Int(Double(fullHeight) * topRatio)
+        let endY = Int(Double(fullHeight) * (1.0 - bottomRatio))
         let activeRows = max(1, endY - startY)
         
         var profile = [Double](repeating: 0.0, count: activeRows)

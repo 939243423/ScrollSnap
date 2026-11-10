@@ -82,28 +82,31 @@ public final class StitchEngine {
                 )
                 
                 // Adaptive Scroll Zone Analysis:
-                // Detects navigation bars, input bars, and split-screen media players (e.g. Xiaohongshu video notes, Bilibili)
+                // Evaluates multiple adjacent slice pairs to achieve consensus on fixed and scrolling zones
                 var detectedTopBar: CGFloat = 0
                 var detectedBottomBar: CGFloat = 0
                 var isSplitScreenMedia: Bool = false
+                var isChatAppDetected: Bool = false
                 
                 if loadedSlices.count >= 2 {
-                    var scrollZone = ImageOverlapDetector.detectAdaptiveScrollZone(
-                        topImage: loadedSlices[0].image,
-                        bottomImage: loadedSlices[1].image
+                    let consensusZone = ImageOverlapDetector.detectConsensusScrollZone(
+                        slices: loadedSlices.map(\.image)
                     )
-                    if scrollZone.confidence < 0.45 && loadedSlices.count >= 3 {
-                        let secondZone = ImageOverlapDetector.detectAdaptiveScrollZone(
-                            topImage: loadedSlices[1].image,
-                            bottomImage: loadedSlices[2].image
-                        )
-                        if secondZone.confidence > scrollZone.confidence {
-                            scrollZone = secondZone
-                        }
+                    detectedTopBar = consensusZone.topAnchorHeight
+                    detectedBottomBar = consensusZone.bottomAnchorHeight
+                    isSplitScreenMedia = consensusZone.isSplitScreenMedia
+                    isChatAppDetected = consensusZone.isChatAppDetected
+                }
+                
+                // If user selected chatRecord mode, or if chat app is detected, ensure safe minimum insets
+                // (WeChat / iMessage: top status bar + nav bar ~180px, bottom input bar ~160px)
+                if presetMode == .chatRecord || (presetMode == .smartAuto && isChatAppDetected) {
+                    if detectedTopBar < 120 {
+                        detectedTopBar = max(detectedTopBar, 180)
                     }
-                    detectedTopBar = scrollZone.topAnchorHeight
-                    detectedBottomBar = scrollZone.bottomAnchorHeight
-                    isSplitScreenMedia = scrollZone.isSplitScreenMedia
+                    if detectedBottomBar < 100 {
+                        detectedBottomBar = max(detectedBottomBar, 160)
+                    }
                 }
                 
                 var items: [StitchItem] = []
@@ -279,6 +282,10 @@ public final class StitchEngine {
     ) -> [(path: String, image: CGImage)] {
         guard slices.count >= 3 else { return slices }
         
+        let consensusZone = ImageOverlapDetector.detectConsensusScrollZone(slices: slices.map(\.image))
+        let topCrop = consensusZone.topAnchorHeight
+        let bottomCrop = consensusZone.bottomAnchorHeight
+        
         var selected: [(path: String, image: CGImage)] = []
         var currentCandidate = slices[0]
         selected.append(currentCandidate)
@@ -289,13 +296,18 @@ public final class StitchEngine {
             
             let match = ImageOverlapDetector.findOverlap(
                 topSlice: currentCandidate.image,
-                bottomSlice: nextSlice.image
+                bottomSlice: nextSlice.image,
+                topSliceTopCrop: topCrop,
+                topSliceBottomCrop: bottomCrop,
+                bottomSliceTopCrop: topCrop,
+                bottomSliceBottomCrop: bottomCrop
             )
             
-            let displacement = max(0, h - match.offset)
-            let displacementRatio = displacement / max(1.0, h)
+            let activeHeight = max(1.0, h - topCrop - bottomCrop)
+            let displacement = max(0, activeHeight - match.offset)
+            let displacementRatio = displacement / activeHeight
             
-            // Only drop if it is an identical stationary frame (no scroll movement at all, e.g. pause during recording)
+            // Only drop if it is an identical stationary frame (no scroll movement at all in active zone, e.g. pause during recording)
             if displacementRatio < 0.03 && displacement < 25 && match.confidence > 0.85 {
                 // Stationary pause frame, skip it unless it's the very last frame
                 if i == slices.count - 1 && selected.last?.path != nextSlice.path {

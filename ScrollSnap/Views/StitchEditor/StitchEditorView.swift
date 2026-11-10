@@ -240,6 +240,13 @@ public struct StitchEditorView: View {
                         .buttonStyle(ScrollSnapButtonStyle.bouncy)
                         
                         Menu {
+                            Section("微信分享") {
+                                Button {
+                                    copyDirectlyToClipboard(isWeChatSharing: true)
+                                } label: {
+                                    Label("发微信防折叠 (复制长图)", systemImage: "paperplane")
+                                }
+                            }
                             if !session.sourceAssetIdentifiers.isEmpty {
                                 Section("清理") {
                                     Button {
@@ -1502,7 +1509,7 @@ public struct StitchEditorView: View {
         }
     }
     
-    private func copyDirectlyToClipboard() {
+    private func copyDirectlyToClipboard(isWeChatSharing: Bool = false) {
         guard quotaManager.canStitch() else {
             isShowingPaywall = true
             return
@@ -1528,7 +1535,9 @@ public struct StitchEditorView: View {
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playMagneticSnap()
                     StoreReviewManager.shared.recordSuccessfulExport()
-                    self.toastMessage = "已复制长截图到剪贴板，可直接粘贴"
+                    self.toastMessage = isWeChatSharing
+                        ? "长截图已复制！去微信长按粘贴发送，告别多图折叠"
+                        : "已复制长截图到剪贴板，可直接粘贴"
                     showToast()
                 }
             }

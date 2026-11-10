@@ -19,6 +19,7 @@ public struct ScrollZoneDetectionResult {
     public let topAnchorHeight: CGFloat
     public let bottomAnchorHeight: CGFloat
     public let isSplitScreenMedia: Bool
+    public let isChatAppDetected: Bool
     public let scrollVelocityEstimate: CGFloat
     public let confidence: Double
     
@@ -26,12 +27,14 @@ public struct ScrollZoneDetectionResult {
         topAnchorHeight: CGFloat,
         bottomAnchorHeight: CGFloat,
         isSplitScreenMedia: Bool,
+        isChatAppDetected: Bool = false,
         scrollVelocityEstimate: CGFloat,
         confidence: Double
     ) {
         self.topAnchorHeight = topAnchorHeight
         self.bottomAnchorHeight = bottomAnchorHeight
         self.isSplitScreenMedia = isSplitScreenMedia
+        self.isChatAppDetected = isChatAppDetected
         self.scrollVelocityEstimate = scrollVelocityEstimate
         self.confidence = confidence
     }
@@ -75,6 +78,7 @@ public final class ImageOverlapDetector {
                 topAnchorHeight: 0,
                 bottomAnchorHeight: 0,
                 isSplitScreenMedia: false,
+                isChatAppDetected: false,
                 scrollVelocityEstimate: 0,
                 confidence: 0
             )
@@ -85,18 +89,17 @@ public final class ImageOverlapDetector {
         let featA = profileTop.combinedFeature
         let featB = profileBottom.combinedFeature
         
-        // Step 1: Detect dominant scroll displacement in lower-middle body
-        // Multi-point probe candidates (55%, 68%, 45%, 75%) guarantee locking onto active scrolling content
-        // even on sparse chat records or pages with large blank gaps
-        let candidateRatios: [Double] = [0.55, 0.68, 0.45, 0.75]
+        // Step 1: Detect dominant scroll displacement across multi-point candidate probes (35%, 45%, 55%, 68%, 75%)
+        // Ensures rock-solid tracking for chat dialogues, social comments, and dense article feeds
+        let candidateRatios: [Double] = [0.55, 0.68, 0.45, 0.75, 0.35]
         let probeLen = min(140, Int(Double(height) * 0.12))
         var dominantDisplacement: Int = 0
         var probeConfidence: Double = 0.0
         var activeProbeStart: Int = Int(Double(height) * 0.55)
         
         let invT = 1.0 / Double(probeLen)
-        let searchMin = Int(Double(height) * 0.12)
-        let searchMax = min(height - probeLen, Int(Double(height) * 0.88))
+        let searchMin = Int(Double(height) * 0.10)
+        let searchMax = min(height - probeLen, Int(Double(height) * 0.90))
         
         for ratio in candidateRatios {
             let pStart = Int(Double(height) * ratio)
@@ -149,9 +152,9 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // Step 2: Detect Stationary Bottom Anchor (input bar, tab bar, home indicator)
+        // Step 2: Dual Stationary & Motion-Inconsistency Check for Bottom Fixed Anchor (WeChat input bar, tab bar, home indicator)
         var detectedBottom: Int = 0
-        let maxBottomScan = min(Int(Double(height) * 0.25), 320)
+        let maxBottomScan = min(Int(Double(height) * 0.28), 360)
         var consecutiveNonStaticBottom = 0
         for i in 0..<maxBottomScan {
             let yA = height - 1 - i
@@ -159,19 +162,29 @@ public final class ImageOverlapDetector {
             guard yA >= 0, yB >= 0 else { break }
             let diffLum = abs(profileTop.luminance[yA] - profileBottom.luminance[yB])
             let diffEdge = abs(profileTop.horizontalEdgeEnergy[yA] - profileBottom.horizontalEdgeEnergy[yB])
-            if diffLum < 0.035 && diffEdge < 0.035 {
+            let isStaticRow = diffLum < 0.040 && diffEdge < 0.040
+            
+            var isMovingRow = false
+            if dominantDisplacement > 25 && yA >= dominantDisplacement {
+                let movingDiff = abs(featB[yA] - featA[yA - dominantDisplacement])
+                if movingDiff < 0.065 {
+                    isMovingRow = true
+                }
+            }
+            
+            if isStaticRow && !isMovingRow {
                 detectedBottom = i
                 consecutiveNonStaticBottom = 0
             } else {
                 consecutiveNonStaticBottom += 1
-                if i > 40 && consecutiveNonStaticBottom > 12 {
+                if i > 40 && consecutiveNonStaticBottom > 14 {
                     break
                 }
             }
         }
         let bottomAnchor = detectedBottom > 35 ? CGFloat(detectedBottom) : 0
         
-        // Step 3: Detect Stationary Top Anchor (Nav bar vs. Half-Screen Media like Xiaohongshu video)
+        // Step 3: Dual Stationary & Motion-Inconsistency Check for Top Fixed Anchor (Nav bar vs. Half-Screen Media like Xiaohongshu video)
         var detectedTop: Int = 0
         let maxTopScan = min(Int(Double(height) * 0.65), height - 200)
         var consecutiveNonStaticCount = 0
@@ -179,9 +192,17 @@ public final class ImageOverlapDetector {
         for y in 0..<maxTopScan {
             let diffLum = abs(profileTop.luminance[y] - profileBottom.luminance[y])
             let diffEdge = abs(profileTop.horizontalEdgeEnergy[y] - profileBottom.horizontalEdgeEnergy[y])
-            let isRowStatic = diffLum < 0.035 && diffEdge < 0.035
+            let isRowStatic = diffLum < 0.040 && diffEdge < 0.040
             
-            if isRowStatic {
+            var isMovingRow = false
+            if dominantDisplacement > 25 && y >= dominantDisplacement {
+                let movingDiff = abs(featB[y] - featA[y - dominantDisplacement])
+                if movingDiff < 0.065 {
+                    isMovingRow = true
+                }
+            }
+            
+            if isRowStatic && !isMovingRow {
                 detectedTop = y
                 consecutiveNonStaticCount = 0
             } else {
@@ -194,7 +215,7 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // Step 4: Refine split boundary using motion coherence when dominant displacement is known
+        // Step 4: Refine split boundary using downward motion coherence when dominant displacement is known
         var finalTopAnchor = CGFloat(detectedTop > 40 ? detectedTop : 0)
         if dominantDisplacement > 30 && probeConfidence > 0.35 {
             let searchUpwardLimit = max(0, Int(Double(height) * 0.08))
@@ -238,12 +259,71 @@ public final class ImageOverlapDetector {
             }
         }
         
+        // Step 6: Chat App Detection (WeChat, iMessage, DingTalk, Feishu)
+        // Characterized by top header in [120..360] pt/px and bottom input bar in [100..360] pt/px
+        var isChatApp = false
+        if !isSplitMedia && finalTopAnchor >= 120 && finalTopAnchor <= 360 && bottomAnchor >= 100 && bottomAnchor <= 360 {
+            let scrollStart = Int(finalTopAnchor)
+            let scrollEnd = height - Int(bottomAnchor)
+            if scrollEnd > scrollStart + 100 {
+                isChatApp = true
+            }
+        }
+        
         return ScrollZoneDetectionResult(
             topAnchorHeight: finalTopAnchor,
             bottomAnchorHeight: bottomAnchor,
             isSplitScreenMedia: isSplitMedia,
+            isChatAppDetected: isChatApp,
             scrollVelocityEstimate: CGFloat(dominantDisplacement),
             confidence: max(0.5, probeConfidence)
+        )
+    }
+    
+    /// Evaluates multiple slice pairs across a session to obtain a robust consensus on fixed zones
+    public static func detectConsensusScrollZone(slices: [CGImage]) -> ScrollZoneDetectionResult {
+        guard slices.count >= 2 else {
+            return ScrollZoneDetectionResult(
+                topAnchorHeight: 0,
+                bottomAnchorHeight: 0,
+                isSplitScreenMedia: false,
+                isChatAppDetected: false,
+                scrollVelocityEstimate: 0,
+                confidence: 0
+            )
+        }
+        
+        var topAnchors: [CGFloat] = []
+        var bottomAnchors: [CGFloat] = []
+        var splitMediaVotes = 0
+        var chatAppVotes = 0
+        var velocities: [CGFloat] = []
+        var maxConfidence = 0.0
+        
+        let pairsToEvaluate = min(4, slices.count - 1)
+        for i in 0..<pairsToEvaluate {
+            let res = detectAdaptiveScrollZone(topImage: slices[i], bottomImage: slices[i + 1])
+            if res.confidence > 0.35 {
+                if res.topAnchorHeight > 10 { topAnchors.append(res.topAnchorHeight) }
+                if res.bottomAnchorHeight > 10 { bottomAnchors.append(res.bottomAnchorHeight) }
+                if res.isSplitScreenMedia { splitMediaVotes += 1 }
+                if res.isChatAppDetected { chatAppVotes += 1 }
+                if res.scrollVelocityEstimate > 10 { velocities.append(res.scrollVelocityEstimate) }
+                maxConfidence = max(maxConfidence, res.confidence)
+            }
+        }
+        
+        let finalTop = topAnchors.isEmpty ? 0 : topAnchors.sorted()[topAnchors.count / 2]
+        let finalBottom = bottomAnchors.isEmpty ? 0 : bottomAnchors.sorted()[bottomAnchors.count / 2]
+        let finalVelocity = velocities.isEmpty ? 0 : velocities.sorted()[velocities.count / 2]
+        
+        return ScrollZoneDetectionResult(
+            topAnchorHeight: finalTop,
+            bottomAnchorHeight: finalBottom,
+            isSplitScreenMedia: splitMediaVotes > 0,
+            isChatAppDetected: chatAppVotes > 0,
+            scrollVelocityEstimate: finalVelocity,
+            confidence: max(0.5, maxConfidence)
         )
     }
     
