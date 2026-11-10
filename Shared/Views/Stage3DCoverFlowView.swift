@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// 通用 3D 拟物立体展台组件 (HIG 3D Cover Flow Stage)
-/// 具备 3D 矩阵偏转、侧边书脊曲面高光、地表镜面倒影与顺滑手势拖拽触觉反馈
+/// 卡片轮播视图组件
+/// 支持手势拖拽与视差切换
 public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
     public let items: [Item]
     @Binding public var selectedIndex: Int
@@ -44,7 +44,7 @@ public struct Stage3DCoverFlowView<Item: Identifiable, Content: View>: View {
                                 )
                                 .frame(width: 14)
                             }
-                            // 3D 矩阵偏转视差
+                            // 3D 旋转视差
                             .rotation3DEffect(
                                 .degrees(Double(offsetRatio) * -34.0),
                                 axis: (x: 0, y: 1, z: 0),

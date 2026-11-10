@@ -49,7 +49,7 @@ public struct HomeStitchView: View {
     @State private var isDismissedRecentScreenshots = false
     @State private var isDismissedRecentVideo = false
     @State private var isDismissedClipboardURL = false
-    @State private var processingStatusMessage = "正在智能拼接长图..."
+    @State private var processingStatusMessage = "正在拼接长图..."
     @State private var completedStitchFiles: [URL] = []
     
     public init() {}
@@ -266,7 +266,7 @@ public struct HomeStitchView: View {
                     .font(ScrollSnapTheme.FontToken.itemTitle)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text("请在系统设置允许访问相册，以智能感知截屏与保存长图")
+                Text("请在系统设置允许访问相册，以读取截图与保存长图")
                     .font(ScrollSnapTheme.FontToken.captionHint)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

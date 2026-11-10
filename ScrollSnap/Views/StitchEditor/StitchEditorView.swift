@@ -102,36 +102,7 @@ public struct StitchEditorView: View {
                 canvasScrollView
                 
                 // Seam Intelligence Hint
-                VStack(spacing: 6) {
-                    if hasLowConfidenceSeams && !isDismissedConfidenceWarning {
-                        HStack(spacing: 8) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundStyle(.orange)
-                                .font(.caption)
-                            Text("部分截图重叠较少，可转动下方滚轮微调对齐")
-                                .font(ScrollSnapTheme.FontToken.captionHint)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    isDismissedConfidenceWarning = true
-                                }
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .scrollSnapCard(radius: ScrollSnapTheme.Radius.md, strokeColor: Color.orange.opacity(0.35))
-                        .padding(.horizontal, 16)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    }
-                    
-                    Spacer()
-                }
+
                 
                 // Floating Quick Scrubber (Docked on Right Edge)
                 if session.presetMode != .horizontalCompare {
@@ -200,6 +171,18 @@ public struct StitchEditorView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 8) {
+                        Button {
+                            prepareAndOpenComparisonSheet()
+                        } label: {
+                            Image(systemName: "rectangle.split.2x1")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(6)
+                                .background(Color.secondary.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .accessibilityLabel("对比与浏览")
+                        .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                        
                         Button {
                             copyDirectlyToClipboard()
                         } label: {
