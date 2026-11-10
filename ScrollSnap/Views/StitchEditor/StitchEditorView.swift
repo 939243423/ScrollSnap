@@ -1447,15 +1447,21 @@ public struct StitchEditorView: View {
             for slice in session.slices {
                 rawTotalHeight += slice.originalHeight
             }
-            let rawMaxHeight = min(rawTotalHeight, 20480.0)
-            let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasWidth, height: rawMaxHeight))
-            let rawStackedData = renderer.jpegData(withCompressionQuality: 0.85) { ctx in
+            let format = UIGraphicsImageRendererFormat.default()
+            format.scale = 1.0 // Prevent 3x Retina multiplier explosion
+            format.opaque = true
+            let previewWidth = min(canvasWidth, 750.0)
+            let widthScale = previewWidth / max(1.0, canvasWidth)
+            let rawMaxHeight = min(rawTotalHeight * widthScale, 8192.0)
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: previewWidth, height: rawMaxHeight), format: format)
+            let rawStackedData = renderer.jpegData(withCompressionQuality: 0.82) { ctx in
                 var yOffset: CGFloat = 0
                 for slice in session.slices {
                     guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                           let img = UIImage(contentsOfFile: fileURL.path) else { continue }
-                    img.draw(in: CGRect(x: 0, y: yOffset, width: canvasWidth, height: slice.originalHeight))
-                    yOffset += slice.originalHeight
+                    let scaledH = slice.originalHeight * widthScale
+                    img.draw(in: CGRect(x: 0, y: yOffset, width: previewWidth, height: scaledH))
+                    yOffset += scaledH
                     if yOffset >= rawMaxHeight { break }
                 }
             }

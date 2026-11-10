@@ -50,7 +50,8 @@ public struct HomeStitchView: View {
     @State private var isDismissedRecentVideo = false
     @State private var isDismissedClipboardURL = false
     @State private var processingStatusMessage = "正在拼接长图..."
-    @State private var completedStitchFiles: [URL] = []
+    @State private var completedStitchFiles: [CompletedStitchItem] = []
+    @State private var isShowingClearHistoryAlert: Bool = false
     
     public init() {}
     
@@ -146,6 +147,14 @@ public struct HomeStitchView: View {
             }
             .sheet(isPresented: $isShowingWhatsNew) {
                 WhatsNewSheetView()
+            }
+            .alert("清空最近保存历史", isPresented: $isShowingClearHistoryAlert) {
+                Button("清空", role: .destructive) {
+                    clearCompletedHistory()
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("清空后将从首页移除最近保存的长图快捷预览，不会影响系统相册中已保存的照片。")
             }
             .onAppear {
                 quotaManager.refreshQuota()
@@ -725,7 +734,7 @@ public struct HomeStitchView: View {
                 
                 if !completedStitchFiles.isEmpty {
                     Button("清空") {
-                        clearCompletedHistory()
+                        isShowingClearHistoryAlert = true
                     }
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -739,82 +748,81 @@ public struct HomeStitchView: View {
                 ]
                 
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(completedStitchFiles, id: \.path) { fileURL in
-                        let item = CompletedStitchItem(id: fileURL.path, url: fileURL)
-                        if let image = UIImage(contentsOfFile: fileURL.path) {
-                            Button {
-                                HapticFeedbackManager.shared.triggerSelection()
-                                openCompletedStitch(item)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    ZStack(alignment: .bottom) {
-                                        // Top-aligned content preview so text and headers are actually legible
-                                        GeometryReader { cardGeo in
-                                            Image(uiImage: image)
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: cardGeo.size.width, height: cardGeo.size.height, alignment: .top)
-                                                .clipped()
-                                        }
-                                        .frame(height: 210)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        
-                                        // Subtle gradient overlay on bottom to signify continuation & ensure badge contrast
-                                        LinearGradient(
-                                            colors: [Color.black.opacity(0.0), Color.black.opacity(0.55)],
-                                            startPoint: .center,
-                                            endPoint: .bottom
-                                        )
-                                        .frame(height: 64)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        
-                                        // Bottom information strip
-                                        HStack {
+                    ForEach(completedStitchFiles) { item in
+                        Button {
+                            HapticFeedbackManager.shared.triggerSelection()
+                            openCompletedStitch(item)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ZStack(alignment: .bottom) {
+                                    // Top-aligned content preview loaded asynchronously without memory blowup
+                                    GeometryReader { cardGeo in
+                                        RecentStitchThumbnailView(url: item.url)
+                                            .frame(width: cardGeo.size.width, height: cardGeo.size.height, alignment: .top)
+                                            .clipped()
+                                    }
+                                    .frame(height: 210)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    
+                                    // Subtle gradient overlay on bottom to signify continuation & ensure badge contrast
+                                    LinearGradient(
+                                        colors: [Color.black.opacity(0.0), Color.black.opacity(0.55)],
+                                        startPoint: .center,
+                                        endPoint: .bottom
+                                    )
+                                    .frame(height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    
+                                    // Bottom information strip
+                                    HStack {
+                                        if item.pixelWidth > 0 && item.pixelHeight > 0 {
                                             HStack(spacing: 3) {
                                                 Image(systemName: "arrow.up.and.down")
                                                     .font(.system(size: 8, weight: .bold))
-                                                Text("\(Int(image.size.width * image.scale)) × \(Int(image.size.height * image.scale))")
+                                                Text("\(item.pixelWidth) × \(item.pixelHeight)")
                                                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                             }
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 3)
                                             .background(.ultraThinMaterial.opacity(0.85), in: Capsule())
-                                            
-                                            Spacer()
-                                            
-                                            // One-tap quick copy button
-                                            Button {
-                                                UIPasteboard.general.image = image
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        // One-tap quick copy button
+                                        Button {
+                                            if let img = UIImage(contentsOfFile: item.url.path) {
+                                                UIPasteboard.general.image = img
                                                 HapticFeedbackManager.shared.triggerSnap()
                                                 showToast(message: "已复制长截图到剪贴板")
-                                            } label: {
-                                                HStack(spacing: 3) {
-                                                    Image(systemName: "doc.on.doc.fill")
-                                                        .font(.system(size: 9, weight: .semibold))
-                                                    Text("复制")
-                                                        .font(.system(size: 10, weight: .bold))
-                                                }
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(.ultraThinMaterial, in: Capsule())
-                                                .foregroundStyle(.white)
                                             }
-                                            .buttonStyle(.plain)
+                                        } label: {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "doc.on.doc.fill")
+                                                    .font(.system(size: 9, weight: .semibold))
+                                                Text("复制")
+                                                    .font(.system(size: 10, weight: .bold))
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(.ultraThinMaterial, in: Capsule())
+                                            .foregroundStyle(.white)
                                         }
-                                        .padding(8)
+                                        .buttonStyle(.plain)
                                     }
-                                    .frame(height: 210)
-                                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
-                                    )
+                                    .padding(8)
                                 }
+                                .frame(height: 210)
+                                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
+                                )
                             }
-                            .buttonStyle(.plain)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             } else {
@@ -838,13 +846,24 @@ public struct HomeStitchView: View {
     private func refreshCompletedStitches() {
         let dir = AppGroupConstants.completedStitchesDirectory
         let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-        self.completedStitchFiles = items
+        let sortedURLs = items
             .filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
             .sorted(by: {
                 let d1 = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
                 let d2 = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
                 return d1 > d2
             })
+        
+        self.completedStitchFiles = sortedURLs.map { url in
+            var w = 0
+            var h = 0
+            if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] {
+                w = properties[kCGImagePropertyPixelWidth] as? Int ?? 0
+                h = properties[kCGImagePropertyPixelHeight] as? Int ?? 0
+            }
+            return CompletedStitchItem(id: url.path, url: url, pixelWidth: w, pixelHeight: h)
+        }
     }
     
     private func clearCompletedHistory() {
@@ -911,6 +930,15 @@ public struct HomeStitchView: View {
                 }
             }
             
+            guard paths.count >= 2 else {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.selectedPhotoItems.removeAll()
+                    self.showToast(message: "请至少选择 2 张连续截图进行拼接")
+                }
+                return
+            }
+            
             do {
                 let session = try await StitchEngine.shared.stitchSlices(
                     fileRelativePaths: paths,
@@ -925,7 +953,8 @@ public struct HomeStitchView: View {
             } catch {
                 await MainActor.run {
                     self.isProcessingStitch = false
-                    self.showToast(message: "录屏未提取到足够的重合画面，请重新录制")
+                    self.selectedPhotoItems.removeAll()
+                    self.showToast(message: "截图无明显连续重合部分，请检查选取")
                 }
             }
         }
@@ -1279,6 +1308,50 @@ public struct HomeStitchView: View {
 private struct CompletedStitchItem: Identifiable {
     let id: String
     let url: URL
+    let pixelWidth: Int
+    let pixelHeight: Int
+}
+
+private struct RecentStitchThumbnailView: View {
+    let url: URL
+    @State private var thumbnail: UIImage? = nil
+    
+    var body: some View {
+        ZStack {
+            if let image = thumbnail {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color.secondary.opacity(0.08)
+            }
+        }
+        .task(id: url.path) {
+            await loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() async {
+        let fileURL = url
+        let thumb = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil) else { return nil }
+            let maxPixelSize: CGFloat = 640
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+            ]
+            guard let cgThumb = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary) else {
+                return UIImage(contentsOfFile: fileURL.path)
+            }
+            return UIImage(cgImage: cgThumb)
+        }.value
+        
+        await MainActor.run {
+            self.thumbnail = thumb
+        }
+    }
 }
 
 private struct AssetThumbnailView: View {

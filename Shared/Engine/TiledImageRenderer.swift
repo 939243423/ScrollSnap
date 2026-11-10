@@ -200,39 +200,41 @@ public final class TiledImageRenderer {
             let layouts = computeVerticalLayout(session: session, canvasWidth: originalCanvasWidth)
             
             for layout in layouts {
-                let slice = session.slices[layout.sliceIndex]
-                guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
-                      let image = UIImage(contentsOfFile: fileURL.path) else {
-                    continue
+                autoreleasepool {
+                    let slice = session.slices[layout.sliceIndex]
+                    guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                          let image = UIImage(contentsOfFile: fileURL.path) else {
+                        return
+                    }
+                    
+                    let isLastSlice = (layout.sliceIndex == layouts.count - 1)
+                    let bleed: CGFloat = isLastSlice ? 0.0 : 0.5
+                    let drawRect = CGRect(x: 0, y: layout.canvasY, width: originalCanvasWidth, height: layout.canvasHeight + bleed)
+                    
+                    cgContext.saveGState()
+                    cgContext.clip(to: drawRect)
+                    
+                    let imageDrawRect = CGRect(
+                        x: 0,
+                        y: layout.canvasY - (layout.sourceYStart * layout.scale),
+                        width: originalCanvasWidth,
+                        height: slice.originalHeight * layout.scale
+                    )
+                    image.draw(in: imageDrawRect)
+                    
+                    // Draw legacy redactions mapped to slice coordinates
+                    for redaction in slice.redactions {
+                        let rX = redaction.relativeRect.minX * originalCanvasWidth
+                        let sliceY = redaction.relativeRect.minY * slice.originalHeight
+                        let rY = layout.canvasY + (sliceY - layout.sourceYStart) * layout.scale
+                        let rW = redaction.relativeRect.width * originalCanvasWidth
+                        let rH = (redaction.relativeRect.height * slice.originalHeight) * layout.scale
+                        let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
+                        applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
+                    }
+                    
+                    cgContext.restoreGState()
                 }
-                
-                let isLastSlice = (layout.sliceIndex == layouts.count - 1)
-                let bleed: CGFloat = isLastSlice ? 0.0 : 0.5
-                let drawRect = CGRect(x: 0, y: layout.canvasY, width: originalCanvasWidth, height: layout.canvasHeight + bleed)
-                
-                cgContext.saveGState()
-                cgContext.clip(to: drawRect)
-                
-                let imageDrawRect = CGRect(
-                    x: 0,
-                    y: layout.canvasY - (layout.sourceYStart * layout.scale),
-                    width: originalCanvasWidth,
-                    height: slice.originalHeight * layout.scale
-                )
-                image.draw(in: imageDrawRect)
-                
-                // Draw legacy redactions mapped to slice coordinates
-                for redaction in slice.redactions {
-                    let rX = redaction.relativeRect.minX * originalCanvasWidth
-                    let sliceY = redaction.relativeRect.minY * slice.originalHeight
-                    let rY = layout.canvasY + (sliceY - layout.sourceYStart) * layout.scale
-                    let rW = redaction.relativeRect.width * originalCanvasWidth
-                    let rH = (redaction.relativeRect.height * slice.originalHeight) * layout.scale
-                    let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
-                    applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
-                }
-                
-                cgContext.restoreGState()
             }
             
             // Draw all annotations onto the full stitched canvas
