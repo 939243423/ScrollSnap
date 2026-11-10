@@ -943,7 +943,7 @@ public struct HomeStitchView: View {
                 let session = try await StitchEngine.shared.stitchSlices(
                     fileRelativePaths: paths,
                     source: .photoLibrary,
-                    presetMode: .chatRecord
+                    presetMode: .smartAuto
                 )
                 await MainActor.run {
                     self.activeSessionToEdit = session
@@ -1117,7 +1117,7 @@ public struct HomeStitchView: View {
             } catch {
                 await MainActor.run {
                     self.isProcessingStitch = false
-                    self.showToast(message: "录屏未提取到足够的重合画面，请重新录制")
+                    self.showToast(message: "截图无明显连续重合部分，请检查选取")
                 }
             }
         }

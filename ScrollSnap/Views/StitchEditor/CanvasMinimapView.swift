@@ -78,6 +78,16 @@ public final class CanvasScrollController: ObservableObject {
         scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: targetY), animated: false)
         self.normalizedOffset = max(0, min(1.0, normalized))
     }
+    
+    public func scrollTo(pointY: CGFloat, animated: Bool = true) {
+        guard let scrollView = scrollView else { return }
+        let maxOffset = max(0, scrollView.contentSize.height - scrollView.bounds.height)
+        guard maxOffset > 0 else { return }
+        let targetY = max(0, min(maxOffset, pointY - scrollView.bounds.height * 0.35))
+        scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: targetY), animated: animated)
+        let ratio = max(0.0, min(1.0, targetY / maxOffset))
+        self.normalizedOffset = ratio
+    }
 }
 
 /// Custom interactive scrollbar that takes over edge scrolling with real-time bidirectional tracking

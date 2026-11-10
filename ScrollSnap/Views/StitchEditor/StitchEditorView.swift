@@ -103,9 +103,56 @@ public struct StitchEditorView: View {
                 // Main Interactive Canvas
                 canvasScrollView
                 
-                // Seam Intelligence Hint
-
-                
+                // Low Confidence Seam Warning Hint
+                if hasLowConfidenceSeams && !isDismissedConfidenceWarning && activeToolMode == nil {
+                    VStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.accentColor)
+                            Text("部分接缝重合度较低，可点击「调接缝」微调")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button("调接缝") {
+                                if let lowIdx = session.slices.dropFirst().firstIndex(where: { $0.confidence < 0.35 }) {
+                                    selectedSliceIndex = lowIdx
+                                }
+                                activeToolMode = .seamTuner
+                                isDismissedConfidenceWarning = true
+                                HapticFeedbackManager.shared.triggerSelection()
+                                if selectedSliceIndex > 0 && selectedSliceIndex < verticalLayouts.count {
+                                    let seamY = verticalLayouts[selectedSliceIndex].canvasY
+                                    scrollController.scrollTo(pointY: seamY, animated: true)
+                                }
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3.5)
+                            .background(Color.accentColor, in: Capsule())
+                            .foregroundStyle(.white)
+                            
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    isDismissedConfidenceWarning = true
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(4)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
                 // Floating Quick Scrubber (Docked on Right Edge)
                 if session.presetMode != .horizontalCompare {
                     VStack {
@@ -973,6 +1020,10 @@ public struct StitchEditorView: View {
                         totalSlices: session.slices.count,
                         onSelectSlice: { idx in
                             selectedSliceIndex = idx
+                            if idx > 0 && idx < verticalLayouts.count {
+                                let seamY = verticalLayouts[idx].canvasY
+                                scrollController.scrollTo(pointY: seamY, animated: true)
+                            }
                         },
                         onSnapToOptimal: {
                             if safeIndex > 0 && safeIndex < session.slices.count {
@@ -1016,6 +1067,13 @@ public struct StitchEditorView: View {
                                 activeToolMode = mode
                                 canvasInteractionMode = .draw
                                 selectedAnnotationId = nil
+                                if mode == .seamTuner {
+                                    let safeIdx = max(1, min(selectedSliceIndex, max(1, session.slices.count - 1)))
+                                    if safeIdx < verticalLayouts.count {
+                                        let seamY = verticalLayouts[safeIdx].canvasY
+                                        scrollController.scrollTo(pointY: seamY, animated: true)
+                                    }
+                                }
                             }
                         }
                     } label: {
@@ -1584,29 +1642,45 @@ public struct StitchEditorView: View {
             return
         }
         
+        isExporting = true
         Task {
             let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
             defer { try? FileManager.default.removeItem(at: tempOutput) }
-            try? TiledImageRenderer.renderStitchedImageToFile(
-                session: session,
-                annotations: annotations,
-                brushStrokes: brushStrokes,
-                outputURL: tempOutput,
-                format: .jpeg
-            )
-            
-            if let image = UIImage(contentsOfFile: tempOutput.path) {
-                let finalImage = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: storeKit.isProUser)
-                UIPasteboard.general.image = finalImage
-                quotaManager.recordStitchUsage()
+            do {
+                try TiledImageRenderer.renderStitchedImageToFile(
+                    session: session,
+                    annotations: annotations,
+                    brushStrokes: brushStrokes,
+                    outputURL: tempOutput,
+                    format: .jpeg
+                )
                 
+                if let image = UIImage(contentsOfFile: tempOutput.path) {
+                    let finalImage = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: storeKit.isProUser)
+                    UIPasteboard.general.image = finalImage
+                    quotaManager.recordStitchUsage()
+                    
+                    await MainActor.run {
+                        self.isExporting = false
+                        HapticFeedbackManager.shared.triggerSnap()
+                        SoundEffectManager.shared.playMagneticSnap()
+                        StoreReviewManager.shared.recordSuccessfulExport()
+                        self.toastMessage = isWeChatSharing
+                            ? "长截图已复制，去微信长按粘贴即可发送"
+                            : "已复制长截图到剪贴板，可直接粘贴"
+                        showToast()
+                    }
+                } else {
+                    await MainActor.run {
+                        self.isExporting = false
+                        self.toastMessage = "长截图生成失败，请重试"
+                        showToast()
+                    }
+                }
+            } catch {
                 await MainActor.run {
-                    HapticFeedbackManager.shared.triggerSnap()
-                    SoundEffectManager.shared.playMagneticSnap()
-                    StoreReviewManager.shared.recordSuccessfulExport()
-                    self.toastMessage = isWeChatSharing
-                        ? "长截图已复制，去微信长按粘贴即可发送"
-                        : "已复制长截图到剪贴板，可直接粘贴"
+                    self.isExporting = false
+                    self.toastMessage = "长截图生成失败，请重试"
                     showToast()
                 }
             }
@@ -1729,6 +1803,8 @@ public struct StitchEditorView: View {
             } catch {
                 await MainActor.run {
                     self.isExporting = false
+                    self.toastMessage = "保存失败，请检查相册权限或存储空间"
+                    showToast()
                 }
             }
         }
@@ -1777,6 +1853,8 @@ public struct StitchEditorView: View {
             } catch {
                 await MainActor.run {
                     self.isExporting = false
+                    self.toastMessage = "保存失败，请检查相册权限或存储空间"
+                    showToast()
                 }
             }
         }

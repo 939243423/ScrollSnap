@@ -20,7 +20,7 @@ public final class StitchEngine {
     public func stitchSlices(
         fileRelativePaths: [String],
         source: StitchCaptureSource = .photoLibrary,
-        presetMode: StitchPresetMode = .chatRecord,
+        presetMode: StitchPresetMode = .smartAuto,
         sourceAssetIdentifiers: [String] = []
     ) async throws -> StitchSession {
         return try await withCheckedThrowingContinuation { continuation in
@@ -35,11 +35,28 @@ public final class StitchEngine {
                     autoreleasepool {
                         guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: path),
                               let sourceData = try? Data(contentsOf: fileURL),
-                              let uiImage = UIImage(data: sourceData),
-                              let cgImage = uiImage.cgImage else {
+                              let uiImage = UIImage(data: sourceData) else {
                             return
                         }
-                        loadedSlices.append((path: path, image: cgImage))
+                        #if canImport(UIKit)
+                        let fixedCGImage: CGImage?
+                        if uiImage.imageOrientation == .up, let cg = uiImage.cgImage {
+                            fixedCGImage = cg
+                        } else {
+                            let format = UIGraphicsImageRendererFormat.default()
+                            format.scale = 1.0
+                            let renderer = UIGraphicsImageRenderer(size: uiImage.size, format: format)
+                            let normalized = renderer.image { _ in
+                                uiImage.draw(in: CGRect(origin: .zero, size: uiImage.size))
+                            }
+                            fixedCGImage = normalized.cgImage
+                        }
+                        #else
+                        let fixedCGImage = uiImage.cgImage
+                        #endif
+                        if let cg = fixedCGImage {
+                            loadedSlices.append((path: path, image: cg))
+                        }
                     }
                 }
                 
