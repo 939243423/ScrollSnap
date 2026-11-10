@@ -203,7 +203,7 @@ public struct WebCaptureView: View {
                 .padding(.vertical, 8)
                 .background(ScrollSnapTheme.Colors.primaryGradient)
                 .clipShape(Capsule())
-                .shadow(color: Color.indigo.opacity(0.35), radius: 8, y: 3)
+                .shadow(color: ScrollSnapTheme.Colors.brandAccent.opacity(0.28), radius: 8, y: 3)
             }
             .disabled(isCapturing || isLoading)
             .buttonStyle(ScrollSnapButtonStyle.bouncy)
@@ -243,7 +243,13 @@ public struct WebCaptureView: View {
     }
     
     private func sanitizeURLString(_ string: String) -> String {
-        var formatted = string
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "" }
+        if !trimmed.contains(".") && !trimmed.contains("://") {
+            let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
+            return "https://www.bing.com/search?q=\(encoded)"
+        }
+        var formatted = trimmed
         if !formatted.hasPrefix("http://") && !formatted.hasPrefix("https://") {
             formatted = "https://" + formatted
         }

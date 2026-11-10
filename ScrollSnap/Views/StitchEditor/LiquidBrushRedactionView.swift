@@ -9,6 +9,7 @@ public struct LiquidBrushRedactionView: View {
     @Binding public var annotations: [AnnotationItem]
     public var onAutoSanitize: (() -> Void)?
     public var isSanitizing: Bool
+    @State private var isShowingClearAlert: Bool = false
     
     public init(
         shapeMode: Binding<RedactionShapeMode>,
@@ -126,7 +127,7 @@ public struct LiquidBrushRedactionView: View {
                 
                 // Clear All Button
                 Button {
-                    handleClearAll()
+                    isShowingClearAlert = true
                 } label: {
                     Image(systemName: "trash.circle.fill")
                         .font(.system(size: 20))
@@ -134,6 +135,14 @@ public struct LiquidBrushRedactionView: View {
                 }
                 .disabled(totalRedactionsCount == 0)
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                .alert("清除所有遮挡？", isPresented: $isShowingClearAlert) {
+                    Button("清除", role: .destructive) {
+                        handleClearAll()
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("此操作将移除当前长图中的所有马赛克、模糊与涂黑遮挡。")
+                }
             }
             .padding(.horizontal, 4)
             

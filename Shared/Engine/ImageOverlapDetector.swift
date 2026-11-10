@@ -529,7 +529,8 @@ public final class ImageOverlapDetector {
         let effectiveBottomCrop = max(Int(bottomSliceBottomCrop), homeIndicatorInset)
         
         let safeTopStart = max(validTopStart + effectiveCropInBottom, max(statusSafetyInset, Int(bottomSliceTopCrop) + effectiveCropInBottom))
-        let templateLen = min(Int(templateHeightPt), bottomHeight - effectiveBottomCrop - templateStart)
+        let dynamicTemplateLen = max(Int(templateHeightPt), min(280, Int(CGFloat(bottomHeight) * 0.10)))
+        let templateLen = min(dynamicTemplateLen, bottomHeight - effectiveBottomCrop - templateStart)
         guard templateLen > 20 else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }

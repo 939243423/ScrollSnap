@@ -55,6 +55,7 @@ public struct StitchEditorView: View {
     @State private var textInputPrompt: String = ""
     @State private var isShowingTextAlert: Bool = false
     @State private var pendingTextLocation: CGPoint = .zero
+    @State private var isShowingClearAnnotationsAlert: Bool = false
     
     // Interactive Loupe (Magnifying Glass) State
     @State private var isShowingLoupe: Bool = false
@@ -1122,11 +1123,7 @@ public struct StitchEditorView: View {
                 
                 // Clear all annotations
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        annotations.removeAll { $0.kind != .mosaic }
-                        selectedAnnotationId = nil
-                    }
-                    HapticFeedbackManager.shared.triggerWarning()
+                    isShowingClearAnnotationsAlert = true
                 } label: {
                     Image(systemName: "trash.circle.fill")
                         .font(.system(size: 20))
@@ -1134,6 +1131,18 @@ public struct StitchEditorView: View {
                 }
                 .disabled(nonMosaicAnnotationsCount == 0)
                 .buttonStyle(ScrollSnapButtonStyle.bouncy)
+                .alert("清除所有标注？", isPresented: $isShowingClearAnnotationsAlert) {
+                    Button("清除", role: .destructive) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            annotations.removeAll { $0.kind != .mosaic }
+                            selectedAnnotationId = nil
+                        }
+                        HapticFeedbackManager.shared.triggerWarning()
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("此操作将移除当前长图中的所有方框、箭头、文字与画笔标注。")
+                }
             }
             .padding(.horizontal, 4)
             
