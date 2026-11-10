@@ -341,7 +341,9 @@ public struct WebCaptureView: View {
             ctx.fill(CGRect(origin: .zero, size: targetSize))
             
             ctx.cgContext.saveGState()
-            ctx.cgContext.translateBy(x: 0, y: targetSize.height)
+            let tx = -pageRect.origin.x * scale
+            let ty = (pageRect.origin.y + pageRect.height) * scale
+            ctx.cgContext.translateBy(x: tx, y: ty)
             ctx.cgContext.scaleBy(x: scale, y: -scale)
             ctx.cgContext.drawPDFPage(page)
             ctx.cgContext.restoreGState()

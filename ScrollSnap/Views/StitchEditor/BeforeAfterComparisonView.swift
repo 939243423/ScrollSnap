@@ -20,6 +20,7 @@ public struct BeforeAfterComparisonView: View {
     @State private var tabMode: ComparisonTabMode = .splitCurtain
     @State private var splitRatio: CGFloat = 0.5
     @State private var isDragging: Bool = false
+    @State private var isFullWidthScrollable: Bool = true
     @State private var currentSliceIndex: Int = 0
     @State private var loadedSliceImages: [UIImage] = []
     
@@ -91,75 +92,85 @@ public struct BeforeAfterComparisonView: View {
             let size = proxy.size
             let splitX = size.width * splitRatio
             
-            ZStack(alignment: .leading) {
-                // 1. Right Layer: "After" ScrollSnap Seamless Stitched Image
-                if let after = afterImage {
-                    Image(uiImage: after)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: size.width, height: size.height)
-                } else {
-                    placeholderView(
-                        title: "拼接长图",
-                        subtitle: "自动去除重合部分",
-                        color: Color.accentColor
-                    )
-                    .frame(width: size.width, height: size.height)
-                }
-                
-                // 2. Left Layer: "Before" Raw Overlapping Screenshots (Clipped to splitX)
-                Group {
-                    if let before = beforeImage {
-                        Image(uiImage: before)
+            let imgW = afterImage?.size.width ?? 393.0
+            let imgH = afterImage?.size.height ?? size.height
+            let naturalH = max(size.height, (imgH / max(1.0, imgW)) * size.width)
+            let displayH = isFullWidthScrollable ? naturalH : size.height
+            
+            ScrollView(.vertical, showsIndicators: false) {
+                ZStack(alignment: .leading) {
+                    // 1. Right Layer: "After" ScrollSnap Seamless Stitched Image
+                    if let after = afterImage {
+                        Image(uiImage: after)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: size.width, height: size.height)
+                            .frame(width: size.width, height: displayH, alignment: .top)
                     } else {
                         placeholderView(
-                            title: "原始截图",
-                            subtitle: "包含重叠部分",
-                            color: .secondary
+                            title: "拼接长图",
+                            subtitle: "自动去除重合部分",
+                            color: Color.accentColor
                         )
-                        .frame(width: size.width, height: size.height)
+                        .frame(width: size.width, height: displayH)
                     }
-                }
-                .frame(width: max(0, splitX), alignment: .leading)
-                .clipped()
-                
-                // 3. Center Split Handle Bar
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.1), Color.white, Color.white.opacity(0.1)],
-                            startPoint: .top,
-                            endPoint: .bottom
+                    
+                    // 2. Left Layer: "Before" Raw Overlapping Screenshots (Clipped to splitX)
+                    Group {
+                        if let before = beforeImage {
+                            Image(uiImage: before)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: size.width, height: displayH, alignment: .top)
+                        } else {
+                            placeholderView(
+                                title: "原始截图",
+                                subtitle: "包含重叠部分",
+                                color: .secondary
+                            )
+                            .frame(width: size.width, height: displayH)
+                        }
+                    }
+                    .frame(width: max(0, splitX), alignment: .leading)
+                    .clipped()
+                    
+                    // 3. Center Split Handle Bar
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.1), Color.white, Color.white.opacity(0.1)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
-                    .frame(width: 2)
-                    .shadow(color: .white.opacity(0.8), radius: 4)
-                    .position(x: splitX, y: size.height / 2)
-                
-                // 4. Center Drag Pill Indicator
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 9, weight: .bold))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
+                        .frame(width: 2)
+                        .shadow(color: .white.opacity(0.8), radius: 4)
+                        .frame(height: displayH)
+                        .position(x: splitX, y: displayH / 2)
+                    
+                    // 4. Center Drag Pill Indicator
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 9, weight: .bold))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.white).shadow(color: .black.opacity(0.3), radius: 8, y: 2))
+                    .position(x: splitX, y: min(displayH / 2, size.height / 2))
+                    .scaleEffect(isDragging ? 1.15 : 1.0)
+                    .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("对比滑块")
+                    .accessibilityValue("左侧原图显示 \(Int(splitRatio * 100))%，右侧拼接图显示 \(Int((1 - splitRatio) * 100))%")
                 }
-                .foregroundStyle(.black)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(Color.white).shadow(color: .black.opacity(0.3), radius: 8, y: 2))
-                .position(x: splitX, y: size.height / 2)
-                .scaleEffect(isDragging ? 1.15 : 1.0)
-                .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isDragging)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("对比滑块")
-                .accessibilityValue("左侧原图显示 \(Int(splitRatio * 100))%，右侧拼接图显示 \(Int((1 - splitRatio) * 100))%")
+                .frame(width: size.width, height: displayH)
             }
+            .scrollDisabled(!isFullWidthScrollable)
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0)
+                DragGesture(minimumDistance: 10)
                     .onChanged { val in
                         isDragging = true
                         let newRatio = min(max(val.location.x / size.width, 0.05), 0.95)
@@ -181,6 +192,25 @@ public struct BeforeAfterComparisonView: View {
                     Circle().fill(Color.secondary).frame(width: 6, height: 6)
                     Text("左：原始截图")
                 }
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+                        isFullWidthScrollable.toggle()
+                    }
+                    HapticFeedbackManager.shared.triggerSelection()
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: isFullWidthScrollable ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(isFullWidthScrollable ? "整图适屏" : "清晰阅读")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.18), in: Capsule())
+                    .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
                 Spacer()
                 HStack(spacing: 4) {
                     Circle().fill(Color.accentColor).frame(width: 6, height: 6)

@@ -886,6 +886,7 @@ public struct HomeStitchView: View {
             } catch {
                 await MainActor.run {
                     self.isProcessingStitch = false
+                    self.showToast(message: "录屏未提取到足够的重合画面，请重新录制")
                 }
             }
         }
@@ -924,6 +925,7 @@ public struct HomeStitchView: View {
             } catch {
                 await MainActor.run {
                     self.isProcessingStitch = false
+                    self.showToast(message: "录屏未提取到足够的重合画面，请重新录制")
                 }
             }
         }
@@ -1086,6 +1088,7 @@ public struct HomeStitchView: View {
             } catch {
                 await MainActor.run {
                     self.isProcessingStitch = false
+                    self.showToast(message: "录屏未提取到足够的重合画面，请重新录制")
                 }
             }
         }
@@ -1137,6 +1140,7 @@ public struct HomeStitchView: View {
             } else {
                 await MainActor.run {
                     self.isProcessingStitch = false
+                    self.showToast(message: "截图无明显连续重合部分，请检查选取")
                 }
             }
         }
