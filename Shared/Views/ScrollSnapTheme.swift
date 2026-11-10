@@ -358,6 +358,16 @@ public struct ScrollSnapLoadingHUDModifier: ViewModifier {
     }
 }
 
+public extension Color {
+    /// 便捷十六进制初始化方法 (例如: Color(hex: 0x1E3A8A))
+    init(hex: UInt32, opacity: Double = 1.0) {
+        let red = Double((hex >> 16) & 0xFF) / 255.0
+        let green = Double((hex >> 8) & 0xFF) / 255.0
+        let blue = Double(hex & 0xFF) / 255.0
+        self.init(.sRGB, red: red, green: green, blue: blue, opacity: opacity)
+    }
+}
+
 public extension View {
     /// 统一液态玻璃卡片修饰器
     func scrollSnapCard(
