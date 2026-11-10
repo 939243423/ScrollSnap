@@ -104,7 +104,7 @@ public final class VideoFrameExtractor {
             // Only gate displacement if the frames exhibit coherent continuous overlap
             if match.confidence > 0.35 {
                 // Skip reverse upward bounce to prevent duplicate backward frames
-                if shift < -12.0 {
+                if shift < -8.0 {
                     i += 1
                     continue
                 }
@@ -114,7 +114,12 @@ public final class VideoFrameExtractor {
                     // If candidate (i - 1) exists and moved, choose it first to preserve continuous overlap!
                     let chosen = (i > 1 && candidates[i - 1].time != currentCandidate.time) ? candidates[i - 1] : cand
                     selectedTimes.append(chosen.time)
+                    let wasPrevious = (chosen.time == candidates[i - 1].time)
                     currentCandidate = chosen
+                    if wasPrevious {
+                        // Re-evaluate candidate i against the updated currentCandidate
+                        continue
+                    }
                 } else if shift >= targetDisplacement {
                     // Reached sweet spot (45% - 70% displacement)
                     selectedTimes.append(cand.time)
@@ -207,19 +212,26 @@ public final class VideoFrameExtractor {
         guard len > 40 else { return (0, 0) }
         
         let maxShift = Int(Double(len) * 0.75)
+        let maxReverseShift = min(30, Int(Double(len) * 0.15))
         var bestShift = 0
         var minDiff: Double = .greatestFiniteMagnitude
         var diffTable: [Int: Double] = [:]
         
-        // Coarse pass (stride: 2)
-        for shift in stride(from: 0, through: maxShift, by: 2) {
-            let overlapLen = len - shift
-            guard overlapLen > 25 else { break }
+        // Coarse pass across both reverse bounce [-maxReverseShift ... 0] and forward scroll [0 ... maxShift]
+        for shift in stride(from: -maxReverseShift, through: maxShift, by: 2) {
+            let overlapLen = shift >= 0 ? (len - shift) : (len + shift)
+            guard overlapLen > 25 else { continue }
             
             var diffSum: Double = 0
-            for y in 0..<overlapLen {
-                let diff = abs(profileA[y + shift] - profileB[y])
-                diffSum += diff
+            if shift >= 0 {
+                for y in 0..<overlapLen {
+                    diffSum += abs(profileA[y + shift] - profileB[y])
+                }
+            } else {
+                let absShift = -shift
+                for y in 0..<overlapLen {
+                    diffSum += abs(profileA[y] - profileB[y + absShift])
+                }
             }
             let avgDiff = diffSum / Double(overlapLen)
             diffTable[shift] = avgDiff
@@ -231,12 +243,19 @@ public final class VideoFrameExtractor {
         
         // Fine evaluation of immediate neighbor rows
         for fineShift in [bestShift - 1, bestShift + 1] {
-            if fineShift >= 0 && fineShift <= maxShift && diffTable[fineShift] == nil {
-                let overlapLen = len - fineShift
+            if fineShift >= -maxReverseShift && fineShift <= maxShift && diffTable[fineShift] == nil {
+                let overlapLen = fineShift >= 0 ? (len - fineShift) : (len + fineShift)
                 if overlapLen > 25 {
                     var diffSum: Double = 0
-                    for y in 0..<overlapLen {
-                        diffSum += abs(profileA[y + fineShift] - profileB[y])
+                    if fineShift >= 0 {
+                        for y in 0..<overlapLen {
+                            diffSum += abs(profileA[y + fineShift] - profileB[y])
+                        }
+                    } else {
+                        let absShift = -fineShift
+                        for y in 0..<overlapLen {
+                            diffSum += abs(profileA[y] - profileB[y + absShift])
+                        }
                     }
                     let avgDiff = diffSum / Double(overlapLen)
                     diffTable[fineShift] = avgDiff

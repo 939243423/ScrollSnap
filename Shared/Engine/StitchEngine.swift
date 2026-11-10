@@ -99,13 +99,18 @@ public final class StitchEngine {
                 }
                 
                 // If user selected chatRecord mode, or if chat app is detected, ensure safe minimum insets
-                // (WeChat / iMessage: top status bar + nav bar ~180px, bottom input bar ~160px)
+                // (WeChat / iMessage: top status bar + nav bar ~280px on @3x, bottom input bar ~240px)
                 if presetMode == .chatRecord || (presetMode == .smartAuto && isChatAppDetected) {
-                    if detectedTopBar < 120 {
-                        detectedTopBar = max(detectedTopBar, 180)
-                    }
-                    if detectedBottomBar < 100 {
-                        detectedBottomBar = max(detectedBottomBar, 160)
+                    if let firstImage = loadedSlices.first?.image {
+                        let h = CGFloat(firstImage.height)
+                        let chatTopFallback = min(h * 0.12, 280)
+                        let chatBottomFallback = min(h * 0.10, 240)
+                        if detectedTopBar < 120 {
+                            detectedTopBar = max(detectedTopBar, chatTopFallback)
+                        }
+                        if detectedBottomBar < 100 {
+                            detectedBottomBar = max(detectedBottomBar, chatBottomFallback)
+                        }
                     }
                 }
                 

@@ -769,7 +769,7 @@ public final class ImageOverlapDetector {
         return OverlapMatchResult(
             offset: overlapHeight,
             confidence: normalizedConfidence,
-            optimalSeamY: max(0.0, optimalSeamInBottom)
+            optimalSeamY: max(0.0, min(overlapHeight, optimalSeamInBottom))
         )
     }
     

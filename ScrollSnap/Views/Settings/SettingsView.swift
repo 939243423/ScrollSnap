@@ -30,7 +30,7 @@ public struct SettingsView: View {
                     } label: {
                         HStack(spacing: 12) {
                             LiquidGlassIconPod(
-                                systemName: "star.circle.fill",
+                                systemName: "checkmark.seal.fill",
                                 tint: .accentColor,
                                 size: 36,
                                 cornerRadius: ScrollSnapTheme.Radius.sm
@@ -178,8 +178,8 @@ public struct SettingsView: View {
                                             .font(.system(size: 9, weight: .bold))
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 1)
-                                            .background(Color.orange.opacity(0.18))
-                                            .foregroundStyle(.orange)
+                                            .background(Color.accentColor.opacity(0.14))
+                                            .foregroundStyle(Color.accentColor)
                                             .clipShape(Capsule())
                                     }
                                     Text("当前为免费版，长图底部附带极简签名 · 升级可去除")
@@ -379,10 +379,13 @@ public struct SettingsView: View {
     }
     
     private func formatBytes(_ bytes: Int64) -> String {
-        if bytes == 0 { return "0 MB" }
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useMB, .useKB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
+        if bytes <= 0 { return "0.0 MB" }
+        if bytes < 1024 * 1024 {
+            let kb = Double(bytes) / 1024.0
+            return String(format: "%.1f KB", kb)
+        } else {
+            let mb = Double(bytes) / (1024.0 * 1024.0)
+            return String(format: "%.1f MB", mb)
+        }
     }
 }

@@ -35,7 +35,7 @@ public struct SocialGridStageView: View {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "square.grid.3x3.fill")
-                        .foregroundStyle(Color.pink)
+                        .foregroundStyle(Color.accentColor)
                     Text("3:4 比例切片")
                         .font(.caption.bold())
                 }
@@ -59,7 +59,7 @@ public struct SocialGridStageView: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .strokeBorder(
-                                        hoveredCardIndex == index ? Color.pink : Color.white.opacity(0.18),
+                                        hoveredCardIndex == index ? Color.accentColor : Color.white.opacity(0.18),
                                         lineWidth: hoveredCardIndex == index ? 2 : 0.8
                                     )
                             )
@@ -83,7 +83,7 @@ public struct SocialGridStageView: View {
                 }
             }
             .padding(ScrollSnapTheme.Spacing.sm + 2)
-            .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.pink.opacity(0.25))
+            .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg, strokeColor: Color.accentColor.opacity(0.20))
             
             // Actions Row
             HStack(spacing: 10) {
@@ -125,7 +125,7 @@ public struct SocialGridStageView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                 }
-                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.studioGradient))
+                .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
                 .disabled(isSaving || slices.isEmpty)
             }
         }

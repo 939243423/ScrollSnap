@@ -19,7 +19,7 @@ public final class PrivacySanitizer: ObservableObject {
         public let isFace: Bool
     }
     
-    /// Scans a full stitched image using Apple Vision framework on the Neural Engine.
+    /// Scans a full stitched image using Apple Vision framework locally on device.
     /// Detects human faces (avatars), 11-digit mobile phone numbers, emails, and ID card numbers.
     public func detectSensitiveRegions(in image: UIImage) async -> [AnnotationItem] {
         guard let cgImage = image.cgImage else { return [] }

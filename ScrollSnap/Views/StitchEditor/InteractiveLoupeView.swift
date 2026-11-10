@@ -44,16 +44,16 @@ public struct InteractiveLoupeView<Content: View>: View {
             // Precision Crosshairs & Reticle
             ZStack {
                 Rectangle()
-                    .fill(Color.orange.opacity(0.85))
+                    .fill(Color.accentColor.opacity(0.85))
                     .frame(width: 1, height: diameter * 0.45)
                 Rectangle()
-                    .fill(Color.orange.opacity(0.85))
+                    .fill(Color.accentColor.opacity(0.85))
                     .frame(width: diameter * 0.45, height: 1)
                 Circle()
-                    .stroke(Color.orange.opacity(0.85), lineWidth: 1.2)
+                    .stroke(Color.accentColor.opacity(0.85), lineWidth: 1.2)
                     .frame(width: 18, height: 18)
                 Circle()
-                    .fill(Color.orange)
+                    .fill(Color.accentColor)
                     .frame(width: 3, height: 3)
             }
             

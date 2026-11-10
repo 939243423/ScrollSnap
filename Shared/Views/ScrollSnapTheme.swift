@@ -87,30 +87,30 @@ public enum ScrollSnapTheme {
             endPoint: .bottomTrailing
         )
         
-        /// 录屏与视频提取渐变 (深紫 -> 靛蓝)
+        /// 录屏与视频提取渐变 (深蓝 -> 皇家蓝)
         public static let videoGradient = LinearGradient(
-            colors: [Color.purple, Color.indigo],
+            colors: [Color(hex: 0x1E3A8A), Color(hex: 0x2563EB)],
             startPoint: .leading,
             endPoint: .trailing
         )
         
-        /// 永久买断与特权高光渐变 (琥珀橙 -> 金色)
+        /// 永久买断与特权高光渐变 (尊贵深蓝 -> 皇家钴蓝)
         public static let proGoldGradient = LinearGradient(
-            colors: [Color.orange, Color.yellow],
+            colors: [Color(hex: 0x1E3A8A), Color(hex: 0x2970FA)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
         
-        /// 网页整页直出渐变 (青色 -> 薄荷绿)
+        /// 网页整页直出渐变 (电光蓝 -> 天蓝)
         public static let webTealGradient = LinearGradient(
-            colors: [Color.teal, Color.cyan],
+            colors: [Color(hex: 0x0284C7), Color(hex: 0x38BDF8)],
             startPoint: .leading,
             endPoint: .trailing
         )
         
-        /// 样机海报渐变 (玫红 -> 紫色)
+        /// 样机与切图渐变 (靛蓝 -> 皇家蓝)
         public static let studioGradient = LinearGradient(
-            colors: [Color.pink, Color.purple],
+            colors: [Color(hex: 0x312E81), Color(hex: 0x2970FA)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )

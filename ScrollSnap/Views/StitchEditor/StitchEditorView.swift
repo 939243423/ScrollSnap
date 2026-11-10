@@ -538,7 +538,7 @@ public struct StitchEditorView: View {
                                     if abs(slice.manualOffsetAdjustment) > 0.5 {
                                         Text("\(slice.manualOffsetAdjustment > 0 ? "+" : "")\(Int(slice.manualOffsetAdjustment))px")
                                             .font(.caption2.monospacedDigit())
-                                            .foregroundStyle(Color.yellow)
+                                            .foregroundStyle(Color.white.opacity(0.9))
                                     }
                                 }
                                 .padding(.horizontal, 10)

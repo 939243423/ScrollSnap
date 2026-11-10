@@ -41,10 +41,10 @@ public struct ProSubscriptionView: View {
                         }
                         #endif
                         
-                        Text("ScrollSnap Pro 永久买断")
+                        Text(storeKit.isProUser ? "ScrollSnap Pro 永久会员" : "ScrollSnap Pro 永久买断")
                             .font(.system(.title2, design: .rounded).weight(.bold))
                         
-                        Text("每天免费提供 2 次拼图额度。支付 ¥1.00 永久解锁全部功能，无任何订阅费。")
+                        Text(storeKit.isProUser ? "您已解锁全部功能，享有无限制长截图拼接与无水印导出。" : "每天免费提供 2 次拼图额度。支付 ¥1.00 永久解锁全部功能，无任何订阅费。")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -52,65 +52,84 @@ public struct ProSubscriptionView: View {
                     }
                     .padding(.top, 16)
                     
-                    // Daily Free Quota Indicator Card
-                    HStack(spacing: 14) {
-                        LiquidGlassIconPod(
-                            systemName: "clock.arrow.circlepath",
-                            tint: .accentColor,
-                            size: 40,
-                            cornerRadius: ScrollSnapTheme.Radius.sm
-                        )
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("今日免费额度")
-                                .font(ScrollSnapTheme.FontToken.itemTitle)
-                            Text(storeKit.isProUser ? "已解锁永久会员，无任何限制" : "剩余 \(quotaManager.remainingDailyFreeStitches) / \(QuotaManager.defaultDailyLimit) 次（每日 00:00 自动刷新）")
-                                .font(ScrollSnapTheme.FontToken.captionHint)
-                                .foregroundStyle(.secondary)
+                    // Unified Perks & Status Card (Single cohesive background, zero nested boxes)
+                    VStack(spacing: 16) {
+                        if storeKit.isProUser {
+                            HStack(spacing: 12) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundStyle(Color.accentColor)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("永久会员已激活")
+                                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                                        .foregroundStyle(.primary)
+                                    Text("享有无限制长截图拼接、接缝微调与无水印导出")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                        } else {
+                            HStack(spacing: 10) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Color.accentColor)
+                                
+                                Text("今日免费额度: 剩余 \(quotaManager.remainingDailyFreeStitches) / \(QuotaManager.defaultDailyLimit) 次")
+                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                
+                                Spacer()
+                                
+                                Text("每日 00:00 自动刷新")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 4)
                         }
                         
-                        Spacer()
+                        Divider()
+                        
+                        VStack(spacing: 14) {
+                            perkRow(
+                                icon: "photo.on.rectangle.angled",
+                                tint: .accentColor,
+                                title: "无限长截图拼接",
+                                detail: "每日不限拼图次数，支持超长无损长截图导出"
+                            )
+                            perkRow(
+                                icon: "arrow.up.and.down",
+                                tint: .accentColor,
+                                title: "接缝微调与放大镜",
+                                detail: "滑动微调接缝位置，配合放大镜精准对齐"
+                            )
+                            perkRow(
+                                icon: "eye.slash",
+                                tint: .accentColor,
+                                title: "自由打码与画笔标注",
+                                detail: "自由手绘模糊、马赛克、涂黑遮挡与文字批注"
+                            )
+                            perkRow(
+                                icon: "square.grid.3x3",
+                                tint: .accentColor,
+                                title: "九宫格社交切图",
+                                detail: "长图一键切九宫格，微信朋友圈免压缩发图"
+                            )
+                        }
                     }
-                    .padding(ScrollSnapTheme.Spacing.md + 2)
-                    .scrollSnapCard(radius: ScrollSnapTheme.Radius.lg)
-                    
-                    // Lifetime Perks List with Clean Unified Icons
-                    VStack(spacing: 14) {
-                        perkRow(
-                            icon: "photo.on.rectangle.angled",
-                            tint: .accentColor,
-                            title: "无限长截图拼接",
-                            detail: "每日不限拼图次数，支持超长无损长截图导出"
-                        )
-                        perkRow(
-                            icon: "arrow.up.and.down",
-                            tint: .accentColor,
-                            title: "接缝微调与放大镜",
-                            detail: "滑动微调接缝位置，配合放大镜精准对齐"
-                        )
-                        perkRow(
-                            icon: "eye.slash",
-                            tint: .accentColor,
-                            title: "自由打码与画笔标注",
-                            detail: "自由手绘模糊、马赛克、涂黑遮挡与箭头文字批注"
-                        )
-                        perkRow(
-                            icon: "square.grid.3x3",
-                            tint: .accentColor,
-                            title: "九宫格社交切图",
-                            detail: "长图一键切九宫格，微信朋友圈与小红书免压缩发图"
-                        )
-                    }
-                    .padding(ScrollSnapTheme.Spacing.lg + 2)
+                    .padding(ScrollSnapTheme.Spacing.lg)
                     .scrollSnapCard(radius: ScrollSnapTheme.Radius.xl)
                     
                     // Purchase Action Block
                     VStack(spacing: 12) {
                         if storeKit.isProUser {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "checkmark.seal.fill")
                                     .foregroundStyle(Color.accentColor)
-                                Text("已解锁全部功能")
+                                Text("您已拥有永久所有权")
                                     .font(.subheadline.bold())
                             }
                             .padding(.vertical, 8)
@@ -132,7 +151,7 @@ public struct ProSubscriptionView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.proGoldGradient))
+                            .buttonStyle(ScrollSnapButtonStyle.heroPrimary(gradient: ScrollSnapTheme.Colors.primaryGradient))
                             .disabled(isPurchasing)
                         }
                         

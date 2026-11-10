@@ -105,8 +105,8 @@ public struct LiquidBrushRedactionView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(Color.orange.opacity(0.18))
-                        .foregroundStyle(Color.orange)
+                        .background(Color.accentColor.opacity(0.14))
+                        .foregroundStyle(Color.accentColor)
                         .clipShape(Capsule())
                     }
                     .disabled(isSanitizing)
