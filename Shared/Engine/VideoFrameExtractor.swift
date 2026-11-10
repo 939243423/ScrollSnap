@@ -31,11 +31,24 @@ public final class VideoFrameExtractor {
         let startTime = min(0.25, duration * 0.1)
         let endTime = max(startTime + 0.3, duration - 0.25)
         
+        // Dynamic adaptive candidate probe rate:
+        // Shorter recordings (<= 12s): 25 fps (0.04s) for high flick responsiveness
+        // Medium recordings (12s - 30s): 20 fps (0.05s)
+        // Long recordings (> 30s): 16.7 fps (0.06s) to conserve memory and accelerate processing
+        let effectiveStep: Double
+        if duration <= 12.0 {
+            effectiveStep = candidateStepSeconds
+        } else if duration <= 30.0 {
+            effectiveStep = max(candidateStepSeconds, 0.05)
+        } else {
+            effectiveStep = max(candidateStepSeconds, 0.06)
+        }
+        
         var candidateTimes: [CMTime] = []
         var t = startTime
         while t <= endTime {
             candidateTimes.append(CMTime(seconds: t, preferredTimescale: 600))
-            t += candidateStepSeconds
+            t += effectiveStep
         }
         
         guard !candidateTimes.isEmpty else { return [] }
@@ -62,18 +75,18 @@ public final class VideoFrameExtractor {
             }
         }
         
-        var candidates: [(time: CMTime, profile: [Double])] = []
+        var candidates: [(time: CMTime, profile: [Double], sharpness: Double)] = []
         
         for cmTime in candidateTimes {
             autoreleasepool {
                 if let cgImage = try? generator.copyCGImage(at: cmTime, actualTime: nil) {
-                    let profile = calculate1DLuminanceProfile(
+                    let (profile, sharpness) = calculate1DLuminanceProfileAndSharpness(
                         cgImage: cgImage,
                         topRatio: activeTopRatio,
                         bottomRatio: activeBottomRatio
                     )
                     if !profile.isEmpty {
-                        candidates.append((time: cmTime, profile: profile))
+                        candidates.append((time: cmTime, profile: profile, sharpness: sharpness))
                     }
                 }
             }
@@ -81,8 +94,8 @@ public final class VideoFrameExtractor {
         
         guard !candidates.isEmpty else { return [] }
         
-        // Pass 1 Selection: Adaptive Displacement-Gated Timestamps
-        // Ensures consecutive keyframes have ~35% - 65% overlap regardless of scroll speed.
+        // Pass 1 Selection: Adaptive Displacement-Gated Timestamps with Sharpness Lookahead
+        // Ensures consecutive keyframes have ~35% - 65% overlap and filters out motion blur.
         var selectedTimes: [CMTime] = []
         var currentCandidate = candidates[0]
         selectedTimes.append(currentCandidate.time)
@@ -121,9 +134,35 @@ public final class VideoFrameExtractor {
                         continue
                     }
                 } else if shift >= targetDisplacement {
-                    // Reached sweet spot (45% - 70% displacement)
-                    selectedTimes.append(cand.time)
-                    currentCandidate = cand
+                    // Reached target displacement window!
+                    // Lookahead: inspect candidate frames in window [i, i+1, i+2] that stay within maxDisplacement
+                    // and select the candidate with the highest sharpness (least motion blur)
+                    var bestCand = cand
+                    var bestSharpness = cand.sharpness
+                    var bestIdx = i
+                    
+                    let lookaheadLimit = min(candidates.count, i + 3)
+                    for nextIdx in (i + 1)..<lookaheadLimit {
+                        let nextCand = candidates[nextIdx]
+                        let nextMatch = estimateVerticalShift(
+                            profileA: currentCandidate.profile,
+                            profileB: nextCand.profile,
+                            probeHeight: probeHeight
+                        )
+                        if nextMatch.confidence > 0.35 && nextMatch.shift < maxDisplacement {
+                            if nextCand.sharpness > bestSharpness {
+                                bestSharpness = nextCand.sharpness
+                                bestCand = nextCand
+                                bestIdx = nextIdx
+                            }
+                        } else {
+                            break
+                        }
+                    }
+                    
+                    selectedTimes.append(bestCand.time)
+                    currentCandidate = bestCand
+                    i = bestIdx
                 }
             }
             i += 1
@@ -154,19 +193,19 @@ public final class VideoFrameExtractor {
         #endif
     }
     
-    // MARK: - Fast 1D Luminance Profile & Vertical Shift Estimation (<0.2ms per comparison)
+    // MARK: - Fast 1D Luminance Profile, Sharpness & Vertical Shift Estimation (<0.2ms per comparison)
     
-    private func calculate1DLuminanceProfile(
+    private func calculate1DLuminanceProfileAndSharpness(
         cgImage: CGImage,
         topRatio: Double = 0.14,
         bottomRatio: Double = 0.10
-    ) -> [Double] {
+    ) -> (profile: [Double], sharpness: Double) {
         let fullHeight = min(cgImage.height, 600)
         let width = min(cgImage.width, 160)
         
         guard let data = cgImage.dataProvider?.data,
               let ptr = CFDataGetBytePtr(data) else {
-            return []
+            return ([], 0.0)
         }
         
         let bpr = cgImage.bytesPerRow
@@ -200,7 +239,24 @@ public final class VideoFrameExtractor {
             profile[idx] = sampleCount > 0 ? (rowSum / Double(sampleCount)) : 128.0
         }
         
-        return profile
+        // Compute sharpness via row-to-row vertical gradient variance
+        var totalGrad = 0.0
+        if profile.count > 1 {
+            for y in 1..<profile.count {
+                totalGrad += abs(profile[y] - profile[y - 1])
+            }
+        }
+        let sharpness = profile.count > 1 ? (totalGrad / Double(profile.count - 1)) : 0.0
+        
+        return (profile, sharpness)
+    }
+    
+    private func calculate1DLuminanceProfile(
+        cgImage: CGImage,
+        topRatio: Double = 0.14,
+        bottomRatio: Double = 0.10
+    ) -> [Double] {
+        return calculate1DLuminanceProfileAndSharpness(cgImage: cgImage, topRatio: topRatio, bottomRatio: bottomRatio).profile
     }
     
     private func estimateVerticalShift(

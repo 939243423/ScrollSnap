@@ -290,8 +290,14 @@ public final class StitchEngine {
             )
             
             let activeHeight = max(1.0, h - topCrop - bottomCrop)
-            let displacement = max(0, activeHeight - match.offset)
+            let rawDisplacement = activeHeight - match.offset
+            let displacement = max(0, rawDisplacement)
             let displacementRatio = displacement / activeHeight
+            
+            // Drop reverse upward bounce frames (negative displacement with confident match)
+            if rawDisplacement < -10 && match.confidence > 0.45 {
+                continue
+            }
             
             // Only drop if it is an identical stationary frame (no scroll movement at all in active zone, e.g. pause during recording)
             if displacementRatio < 0.03 && displacement < 25 && match.confidence > 0.85 {

@@ -162,7 +162,10 @@ public final class ImageOverlapDetector {
             guard yA >= 0, yB >= 0 else { break }
             let diffLum = abs(profileTop.luminance[yA] - profileBottom.luminance[yB])
             let diffEdge = abs(profileTop.horizontalEdgeEnergy[yA] - profileBottom.horizontalEdgeEnergy[yB])
-            let isStaticRow = diffLum < 0.040 && diffEdge < 0.040
+            let edgeSum = profileTop.horizontalEdgeEnergy[yA] + profileBottom.horizontalEdgeEnergy[yB]
+            // Translucent frosted glass bar handling: edge structure is static even if background luminance fluctuates
+            let isEdgeCoherent = (edgeSum > 0.03 && diffEdge < 0.035)
+            let isStaticRow = (diffLum < 0.040 && diffEdge < 0.040) || isEdgeCoherent
             
             var isMovingRow = false
             if dominantDisplacement > 25 && yA >= dominantDisplacement {
@@ -182,7 +185,26 @@ public final class ImageOverlapDetector {
                 }
             }
         }
-        let bottomAnchor = detectedBottom > 35 ? CGFloat(detectedBottom) : 0
+        var bottomAnchor = detectedBottom > 35 ? CGFloat(detectedBottom) : 0
+        
+        // Hairline divider edge snapping for bottom input bar
+        if bottomAnchor > 35 {
+            let bottomRow = height - 1 - Int(bottomAnchor)
+            let snapStart = max(10, bottomRow - 12)
+            let snapEnd = min(height - 10, bottomRow + 12)
+            var maxBorderE = 0.0
+            var snapRow = bottomRow
+            for y in snapStart...snapEnd {
+                let e = max(profileTop.horizontalEdgeEnergy[y], profileBottom.horizontalEdgeEnergy[y])
+                if e > maxBorderE {
+                    maxBorderE = e
+                    snapRow = y
+                }
+            }
+            if maxBorderE > 0.045 {
+                bottomAnchor = CGFloat(height - snapRow)
+            }
+        }
         
         // Step 3: Dual Stationary & Motion-Inconsistency Check for Top Fixed Anchor (Nav bar vs. Half-Screen Media like Xiaohongshu video)
         var detectedTop: Int = 0
@@ -192,7 +214,9 @@ public final class ImageOverlapDetector {
         for y in 0..<maxTopScan {
             let diffLum = abs(profileTop.luminance[y] - profileBottom.luminance[y])
             let diffEdge = abs(profileTop.horizontalEdgeEnergy[y] - profileBottom.horizontalEdgeEnergy[y])
-            let isRowStatic = diffLum < 0.040 && diffEdge < 0.040
+            let edgeSum = profileTop.horizontalEdgeEnergy[y] + profileBottom.horizontalEdgeEnergy[y]
+            let isEdgeCoherent = (edgeSum > 0.03 && diffEdge < 0.035)
+            let isRowStatic = (diffLum < 0.040 && diffEdge < 0.040) || isEdgeCoherent
             
             var isMovingRow = false
             if dominantDisplacement > 25 && y >= dominantDisplacement {
@@ -240,7 +264,7 @@ public final class ImageOverlapDetector {
         
         let isSplitMedia = finalTopAnchor > (CGFloat(height) * 0.18)
         
-        // Step 5: Divider line snapping for split-screen media (Xiaohongshu video notes, Bilibili)
+        // Step 5: Divider line snapping for split-screen media (Xiaohongshu video notes, Bilibili) or navigation bars
         // Snaps the cut right below the physical divider edge so neither slice clips the divider line
         if isSplitMedia {
             let snapStart = max(40, Int(finalTopAnchor) - 16)
@@ -255,6 +279,23 @@ public final class ImageOverlapDetector {
                 }
             }
             if maxDividerE > 0.08 {
+                finalTopAnchor = CGFloat(snapRow + 1)
+            }
+        } else if finalTopAnchor > 40 {
+            // Hairline divider snapping for top navigation bar
+            let topRow = Int(finalTopAnchor)
+            let snapStart = max(20, topRow - 12)
+            let snapEnd = min(height - 100, topRow + 12)
+            var maxDividerE = 0.0
+            var snapRow = topRow
+            for y in snapStart...snapEnd {
+                let e = max(profileTop.horizontalEdgeEnergy[y], profileBottom.horizontalEdgeEnergy[y])
+                if e > maxDividerE {
+                    maxDividerE = e
+                    snapRow = y
+                }
+            }
+            if maxDividerE > 0.045 {
                 finalTopAnchor = CGFloat(snapRow + 1)
             }
         }
@@ -827,9 +868,9 @@ public final class ImageOverlapDetector {
         context.interpolationQuality = .low
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleWidth, height: height))
         
-        // Exclude outer 2% on left and 5% on right (eliminating scroll bar indicator & bezel flicker)
-        let safeLeft = max(1, Int(Double(sampleWidth) * 0.02))
-        let safeRight = min(sampleWidth - 1, Int(Double(sampleWidth) * 0.95))
+        // Exclude outer 4% on left and 8% on right (eliminating native scrollbar thumb and gesture edge artifacts)
+        let safeLeft = max(2, Int(Double(sampleWidth) * 0.04))
+        let safeRight = min(sampleWidth - 2, Int(Double(sampleWidth) * 0.92))
         let safeSpan = max(1, safeRight - safeLeft)
         let invScale = 1.0 / (Double(safeSpan) * 255.0)
         let invGradScale = 1.0 / (Double(max(1, safeSpan - 1)) * 255.0)
@@ -841,6 +882,7 @@ public final class ImageOverlapDetector {
         let invLeftGradScale = 1.0 / (Double(max(1, leftSpan - 1)) * 255.0)
         let invRightGradScale = 1.0 / (Double(max(1, rightSpan - 1)) * 255.0)
         
+        var asymValues = [Double](repeating: 0.0, count: height)
         for y in 0..<height {
             let rowOffset = y * bytesPerRow
             var sumLum = Double(rawData[rowOffset + safeLeft])
@@ -871,8 +913,13 @@ public final class ImageOverlapDetector {
             
             luminance[y] = lum
             edgeEnergy[y] = edge
-            // Combined feature: 25% overall luminance, 50% horizontal edge gradient energy, 25% left-right spatial asymmetry
-            combinedFeature[y] = lum * 0.25 + edge * 0.50 + asymE * 0.25
+            asymValues[y] = asymE
+        }
+        
+        for y in 0..<height {
+            let vertDiff = (y > 0) ? abs(luminance[y] - luminance[y - 1]) : 0.0
+            // Combined feature: 20% overall luminance, 45% horizontal edge gradient energy, 20% left-right spatial asymmetry, 15% vertical contrast
+            combinedFeature[y] = luminance[y] * 0.20 + edgeEnergy[y] * 0.45 + asymValues[y] * 0.20 + vertDiff * 0.15
         }
         return ImageProfile1D(luminance: luminance, horizontalEdgeEnergy: edgeEnergy, combinedFeature: combinedFeature)
     }
@@ -901,16 +948,18 @@ public final class ImageOverlapDetector {
         var minSmoothedEnergy = Double.greatestFiniteMagnitude
         var bestRow = midRow
         
-        let scanStart = max(startRow + 1, 1)
-        let scanEnd = min(endRow - 1, luminance.count - 2)
+        let scanStart = max(startRow + 1, 2)
+        let scanEnd = min(endRow - 1, luminance.count - 3)
         guard scanStart <= scanEnd else {
             return midRow
         }
         
         for y in scanStart...scanEnd {
+            let hE_m2 = horizontalEnergy[y - 2]
             let hE_m1 = horizontalEnergy[y - 1]
             let hE_0  = horizontalEnergy[y]
             let hE_p1 = horizontalEnergy[y + 1]
+            let hE_p2 = horizontalEnergy[y + 2]
             let vE_m1 = abs(luminance[y] - luminance[y - 1])
             let vE_0  = abs(luminance[y + 1] - luminance[y - 1]) * 0.5
             let vE_p1 = abs(luminance[y + 1] - luminance[y])
@@ -927,9 +976,13 @@ public final class ImageOverlapDetector {
             
             let avgE = e_0 * 0.50 + (e_m1 + e_p1) * 0.25
             
+            // Edge proximity protection: penalize cutting within 2 rows of any chat bubble or text edge
+            let maxNearbyEdge = max(hE_m2, max(hE_m1, max(hE_p1, hE_p2)))
+            let edgeProximityPenalty = maxNearbyEdge > 0.08 ? 0.05 : 0.0
+            
             // Center distance penalty: ensures wide blank margins choose their balanced center
             let centerDistPenalty = (abs(Double(y - midRow)) / windowLen) * 0.03
-            let totalE = avgE + centerDistPenalty
+            let totalE = avgE + edgeProximityPenalty + centerDistPenalty
             
             if totalE < minSmoothedEnergy {
                 minSmoothedEnergy = totalE
