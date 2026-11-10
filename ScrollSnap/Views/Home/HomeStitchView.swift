@@ -747,51 +747,70 @@ public struct HomeStitchView: View {
                                 openCompletedStitch(item)
                             } label: {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    ZStack(alignment: .bottomTrailing) {
-                                        Color(uiColor: .secondarySystemGroupedBackground)
-                                            .frame(height: 220)
-                                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                        
-                                        Image(uiImage: image)
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(maxWidth: .infinity)
-                                            .frame(height: 208)
-                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                            .padding(6)
-                                        
-                                        // 一键快捷复制按钮
-                                        Button {
-                                            UIPasteboard.general.image = image
-                                            HapticFeedbackManager.shared.triggerSnap()
-                                            showToast(message: "已复制长截图到剪贴板")
-                                        } label: {
-                                            HStack(spacing: 3) {
-                                                Image(systemName: "doc.on.doc")
-                                                    .font(.system(size: 10, weight: .semibold))
-                                                Text("复制")
-                                                    .font(.system(size: 11, weight: .semibold))
-                                            }
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(.ultraThinMaterial, in: Capsule())
-                                            .foregroundStyle(.primary)
+                                    ZStack(alignment: .bottom) {
+                                        // Top-aligned content preview so text and headers are actually legible
+                                        GeometryReader { cardGeo in
+                                            Image(uiImage: image)
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: cardGeo.size.width, height: cardGeo.size.height, alignment: .top)
+                                                .clipped()
                                         }
-                                        .buttonStyle(.plain)
+                                        .frame(height: 210)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        
+                                        // Subtle gradient overlay on bottom to signify continuation & ensure badge contrast
+                                        LinearGradient(
+                                            colors: [Color.black.opacity(0.0), Color.black.opacity(0.55)],
+                                            startPoint: .center,
+                                            endPoint: .bottom
+                                        )
+                                        .frame(height: 64)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                        
+                                        // Bottom information strip
+                                        HStack {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "arrow.up.and.down")
+                                                    .font(.system(size: 8, weight: .bold))
+                                                Text("\(Int(image.size.width * image.scale)) × \(Int(image.size.height * image.scale))")
+                                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                            }
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(.ultraThinMaterial.opacity(0.85), in: Capsule())
+                                            
+                                            Spacer()
+                                            
+                                            // One-tap quick copy button
+                                            Button {
+                                                UIPasteboard.general.image = image
+                                                HapticFeedbackManager.shared.triggerSnap()
+                                                showToast(message: "已复制长截图到剪贴板")
+                                            } label: {
+                                                HStack(spacing: 3) {
+                                                    Image(systemName: "doc.on.doc.fill")
+                                                        .font(.system(size: 9, weight: .semibold))
+                                                    Text("复制")
+                                                        .font(.system(size: 10, weight: .bold))
+                                                }
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(.ultraThinMaterial, in: Capsule())
+                                                .foregroundStyle(.white)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
                                         .padding(8)
                                     }
+                                    .frame(height: 210)
+                                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                                             .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
                                     )
-                                    
-                                    HStack {
-                                        Text("\(Int(image.size.width * image.scale)) × \(Int(image.size.height * image.scale))")
-                                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 2)
                                 }
                             }
                             .buttonStyle(.plain)

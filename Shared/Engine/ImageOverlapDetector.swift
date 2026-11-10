@@ -574,7 +574,7 @@ public final class ImageOverlapDetector {
                     maxVar = variance
                     bestAnchor = anchor
                 }
-                if variance > 0.02 {
+                if variance > 0.015 {
                     return anchor // Strong textual or edge features found
                 }
             }
@@ -590,8 +590,9 @@ public final class ImageOverlapDetector {
                 guard let topBase = topPtr.baseAddress,
                       let botBase = botPtr.baseAddress else { return }
                 
-                // Band 1: Primary template with feature-rich anchor search
-                let band1Start = findRichAnchor(templateStart, min(60, searchSpan / 4), templateLen)
+                // Band 1: Primary template with feature-rich anchor search across safe span
+                let band1SearchSpan = min(160, max(60, searchSpan / 3))
+                let band1Start = findRichAnchor(templateStart, band1SearchSpan, templateLen)
                 let match1 = matchTemplateBand(
                     topBase: topBase,
                     botBase: botBase,
@@ -685,19 +686,23 @@ public final class ImageOverlapDetector {
         if candidateBands.count >= 2 {
             for i in 0..<candidateBands.count {
                 for j in (i + 1)..<candidateBands.count {
-                    if abs(candidateBands[i].impliedDy - candidateBands[j].impliedDy) <= 2.0 {
-                        var agreeingDys: [CGFloat] = [candidateBands[i].impliedDy, candidateBands[j].impliedDy]
-                        consensusConf = min(1.0, max(candidateBands[i].correlation, candidateBands[j].correlation) + 0.05)
+                    let bI = candidateBands[i]
+                    let bJ = candidateBands[j]
+                    if abs(bI.impliedDy - bJ.impliedDy) <= 3.0 {
+                        let totalW = max(0.001, bI.correlation + bJ.correlation)
+                        let weightedDy = (bI.impliedDy * CGFloat(bI.correlation) + bJ.impliedDy * CGFloat(bJ.correlation)) / CGFloat(totalW)
+                        consensusConf = min(1.0, max(bI.correlation, bJ.correlation) + 0.06)
                         foundPairwiseAgreement = true
                         
+                        var agreeingDys: [CGFloat] = [weightedDy]
                         for k in 0..<candidateBands.count {
-                            if k != i && k != j && abs(candidateBands[k].impliedDy - candidateBands[i].impliedDy) <= 2.0 {
+                            if k != i && k != j && abs(candidateBands[k].impliedDy - weightedDy) <= 3.0 {
                                 agreeingDys.append(candidateBands[k].impliedDy)
                                 consensusConf = min(1.0, consensusConf + 0.03)
                             }
                         }
                         
-                        // Average agreeing subpixel estimates to reduce noise
+                        // Bayesian weighted average of agreeing spatial bands
                         consensusDy = agreeingDys.reduce(0.0, +) / CGFloat(agreeingDys.count)
                         break
                     }

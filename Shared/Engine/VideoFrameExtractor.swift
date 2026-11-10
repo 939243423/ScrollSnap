@@ -103,6 +103,12 @@ public final class VideoFrameExtractor {
             
             // Only gate displacement if the frames exhibit coherent continuous overlap
             if match.confidence > 0.35 {
+                // Skip reverse upward bounce to prevent duplicate backward frames
+                if shift < -12.0 {
+                    i += 1
+                    continue
+                }
+                
                 if shift >= maxDisplacement {
                     // Scroll was so fast that candidate i exceeded the safe seam window:
                     // If candidate (i - 1) exists and moved, choose it first to preserve continuous overlap!

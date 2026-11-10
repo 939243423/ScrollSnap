@@ -136,14 +136,24 @@ public struct TactileSeamDialView: View {
             .padding(.horizontal, 4)
             
             // Slider 微调栏：直观、小巧
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Button("-5") {
+                    offset = max(range.lowerBound, offset - 5.0)
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
+                .font(.system(size: 10, weight: .bold))
+                .frame(width: 28, height: 28)
+                .background(Color.primary.opacity(0.06), in: Circle())
+                .foregroundStyle(.primary)
+                .buttonStyle(.plain)
+                
                 Button {
                     offset = max(range.lowerBound, offset - 1.0)
                     HapticFeedbackManager.shared.triggerSelection()
                 } label: {
                     Image(systemName: "minus")
-                        .font(.body.weight(.bold))
-                        .frame(width: 36, height: 36)
+                        .font(.caption.weight(.bold))
+                        .frame(width: 30, height: 30)
                         .background(Color.primary.opacity(0.08), in: Circle())
                 }
                 .buttonStyle(.plain)
@@ -199,10 +209,20 @@ public struct TactileSeamDialView: View {
                     HapticFeedbackManager.shared.triggerSelection()
                 } label: {
                     Image(systemName: "plus")
-                        .font(.body.weight(.bold))
-                        .frame(width: 36, height: 36)
+                        .font(.caption.weight(.bold))
+                        .frame(width: 30, height: 30)
                         .background(Color.primary.opacity(0.08), in: Circle())
                 }
+                .buttonStyle(.plain)
+                
+                Button("+5") {
+                    offset = min(range.upperBound, offset + 5.0)
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
+                .font(.system(size: 10, weight: .bold))
+                .frame(width: 28, height: 28)
+                .background(Color.primary.opacity(0.06), in: Circle())
+                .foregroundStyle(.primary)
                 .buttonStyle(.plain)
             }
         }

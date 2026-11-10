@@ -63,6 +63,7 @@ public struct StitchEditorView: View {
     
     // Canvas & Comparison State
     @StateObject private var scrollController = CanvasScrollController()
+    @State private var canvasZoomScale: CGFloat = 1.0
     @State private var isShowingComparisonSheet: Bool = false
     @State private var comparisonBeforeImage: UIImage?
     @State private var comparisonAfterImage: UIImage?
@@ -117,6 +118,38 @@ public struct StitchEditorView: View {
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     .allowsHitTesting(activeToolMode != .annotation && activeToolMode != .privacyBrush || canvasInteractionMode == .browse)
+                }
+                
+                // Floating Zoom Reset Pill (shown when zoomed in)
+                if canvasZoomScale > 1.1 {
+                    VStack {
+                        HStack {
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    canvasZoomScale = 1.0
+                                }
+                                HapticFeedbackManager.shared.triggerSelection()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("恢复原比例")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .foregroundStyle(.primary)
+                                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.leading, 16)
+                            .padding(.top, 8)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
                 
                 // Bottom Liquid Glass Floating Modular Control Bar
@@ -442,8 +475,18 @@ public struct StitchEditorView: View {
             }
         }
         .frame(width: totalDisplayWidth, height: targetDisplayHeight, alignment: .topLeading)
+        .scaleEffect(canvasZoomScale, anchor: .top)
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: canvasZoomScale)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .shadow(color: Color.black.opacity(0.12), radius: 14, x: 0, y: 6)
+        .onTapGesture(count: 2) {
+            if activeToolMode == nil || canvasInteractionMode == .browse {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                    canvasZoomScale = (canvasZoomScale > 1.2) ? 1.0 : 2.0
+                }
+                HapticFeedbackManager.shared.triggerSelection()
+            }
+        }
     }
     
     private func renderHorizontalSliceView(index: Int, slice: StitchItem, targetHeight: CGFloat) -> some View {
@@ -517,7 +560,14 @@ public struct StitchEditorView: View {
                                             // Canvas is previewed at 1/3 scale, 1pt screen drag = 3px native coordinate
                                             let newOffset = seamDragStartOffset + gesture.translation.height * 3.0
                                             let range = currentSliceSeamRange
-                                            session.slices[index].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
+                                            if abs(newOffset) < 3.5 {
+                                                if session.slices[index].manualOffsetAdjustment != 0 {
+                                                    HapticFeedbackManager.shared.triggerDialDetent()
+                                                }
+                                                session.slices[index].manualOffsetAdjustment = 0
+                                            } else {
+                                                session.slices[index].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
+                                            }
                                         }
                                         .onEnded { _ in
                                             seamDragStartOffset = session.slices[index].manualOffsetAdjustment
