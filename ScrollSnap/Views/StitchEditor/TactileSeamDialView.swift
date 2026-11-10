@@ -53,6 +53,20 @@ public struct TactileSeamDialView: View {
         abs(offset - optimalOffset) < 0.5
     }
     
+    private var sliderBinding: Binding<CGFloat> {
+        Binding<CGFloat>(
+            get: { offset },
+            set: { newVal in
+                if abs(newVal - optimalOffset) < 3.5 && abs(offset - optimalOffset) >= 3.5 {
+                    offset = optimalOffset
+                    HapticFeedbackManager.shared.triggerDialDetent()
+                } else {
+                    offset = newVal
+                }
+            }
+        )
+    }
+    
     public var body: some View {
         VStack(spacing: 10) {
             // Header: 接缝选择与状态
@@ -136,7 +150,7 @@ public struct TactileSeamDialView: View {
                 
                 VStack(spacing: 2) {
                     Slider(
-                        value: $offset,
+                        value: sliderBinding,
                         in: range,
                         onEditingChanged: { editing in
                             onScrubbingChanged?(editing)
@@ -152,9 +166,27 @@ public struct TactileSeamDialView: View {
                             .font(.system(size: 10))
                             .foregroundStyle(.tertiary)
                         Spacer()
-                        Text(String(format: "%+.0f 像素", offset))
-                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(isAtOptimal ? .secondary : Color.accentColor)
+                        Button {
+                            if !isAtOptimal {
+                                onSnapToOptimal()
+                                HapticFeedbackManager.shared.triggerSnap()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(String(format: "%+.0f 像素", offset))
+                                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                                    .foregroundStyle(isAtOptimal ? .secondary : Color.accentColor)
+                                if !isAtOptimal {
+                                    Text("重置")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1.5)
+                                        .background(Color.accentColor.opacity(0.12), in: Capsule())
+                                        .foregroundStyle(Color.accentColor)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
                         Spacer()
                         Text("下移")
                             .font(.system(size: 10))

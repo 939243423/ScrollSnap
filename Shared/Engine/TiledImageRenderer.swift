@@ -206,7 +206,9 @@ public final class TiledImageRenderer {
                     continue
                 }
                 
-                let drawRect = CGRect(x: 0, y: layout.canvasY, width: originalCanvasWidth, height: layout.canvasHeight)
+                let isLastSlice = (layout.sliceIndex == layouts.count - 1)
+                let bleed: CGFloat = isLastSlice ? 0.0 : 0.5
+                let drawRect = CGRect(x: 0, y: layout.canvasY, width: originalCanvasWidth, height: layout.canvasHeight + bleed)
                 
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
@@ -301,7 +303,9 @@ public final class TiledImageRenderer {
                             let slice = session.slices[layout.sliceIndex]
                             if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
                                let image = UIImage(contentsOfFile: fileURL.path) {
-                                let drawRect = CGRect(x: 0, y: layout.canvasY, width: canvasWidth, height: layout.canvasHeight)
+                                let isLast = (layout.sliceIndex == layouts.count - 1)
+                                let bleed: CGFloat = isLast ? 0.0 : 0.5
+                                let drawRect = CGRect(x: 0, y: layout.canvasY, width: canvasWidth, height: layout.canvasHeight + bleed)
                                 cgContext.saveGState()
                                 cgContext.clip(to: drawRect)
                                 let imageDrawRect = CGRect(
@@ -652,7 +656,9 @@ public final class TiledImageRenderer {
                     continue
                 }
                 
-                let drawRect = CGRect(x: phoneRect.minX, y: phoneRect.minY + layout.canvasY, width: originalContentWidth, height: layout.canvasHeight)
+                let isLastSlice = (layout.sliceIndex == layouts.count - 1)
+                let bleed: CGFloat = isLastSlice ? 0.0 : 0.5
+                let drawRect = CGRect(x: phoneRect.minX, y: phoneRect.minY + layout.canvasY, width: originalContentWidth, height: layout.canvasHeight + bleed)
                 
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)

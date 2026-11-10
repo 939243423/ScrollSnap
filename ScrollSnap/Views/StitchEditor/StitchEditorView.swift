@@ -1259,6 +1259,26 @@ public struct StitchEditorView: View {
                 .foregroundStyle(.green)
             Text(toastMessage)
                 .font(.footnote.bold())
+            
+            #if canImport(UIKit)
+            if toastMessage.contains("微信"), let wechatURL = URL(string: "weixin://"), UIApplication.shared.canOpenURL(wechatURL) {
+                Button {
+                    UIApplication.shared.open(wechatURL)
+                } label: {
+                    HStack(spacing: 3) {
+                        Text("打开微信")
+                        Image(systemName: "arrow.up.right")
+                    }
+                    .font(.system(size: 11, weight: .bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3.5)
+                    .background(Color.green.opacity(0.18))
+                    .foregroundStyle(Color.green)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            #endif
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

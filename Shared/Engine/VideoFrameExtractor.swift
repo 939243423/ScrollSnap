@@ -94,22 +94,26 @@ public final class VideoFrameExtractor {
         var i = 1
         while i < candidates.count && selectedTimes.count < maxKeyframes {
             let cand = candidates[i]
-            let shift = estimateVerticalShift(
+            let match = estimateVerticalShift(
                 profileA: currentCandidate.profile,
                 profileB: cand.profile,
                 probeHeight: probeHeight
             )
+            let shift = match.shift
             
-            if shift >= maxDisplacement {
-                // Scroll was so fast that candidate i exceeded the safe seam window:
-                // If candidate (i - 1) exists and moved, choose it first to preserve continuous overlap!
-                let chosen = (i > 1 && candidates[i - 1].time != currentCandidate.time) ? candidates[i - 1] : cand
-                selectedTimes.append(chosen.time)
-                currentCandidate = chosen
-            } else if shift >= targetDisplacement {
-                // Reached sweet spot (45% - 70% displacement)
-                selectedTimes.append(cand.time)
-                currentCandidate = cand
+            // Only gate displacement if the frames exhibit coherent continuous overlap
+            if match.confidence > 0.35 {
+                if shift >= maxDisplacement {
+                    // Scroll was so fast that candidate i exceeded the safe seam window:
+                    // If candidate (i - 1) exists and moved, choose it first to preserve continuous overlap!
+                    let chosen = (i > 1 && candidates[i - 1].time != currentCandidate.time) ? candidates[i - 1] : cand
+                    selectedTimes.append(chosen.time)
+                    currentCandidate = chosen
+                } else if shift >= targetDisplacement {
+                    // Reached sweet spot (45% - 70% displacement)
+                    selectedTimes.append(cand.time)
+                    currentCandidate = cand
+                }
             }
             i += 1
         }
@@ -188,14 +192,20 @@ public final class VideoFrameExtractor {
         return profile
     }
     
-    private func estimateVerticalShift(profileA: [Double], profileB: [Double], probeHeight: Double) -> Double {
+    private func estimateVerticalShift(
+        profileA: [Double],
+        profileB: [Double],
+        probeHeight: Double
+    ) -> (shift: Double, confidence: Double) {
         let len = min(profileA.count, profileB.count)
-        guard len > 40 else { return 0 }
+        guard len > 40 else { return (0, 0) }
         
         let maxShift = Int(Double(len) * 0.75)
         var bestShift = 0
         var minDiff: Double = .greatestFiniteMagnitude
+        var diffTable: [Int: Double] = [:]
         
+        // Coarse pass (stride: 2)
         for shift in stride(from: 0, through: maxShift, by: 2) {
             let overlapLen = len - shift
             guard overlapLen > 25 else { break }
@@ -206,14 +216,44 @@ public final class VideoFrameExtractor {
                 diffSum += diff
             }
             let avgDiff = diffSum / Double(overlapLen)
+            diffTable[shift] = avgDiff
             if avgDiff < minDiff {
                 minDiff = avgDiff
                 bestShift = shift
             }
         }
         
+        // Fine evaluation of immediate neighbor rows
+        for fineShift in [bestShift - 1, bestShift + 1] {
+            if fineShift >= 0 && fineShift <= maxShift && diffTable[fineShift] == nil {
+                let overlapLen = len - fineShift
+                if overlapLen > 25 {
+                    var diffSum: Double = 0
+                    for y in 0..<overlapLen {
+                        diffSum += abs(profileA[y + fineShift] - profileB[y])
+                    }
+                    let avgDiff = diffSum / Double(overlapLen)
+                    diffTable[fineShift] = avgDiff
+                    if avgDiff < minDiff {
+                        minDiff = avgDiff
+                        bestShift = fineShift
+                    }
+                }
+            }
+        }
+        
+        // Parabolic Subpixel Displacement Refinement
+        var subpixelShift = Double(bestShift)
+        if let dM1 = diffTable[bestShift - 1], let dP1 = diffTable[bestShift + 1] {
+            let denom = 2.0 * max(0.0001, (dP1 + dM1 - 2.0 * minDiff))
+            let delta = max(-0.5, min(0.5, (dP1 - dM1) / denom))
+            subpixelShift -= delta
+        }
+        
         let scale = probeHeight / Double(len)
-        return Double(bestShift) * scale
+        let confidence = max(0.0, min(1.0, 1.0 - (minDiff / 40.0)))
+        
+        return (subpixelShift * scale, confidence)
     }
     
     private func isFrameNearlyIdentical(_ imgA: CGImage?, _ imgB: CGImage?) -> Bool {

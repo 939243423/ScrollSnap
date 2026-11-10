@@ -202,13 +202,8 @@ public struct BeforeAfterComparisonView: View {
         ZStack(alignment: .bottom) {
             TabView(selection: $currentSliceIndex) {
                 ForEach(Array(loadedSliceImages.enumerated()), id: \.offset) { index, img in
-                    GeometryReader { geo in
-                        Image(uiImage: img)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: geo.size.width, height: geo.size.height)
-                    }
-                    .tag(index)
+                    ZoomableSliceImageView(image: img)
+                        .tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
@@ -217,7 +212,7 @@ public struct BeforeAfterComparisonView: View {
             HStack(spacing: 6) {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.caption2)
-                Text("第 \(currentSliceIndex + 1) / \(loadedSliceImages.count) 张 · 左右滑动浏览原图")
+                Text("第 \(currentSliceIndex + 1) / \(loadedSliceImages.count) 张 · 双击放大或左右滑动")
                     .font(.caption2.weight(.medium))
             }
             .foregroundStyle(.white.opacity(0.9))
@@ -243,6 +238,50 @@ public struct BeforeAfterComparisonView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
+        }
+    }
+}
+
+private struct ZoomableSliceImageView: View {
+    let image: UIImage
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    
+    var body: some View {
+        GeometryReader { geo in
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .scaleEffect(scale)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .contentShape(Rectangle())
+                .gesture(
+                    MagnificationGesture()
+                        .onChanged { val in
+                            scale = max(1.0, min(4.0, lastScale * val))
+                        }
+                        .onEnded { _ in
+                            lastScale = scale
+                            if scale < 1.05 {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                    scale = 1.0
+                                    lastScale = 1.0
+                                }
+                            }
+                        }
+                )
+                .onTapGesture(count: 2) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        if scale > 1.2 {
+                            scale = 1.0
+                            lastScale = 1.0
+                        } else {
+                            scale = 2.2
+                            lastScale = 2.2
+                        }
+                    }
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
         }
     }
 }

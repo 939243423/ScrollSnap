@@ -411,14 +411,25 @@ public struct HomeStitchView: View {
     private func recentScreenRecordingBanner(_ video: PHAsset) -> some View {
         let durationSec = max(1, Int(video.duration))
         return HStack(spacing: 12) {
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
+                AssetThumbnailView(asset: video, size: CGSize(width: 40, height: 40))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.3), lineWidth: 0.8)
+                    )
+                
                 Circle()
-                    .fill(Color.accentColor.opacity(0.12))
-                    .frame(width: 40, height: 40)
-                Image(systemName: "film.stack.fill")
-                    .font(.body)
-                    .foregroundStyle(Color.accentColor)
+                    .fill(Color.accentColor)
+                    .frame(width: 14, height: 14)
+                    .overlay(
+                        Image(systemName: "film")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+                    .offset(x: 2, y: 2)
             }
+            .frame(width: 44, height: 44)
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -460,29 +471,43 @@ public struct HomeStitchView: View {
     }
     
     private var recentDetectedScreenshotsBanner: some View {
-        let count = photoObserver.recentScreenshotAssets.count
+        let assets = photoObserver.recentScreenshotAssets
+        let count = assets.count
         return HStack(spacing: 12) {
             ZStack {
+                // Card 3 (back): tilted left
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color.accentColor.opacity(0.12))
                     .frame(width: 32, height: 42)
                     .rotationEffect(.degrees(-6))
                     .offset(x: -3, y: 1)
                 
+                // Card 2 (middle): tilted right
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.22))
+                    .fill(Color.accentColor.opacity(0.24))
                     .frame(width: 32, height: 42)
                     .rotationEffect(.degrees(4))
                     .offset(x: 2, y: -1)
                 
+                // Card 1 (front): showing actual recent screenshot thumbnail
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.accentColor)
-                        .frame(width: 32, height: 42)
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                    if let firstAsset = assets.first {
+                        AssetThumbnailView(asset: firstAsset, size: CGSize(width: 32, height: 42))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    } else {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.accentColor)
+                            .frame(width: 32, height: 42)
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
                 }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.4), lineWidth: 0.8)
+                )
+                .shadow(color: Color.black.opacity(0.14), radius: 3, y: 1)
             }
             .frame(width: 44, height: 44)
             
@@ -1231,6 +1256,44 @@ public struct HomeStitchView: View {
 private struct CompletedStitchItem: Identifiable {
     let id: String
     let url: URL
+}
+
+private struct AssetThumbnailView: View {
+    let asset: PHAsset
+    let size: CGSize
+    @State private var thumbnail: UIImage? = nil
+    
+    var body: some View {
+        ZStack {
+            if let image = thumbnail {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+            } else {
+                Color.accentColor.opacity(0.15)
+                    .frame(width: size.width, height: size.height)
+            }
+        }
+        .onAppear {
+            loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() {
+        let manager = PHImageManager.default()
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .opportunistic
+        options.isNetworkAccessAllowed = true
+        let scale = UIScreen.main.scale
+        let targetSize = CGSize(width: size.width * scale, height: size.height * scale)
+        manager.requestImage(for: asset, targetSize: targetSize, contentMode: .aspectFill, options: options) { img, _ in
+            if let img = img {
+                self.thumbnail = img
+            }
+        }
+    }
 }
 
 #if canImport(ReplayKit)

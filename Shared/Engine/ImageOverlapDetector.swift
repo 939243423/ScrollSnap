@@ -875,7 +875,7 @@ public final class ImageOverlapDetector {
         return calculateVerticalProfile(cgImage: cgImage).luminance
     }
     
-    // MARK: - Minimum Energy Seam Line Search (5-Tap Moving Window Valley Centering)
+    // MARK: - Minimum Energy Seam Line Search (Adaptive Contrast & Valley Centering)
     
     private static func findMinimalEnergySeam(
         luminance: [Double],
@@ -883,7 +883,7 @@ public final class ImageOverlapDetector {
         startRow: Int,
         endRow: Int
     ) -> Int {
-        guard startRow < endRow - 6,
+        guard startRow < endRow - 2,
               luminance.count > endRow,
               horizontalEnergy.count > endRow else {
             return (startRow + endRow) / 2
@@ -895,19 +895,29 @@ public final class ImageOverlapDetector {
         var minSmoothedEnergy = Double.greatestFiniteMagnitude
         var bestRow = midRow
         
-        for y in (startRow + 2)..<(endRow - 2) {
-            // 3-tap Gaussian-weighted energy kernel [0.25, 0.50, 0.25]:
-            // Captures exact interline whitespace valleys without bleeding from tight text ascenders/descenders
+        let scanStart = max(startRow + 1, 1)
+        let scanEnd = min(endRow - 1, luminance.count - 2)
+        guard scanStart <= scanEnd else {
+            return midRow
+        }
+        
+        for y in scanStart...scanEnd {
             let hE_m1 = horizontalEnergy[y - 1]
             let hE_0  = horizontalEnergy[y]
             let hE_p1 = horizontalEnergy[y + 1]
-            let vE_m1 = abs(luminance[y] - luminance[y - 2])
-            let vE_0  = abs(luminance[y + 1] - luminance[y - 1])
-            let vE_p1 = abs(luminance[y + 2] - luminance[y])
+            let vE_m1 = abs(luminance[y] - luminance[y - 1])
+            let vE_0  = abs(luminance[y + 1] - luminance[y - 1]) * 0.5
+            let vE_p1 = abs(luminance[y + 1] - luminance[y])
             
-            let e_m1 = hE_m1 * 0.70 + vE_m1 * 0.25
-            let e_0  = hE_0  * 0.70 + vE_0  * 0.25
-            let e_p1 = hE_p1 * 0.70 + vE_p1 * 0.25
+            // Contrast-adaptive weighting: on dark backgrounds (dark mode chat / dark feed),
+            // slightly amplify horizontal edge detection to reliably preserve bubble borders
+            let lumContext = (luminance[y] + luminance[y - 1] + luminance[y + 1]) / 3.0
+            let edgeWeight: Double = lumContext < 0.35 ? 0.85 : 0.70
+            let vertWeight: Double = lumContext < 0.35 ? 0.30 : 0.25
+            
+            let e_m1 = hE_m1 * edgeWeight + vE_m1 * vertWeight
+            let e_0  = hE_0  * edgeWeight + vE_0  * vertWeight
+            let e_p1 = hE_p1 * edgeWeight + vE_p1 * vertWeight
             
             let avgE = e_0 * 0.50 + (e_m1 + e_p1) * 0.25
             
