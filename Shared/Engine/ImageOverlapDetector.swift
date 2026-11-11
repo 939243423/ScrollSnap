@@ -256,6 +256,26 @@ public final class ImageOverlapDetector {
         }
         if confirmedTop < 2 {
             topChrome = 0
+        } else {
+            // Snap to sharp hairline dividers near topChrome (e.g. navigation bar hairline separator)
+            let scanRange = max(4, topChrome - 8)...min(maxTopScan, topChrome + 8)
+            var maxEdge = 0.0
+            var snappedTop = topChrome
+            for y in scanRange {
+                guard y + 1 < H else { break }
+                let off0 = y * numCols
+                let off1 = (y + 1) * numCols
+                var edgeSum = 0
+                for m in 0..<numCols {
+                    edgeSum += abs(Int(botFP.samples[off1 + m]) - Int(botFP.samples[off0 + m]))
+                }
+                let edge = Double(edgeSum) / Double(numCols)
+                if edge > maxEdge && edge > 14.0 {
+                    maxEdge = edge
+                    snappedTop = y + 1
+                }
+            }
+            topChrome = snappedTop
         }
         
         var confirmedBot = 0
@@ -267,6 +287,27 @@ public final class ImageOverlapDetector {
         }
         if confirmedBot < 2 {
             botChrome = 0
+        } else {
+            // Snap to sharp hairline dividers near botChrome (e.g. tab bar separator)
+            let scanRange = max(4, botChrome - 8)...min(maxBotScan, botChrome + 8)
+            var maxEdge = 0.0
+            var snappedBot = botChrome
+            for i in scanRange {
+                let y = H - 1 - i
+                guard y > 0 else { break }
+                let off0 = y * numCols
+                let off1 = (y - 1) * numCols
+                var edgeSum = 0
+                for m in 0..<numCols {
+                    edgeSum += abs(Int(botFP.samples[off0 + m]) - Int(botFP.samples[off1 + m]))
+                }
+                let edge = Double(edgeSum) / Double(numCols)
+                if edge > maxEdge && edge > 14.0 {
+                    maxEdge = edge
+                    snappedBot = i
+                }
+            }
+            botChrome = snappedBot
         }
         
         return (topChrome, botChrome)
@@ -294,6 +335,29 @@ public final class ImageOverlapDetector {
         let minD = 4
         let maxD = max(minD, yBot - yTop - 15)
         
+        // Early Duplicate Check (identical screenshots taken accidentally without scrolling):
+        var dupDiffSum = 0
+        var dupTexturedRows = 0
+        for y in yTop..<yBot {
+            let isTextured = (topFP.rowVariance[y] > 3.5 || botFP.rowVariance[y] > 3.5)
+            if isTextured {
+                let off = y * numCols
+                var rowDiff = 0
+                for m in 0..<numCols {
+                    let diff = abs(Int(topFP.samples[off + m]) - Int(botFP.samples[off + m]))
+                    rowDiff += min(diff, 60)
+                }
+                dupDiffSum += rowDiff
+                dupTexturedRows += 1
+            }
+        }
+        if dupTexturedRows > 10 {
+            let dupScore = Double(dupDiffSum) / Double(dupTexturedRows * numCols)
+            if dupScore < 2.5 {
+                return (0, 1.0, false)
+            }
+        }
+        
         var bestD = 0
         var minScore = Double.greatestFiniteMagnitude
         
@@ -316,7 +380,8 @@ public final class ImageOverlapDetector {
                 let isTextured = (topFP.rowVariance[yA] > 3.5 || botFP.rowVariance[yB] > 3.5)
                 var rowDiff: Int = 0
                 for m in 0..<numCols {
-                    rowDiff += abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
+                    let diff = abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
+                    rowDiff += min(diff, 60) // Huber robust clamping against floating buttons/watermarks
                 }
                 
                 totalSum += rowDiff
@@ -375,7 +440,8 @@ public final class ImageOverlapDetector {
                 let isTextured = (topFP.rowVariance[yA] > 3.5 || botFP.rowVariance[yB] > 3.5)
                 var rowDiff: Int = 0
                 for m in 0..<numCols {
-                    rowDiff += abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
+                    let diff = abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
+                    rowDiff += min(diff, 60)
                 }
                 totalSum += rowDiff
                 if isTextured {
@@ -503,7 +569,8 @@ public final class ImageOverlapDetector {
                     let rA = offA + r * sampleW
                     let rB = r * sampleW
                     for c in stride(from: 0, to: sampleW, by: 2) {
-                        diffSum += abs(Int(stripA[rA + c]) - Int(patchB[rB + c]))
+                        let diff = abs(Int(stripA[rA + c]) - Int(patchB[rB + c]))
+                        diffSum += min(diff, 60) // Huber robust penalty against local avatars/badges
                     }
                 }
                 let mad = Double(diffSum) / Double(sampleW * patchH / 2)
