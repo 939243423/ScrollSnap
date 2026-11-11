@@ -515,4 +515,61 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(layouts[0].sourceHeight, 2042, accuracy: 0.001)
         XCTAssertEqual(layouts[1].sourceHeight, 2532 - 480, accuracy: 0.001)
     }
+    
+    // MARK: - 16. Direct Append & Crop Inset Adjustment Tests
+    
+    func testDirectAppendSeam() {
+        var slice = StitchItem(
+            relativeFilePath: "test.png",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 100,
+            bottomCropInset: 100,
+            calculatedOverlapWithPrevious: 500,
+            manualOffsetAdjustment: 25,
+            optimalSeamLineY: 250,
+            matchConfidence: 0.88
+        )
+        
+        StitchEngine.directAppendSeam(bottomSliceItem: &slice)
+        
+        XCTAssertEqual(slice.calculatedOverlapWithPrevious, 0)
+        XCTAssertEqual(slice.manualOffsetAdjustment, 0)
+        XCTAssertEqual(slice.optimalSeamLineY, 0)
+        XCTAssertEqual(slice.effectiveOverlap, 0)
+        XCTAssertEqual(slice.confidence, 1.0)
+    }
+    
+    func testAdjustCropInsetsChangesLayout() {
+        var slice1 = StitchItem(
+            relativeFilePath: "s1.png",
+            originalWidth: 1000,
+            originalHeight: 2000,
+            topCropInset: 0,
+            bottomCropInset: 200,
+            calculatedOverlapWithPrevious: 0
+        )
+        var slice2 = StitchItem(
+            relativeFilePath: "s2.png",
+            originalWidth: 1000,
+            originalHeight: 2000,
+            topCropInset: 200,
+            bottomCropInset: 0,
+            calculatedOverlapWithPrevious: 400,
+            optimalSeamLineY: 200
+        )
+        
+        var session = StitchSession(presetMode: .chatRecord, slices: [slice1, slice2])
+        let layoutInitial = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: 1000)
+        let initialTotalHeight = session.totalEstimatedHeight
+        
+        // Now increase topCropInset of slice2 from 200 to 300 (e.g. user trimmed extra top header)
+        session.slices[1].topCropInset = 300
+        let layoutAdjusted = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: 1000)
+        let adjustedTotalHeight = session.totalEstimatedHeight
+        
+        // Total height must shrink by exactly 100
+        XCTAssertEqual(initialTotalHeight - adjustedTotalHeight, 100)
+        XCTAssertEqual(layoutAdjusted[1].sourceYStart, 300 + 200)
+    }
 }

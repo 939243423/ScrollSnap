@@ -35,6 +35,9 @@ public struct StitchEditorView: View {
     @State private var selectedSliceIndex: Int = 1
     @State private var seamDialOffset: CGFloat = 0.0
     @State private var seamDragStartOffset: CGFloat = 0.0
+    @State private var isGhostingAlignmentEnabled: Bool = false
+    @State private var isShowingSliceManagerSheet: Bool = false
+    @State private var showAutoSuccessToast: Bool = true
     
     // Privacy Redaction & Brush State
     @State private var brushStrokes: [RedactionStroke] = []
@@ -103,13 +106,13 @@ public struct StitchEditorView: View {
                 // Main Interactive Canvas
                 canvasScrollView
                 
-                // Low Confidence Seam Warning Hint
+                // Low Confidence Seam Warning Hint or Auto-Stitch Success Hint
                 if hasLowConfidenceSeams && !isDismissedConfidenceWarning && activeToolMode == nil {
                     VStack {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(Color.orange)
                             Text("部分接缝重合度较低，可点击「调接缝」微调")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.primary)
@@ -152,6 +155,53 @@ public struct StitchEditorView: View {
                         Spacer()
                     }
                     .transition(.move(edge: .top).combined(with: .opacity))
+                } else if !hasLowConfidenceSeams && showAutoSuccessToast && activeToolMode == nil && session.slices.count > 1 {
+                    VStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.green)
+                            Text("长图拼接完成 · 共 \(session.slices.count - 1) 处接缝对齐良好")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button("检查接缝") {
+                                activeToolMode = .seamTuner
+                                showAutoSuccessToast = false
+                                HapticFeedbackManager.shared.triggerSelection()
+                            }
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3.5)
+                            .background(Color.primary.opacity(0.06), in: Capsule())
+                            .foregroundStyle(.primary)
+                            
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    showAutoSuccessToast = false
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(4)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .task {
+                        try? await Task.sleep(nanoseconds: 3_500_000_000)
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showAutoSuccessToast = false
+                        }
+                    }
                 }
                 // Floating Quick Scrubber (Docked on Right Edge)
                 if session.presetMode != .horizontalCompare {
@@ -374,6 +424,9 @@ public struct StitchEditorView: View {
             .sheet(isPresented: $isShowingTextExtractorSheet) {
                 TextExtractorSheet(text: extractedFullText)
             }
+            .sheet(isPresented: $isShowingSliceManagerSheet) {
+                SliceManagerSheet(session: $session)
+            }
             .alert("添加文字说明", isPresented: $isShowingTextAlert) {
                 TextField("输入批注文字", text: $textInputPrompt)
                 Button("确定") {
@@ -459,6 +512,11 @@ public struct StitchEditorView: View {
                             .offset(y: layout.canvasY)
                     }
                 }
+            }
+            
+            // Ghosting Double-Exposure Alignment Overlay when active
+            if activeToolMode == .seamTuner && isGhostingAlignmentEnabled && selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count {
+                renderGhostingAlignmentOverlay(displayWidth: displayWidth, layouts: layouts)
             }
             
             // Middle: Rendered Annotations
@@ -572,11 +630,24 @@ public struct StitchEditorView: View {
                         .frame(width: displayWidth, height: displayVisibleHeight, alignment: .top)
                         .clipped()
                     
+                    // Fixed top-crop guide indicator when tuning
+                    if activeToolMode == .seamTuner && slice.topCropInset > 0 {
+                        Path { p in
+                            p.move(to: CGPoint(x: 0, y: 0))
+                            p.addLine(to: CGPoint(x: displayWidth, y: 0))
+                        }
+                        .stroke(Color.orange.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    }
+                    
                     // Seam indicator line when tuner mode is active
                     if activeToolMode == .seamTuner && index > 0 {
+                        let isSelected = (selectedSliceIndex == index)
+                        
+                        // Full width seam guide line
                         Rectangle()
-                            .fill(selectedSliceIndex == index ? Color.accentColor : Color.secondary.opacity(0.4))
-                            .frame(height: selectedSliceIndex == index ? 2 : 1)
+                            .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.35))
+                            .frame(height: isSelected ? 2.5 : 1)
+                            .shadow(color: isSelected ? Color.accentColor.opacity(0.4) : Color.clear, radius: 4)
                             .overlay(
                                 HStack(spacing: 4) {
                                     Image(systemName: "arrow.up.and.down")
@@ -588,46 +659,57 @@ public struct StitchEditorView: View {
                                             .font(.caption2.monospacedDigit())
                                             .foregroundStyle(Color.white.opacity(0.9))
                                     }
+                                    if slice.confidence < 0.4 {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(Color.orange)
+                                    }
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(selectedSliceIndex == index ? Color.accentColor : Color(white: 0.2))
+                                .background(isSelected ? Color.accentColor : Color(white: 0.22))
                                 .foregroundStyle(.white)
                                 .clipShape(Capsule())
-                                .shadow(color: Color.black.opacity(0.2), radius: 4, y: 2)
-                                .scaleEffect(selectedSliceIndex == index ? 1.05 : 0.95)
+                                .shadow(color: Color.black.opacity(0.22), radius: 4, y: 2)
+                                .scaleEffect(isSelected ? 1.05 : 0.95)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedSliceIndex)
                                 .offset(y: -14)
-                                .gesture(
-                                    DragGesture(minimumDistance: 3)
-                                        .onChanged { gesture in
-                                            if selectedSliceIndex != index {
-                                                selectedSliceIndex = index
-                                                seamDragStartOffset = session.slices[index].manualOffsetAdjustment
-                                            }
-                                            // Canvas is previewed at 1/3 scale, 1pt screen drag = 3px native coordinate
-                                            let newOffset = seamDragStartOffset + gesture.translation.height * 3.0
-                                            let range = currentSliceSeamRange
-                                            if abs(newOffset) < 3.5 {
-                                                if session.slices[index].manualOffsetAdjustment != 0 {
-                                                    HapticFeedbackManager.shared.triggerDialDetent()
-                                                }
-                                                session.slices[index].manualOffsetAdjustment = 0
-                                            } else {
-                                                session.slices[index].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
-                                            }
-                                        }
-                                        .onEnded { _ in
-                                            seamDragStartOffset = session.slices[index].manualOffsetAdjustment
-                                            HapticFeedbackManager.shared.triggerSnap()
-                                        }
-                                )
-                                .onTapGesture {
-                                    selectedSliceIndex = index
-                                    seamDragStartOffset = session.slices[index].manualOffsetAdjustment
-                                    HapticFeedbackManager.shared.triggerSelection()
-                                }
                             )
+                        
+                        // Generous 44pt touch hit target across full width for intuitive direct dragging
+                        Color.white.opacity(0.001)
+                            .frame(width: displayWidth, height: 44)
+                            .offset(y: -22)
+                            .gesture(
+                                DragGesture(minimumDistance: 2)
+                                    .onChanged { gesture in
+                                        if selectedSliceIndex != index {
+                                            selectedSliceIndex = index
+                                            seamDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                        }
+                                        // Natural drag: dragging UP pulls lower image UP (increases overlap)
+                                        // dragging DOWN pulls lower image DOWN (decreases overlap)
+                                        let newOffset = seamDragStartOffset - gesture.translation.height * 3.0
+                                        let range = currentSliceSeamRange
+                                        if abs(newOffset) < 3.5 {
+                                            if session.slices[index].manualOffsetAdjustment != 0 {
+                                                HapticFeedbackManager.shared.triggerDialDetent()
+                                            }
+                                            session.slices[index].manualOffsetAdjustment = 0
+                                        } else {
+                                            session.slices[index].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
+                                        }
+                                    }
+                                    .onEnded { _ in
+                                        seamDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                        HapticFeedbackManager.shared.triggerSnap()
+                                    }
+                            )
+                            .onTapGesture {
+                                selectedSliceIndex = index
+                                seamDragStartOffset = session.slices[index].manualOffsetAdjustment
+                                HapticFeedbackManager.shared.triggerSelection()
+                            }
                     }
                 }
                 .contentShape(Rectangle())
@@ -640,6 +722,86 @@ public struct StitchEditorView: View {
                         HapticFeedbackManager.shared.triggerSelection()
                     }
                 }
+            }
+        }
+    }
+    
+    // MARK: - Ghosting Double-Exposure Alignment Overlay
+    
+    @ViewBuilder
+    private func renderGhostingAlignmentOverlay(displayWidth: CGFloat, layouts: [SliceCanvasLayout]) -> some View {
+        let safeIndex = selectedSliceIndex
+        if safeIndex > 0 && safeIndex < session.slices.count && safeIndex < layouts.count {
+            let topIndex = safeIndex - 1
+            let topSlice = session.slices[topIndex]
+            let bottomSlice = session.slices[safeIndex]
+            let layout = layouts[safeIndex]
+            let seamY = layout.canvasY
+            
+            let boxHeight: CGFloat = 160.0
+            let boxTop = seamY - boxHeight / 2.0
+            
+            if let topURL = SharedStore.shared.resolveFileURL(relativePath: topSlice.relativeFilePath),
+               let botURL = SharedStore.shared.resolveFileURL(relativePath: bottomSlice.relativeFilePath),
+               let topImg = UIImage(contentsOfFile: topURL.path),
+               let botImg = UIImage(contentsOfFile: botURL.path) {
+                
+                let topOriginalH = topSlice.originalHeight * layout.scale
+                let topSourceY = layouts[topIndex].sourceYStart * layout.scale
+                let botOriginalH = bottomSlice.originalHeight * layout.scale
+                let botSourceY = layout.sourceYStart * layout.scale
+                
+                ZStack(alignment: .topLeading) {
+                    // Translucent backing card
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(uiColor: .systemBackground).opacity(0.88))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.accentColor.opacity(0.5), lineWidth: 1.5)
+                        )
+                    
+                    // Upper slice ghost (55% opacity)
+                    Image(uiImage: topImg)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: displayWidth, height: topOriginalH)
+                        .offset(y: -(layouts[topIndex].canvasHeight - boxHeight / 2.0 + topSourceY))
+                        .opacity(0.55)
+                        .clipped()
+                    
+                    // Lower slice ghost (55% opacity)
+                    Image(uiImage: botImg)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: displayWidth, height: botOriginalH)
+                        .offset(y: -(botSourceY - boxHeight / 2.0))
+                        .opacity(0.55)
+                        .clipped()
+                    
+                    // Center Seam Alignment Line
+                    Rectangle()
+                        .fill(Color.accentColor)
+                        .frame(height: 2)
+                        .offset(y: boxHeight / 2.0 - 1)
+                    
+                    // Guidance Pill
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.2.layers.3d.fill")
+                            .font(.system(size: 9))
+                        Text("重影对齐：微调至文字重合无重影")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3.5)
+                    .background(Color.accentColor, in: Capsule())
+                    .foregroundStyle(.white)
+                    .shadow(color: Color.black.opacity(0.2), radius: 3, y: 1)
+                    .offset(x: (displayWidth - 170) / 2.0, y: 8)
+                }
+                .frame(width: displayWidth, height: boxHeight)
+                .offset(y: boxTop)
+                .shadow(color: Color.black.opacity(0.2), radius: 10, y: 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
     }
@@ -1014,10 +1176,35 @@ public struct StitchEditorView: View {
                                 session.slices[safeIndex].manualOffsetAdjustment = newOffset
                             }
                         ),
+                        topCrop: Binding<CGFloat>(
+                            get: {
+                                guard safeIndex > 0 && safeIndex < session.slices.count else { return 0 }
+                                return session.slices[safeIndex].topCropInset
+                            },
+                            set: { newTop in
+                                guard safeIndex > 0 && safeIndex < session.slices.count else { return }
+                                session.slices[safeIndex].topCropInset = newTop
+                            }
+                        ),
+                        bottomCrop: Binding<CGFloat>(
+                            get: {
+                                let prevIdx = max(0, safeIndex - 1)
+                                guard prevIdx < session.slices.count else { return 0 }
+                                return session.slices[prevIdx].bottomCropInset
+                            },
+                            set: { newBottom in
+                                let prevIdx = max(0, safeIndex - 1)
+                                guard prevIdx < session.slices.count else { return }
+                                session.slices[prevIdx].bottomCropInset = newBottom
+                            }
+                        ),
+                        isGhostingEnabled: $isGhostingAlignmentEnabled,
                         optimalOffset: 0.0,
                         range: currentSliceSeamRange,
                         sliceIndex: safeIndex,
                         totalSlices: session.slices.count,
+                        seamConfidence: (safeIndex < session.slices.count) ? session.slices[safeIndex].confidence : 1.0,
+                        allConfidences: session.slices.dropFirst().map { $0.confidence },
                         onSelectSlice: { idx in
                             selectedSliceIndex = idx
                             if idx > 0 && idx < verticalLayouts.count {
@@ -1032,7 +1219,43 @@ public struct StitchEditorView: View {
                                 }
                             }
                         },
-                        onScrubbingChanged: nil
+                        onScrubbingChanged: nil,
+                        onReDetectSeam: {
+                            guard safeIndex > 0 && safeIndex < session.slices.count else { return }
+                            let prev = session.slices[safeIndex - 1]
+                            var cur = session.slices[safeIndex]
+                            StitchEngine.recalculateSingleSeam(
+                                topSliceItem: prev,
+                                bottomSliceItem: &cur,
+                                scenario: session.presetMode.correspondingScenario
+                            )
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) {
+                                session.slices[safeIndex] = cur
+                            }
+                        },
+                        onDirectAppend: {
+                            guard safeIndex > 0 && safeIndex < session.slices.count else { return }
+                            var cur = session.slices[safeIndex]
+                            StitchEngine.directAppendSeam(bottomSliceItem: &cur)
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.75)) {
+                                session.slices[safeIndex] = cur
+                            }
+                        },
+                        onManageSlices: {
+                            isShowingSliceManagerSheet = true
+                        },
+                        onApplyCropToAll: { top, bottom in
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                for i in 0..<session.slices.count {
+                                    if i > 0 {
+                                        session.slices[i].topCropInset = top
+                                    }
+                                    if i < session.slices.count - 1 {
+                                        session.slices[i].bottomCropInset = bottom
+                                    }
+                                }
+                            }
+                        }
                     )
                 case .privacyBrush:
                     LiquidBrushRedactionView(

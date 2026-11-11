@@ -301,6 +301,96 @@ public final class StitchEngine {
         }
     }
     
+    // MARK: - Image Loading Utility
+    
+    private static func loadCGImage(fromRelativePath path: String) -> CGImage? {
+        guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: path) else { return nil }
+        #if canImport(UIKit)
+        guard let uiImage = UIImage(contentsOfFile: fileURL.path) else { return nil }
+        if uiImage.imageOrientation == .up, let cg = uiImage.cgImage {
+            return cg
+        }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: uiImage.size, format: format)
+        let normalized = renderer.image { _ in
+            uiImage.draw(in: CGRect(origin: .zero, size: uiImage.size))
+        }
+        return normalized.cgImage
+        #else
+        return nil
+        #endif
+    }
+    
+    // MARK: - Interactive Recomputation & Slice Management
+    
+    /// Recomputes overlaps for all adjacent slices in a session after slices were added, removed, or reordered.
+    /// Preserves existing crop insets if present.
+    public static func recomputeSlices(in session: inout StitchSession) {
+        let totalCount = session.slices.count
+        guard totalCount >= 1 else { return }
+        
+        let scenario = session.presetMode.correspondingScenario
+        
+        for index in 0..<totalCount {
+            if index == 0 {
+                session.slices[0].calculatedOverlapWithPrevious = 0
+                session.slices[0].manualOffsetAdjustment = 0
+                session.slices[0].optimalSeamLineY = 0
+                session.slices[0].matchConfidence = 1.0
+                session.slices[0].topCropInset = 0
+                continue
+            }
+            
+            let prevSlice = session.slices[index - 1]
+            var currentSlice = session.slices[index]
+            
+            recalculateSingleSeam(
+                topSliceItem: prevSlice,
+                bottomSliceItem: &currentSlice,
+                scenario: scenario
+            )
+            
+            session.slices[index] = currentSlice
+        }
+    }
+    
+    /// Recalculates overlap detection for a single seam between two adjacent slices.
+    public static func recalculateSingleSeam(
+        topSliceItem: StitchItem,
+        bottomSliceItem: inout StitchItem,
+        scenario: AppLayoutScenario = .generalScroll
+    ) {
+        guard let topImage = loadCGImage(fromRelativePath: topSliceItem.relativeFilePath),
+              let botImage = loadCGImage(fromRelativePath: bottomSliceItem.relativeFilePath) else {
+            return
+        }
+        
+        let match = ImageOverlapDetector.findOverlap(
+            topSlice: topImage,
+            bottomSlice: botImage,
+            topSliceTopCrop: topSliceItem.topCropInset,
+            topSliceBottomCrop: topSliceItem.bottomCropInset,
+            bottomSliceTopCrop: bottomSliceItem.topCropInset,
+            bottomSliceBottomCrop: bottomSliceItem.bottomCropInset,
+            scenario: scenario
+        )
+        
+        bottomSliceItem.calculatedOverlapWithPrevious = match.offset
+        bottomSliceItem.optimalSeamLineY = match.optimalSeamY
+        bottomSliceItem.matchConfidence = match.confidence
+        bottomSliceItem.manualOffsetAdjustment = 0
+    }
+    
+    /// Forces a seam to directly connect with zero overlap (for non-overlapping consecutive captures)
+    public static func directAppendSeam(bottomSliceItem: inout StitchItem) {
+        bottomSliceItem.calculatedOverlapWithPrevious = 0
+        bottomSliceItem.manualOffsetAdjustment = 0
+        bottomSliceItem.optimalSeamLineY = 0
+        bottomSliceItem.matchConfidence = 1.0
+    }
+    
     // MARK: - Keyframe Selection & Deduplication
     
     /// Filters out completely redundant stationary duplicate frames from screen recordings (e.g. pauses during scrolling)
