@@ -9,6 +9,8 @@ import UIKit
 public final class BroadcastFrameProcessor {
     private var sliceCounter = 0
     private var lastLuminanceProjection: [Double] = []
+    private var lastSavedProjection: [Double] = []
+    private var pendingFinalData: Data? = nil
     private var lastProcessedTimestamp: TimeInterval = 0
     private let minimumFrameInterval: TimeInterval = 0.10 // Limit processing to 10 FPS
     
@@ -40,6 +42,7 @@ public final class BroadcastFrameProcessor {
         if lastLuminanceProjection.isEmpty {
             // First keyframe of session
             lastLuminanceProjection = currentProjection
+            lastSavedProjection = currentProjection
             saveKeyframe(pixelBuffer: pixelBuffer)
             return
         }
@@ -49,11 +52,36 @@ public final class BroadcastFrameProcessor {
         // Anti-jitter: ignore stationary frames (< 0.035) and erratic jumps (> 0.85)
         if motionDelta >= 0.035 && motionDelta <= 0.85 {
             lastLuminanceProjection = currentProjection
+            lastSavedProjection = currentProjection
+            pendingFinalData = nil
             saveKeyframe(pixelBuffer: pixelBuffer)
+        } else if motionDelta < 0.035 && !lastSavedProjection.isEmpty {
+            // If movement occurred since last saved keyframe, cache the ending frame so the bottom is never dropped
+            let deltaFromLastSave = calculateEuclideanDelta(lastSavedProjection, currentProjection)
+            if deltaFromLastSave >= 0.015 {
+                autoreleasepool {
+                    #if canImport(UIKit)
+                    let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+                    if let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) {
+                        let uiImage = UIImage(cgImage: cgImage)
+                        pendingFinalData = uiImage.jpegData(compressionQuality: 0.85)
+                    }
+                    #endif
+                }
+            }
         }
     }
     
     public func finalizeSession() {
+        #if canImport(UIKit)
+        if let pending = pendingFinalData {
+            if let _ = SharedStore.shared.writeBroadcastSlice(data: pending, index: sliceCounter) {
+                sliceCounter += 1
+            }
+        }
+        #endif
+        pendingFinalData = nil
+        lastSavedProjection.removeAll()
         lastLuminanceProjection.removeAll()
         sliceCounter = 0
     }

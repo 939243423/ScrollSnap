@@ -464,10 +464,55 @@ final class ScrollSnapCoreTests: XCTestCase {
             isSplitScreenMedia: true,
             isChatAppDetected: false,
             scrollVelocityEstimate: 85.0,
-            confidence: 0.88
+            confidence: 0.88,
+            scenario: .splitMedia
         )
         XCTAssertEqual(mediaZone.topAnchorHeight, 520)
         XCTAssertTrue(mediaZone.isSplitScreenMedia)
         XCTAssertFalse(mediaZone.isChatAppDetected)
+        XCTAssertEqual(mediaZone.scenario, .splitMedia)
+    }
+    
+    // MARK: - 16. 2D Content Overlap & Multi-Slice Mathematical Tiling Tests
+    
+    func testContentOverlapMathematicalContinuity() {
+        // Slice 1: 1170x2532, top nav=0, bottom input bar=240
+        let slice1 = StitchItem(
+            relativeFilePath: "s1.png",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 0,
+            bottomCropInset: 240,
+            calculatedOverlapWithPrevious: 0
+        )
+        // Slice 2: 1170x2532, top nav=280, bottom=0 (last slice), content overlap=450, optimal seam=200
+        let slice2 = StitchItem(
+            relativeFilePath: "s2.png",
+            originalWidth: 1170,
+            originalHeight: 2532,
+            topCropInset: 280,
+            bottomCropInset: 0,
+            calculatedOverlapWithPrevious: 450,
+            optimalSeamLineY: 200
+        )
+        
+        let session = StitchSession(presetMode: .chatRecord, slices: [slice1, slice2])
+        let layouts = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: 1170)
+        
+        XCTAssertEqual(layouts.count, 2)
+        // Slice 1 visible = 2532 - 240 = 2292
+        // Slice 2 visible = 2532 - 280 = 2252, overlap = 450 -> adds 2252 - 450 = 1802
+        // Total expected = 2292 + 1802 = 4094
+        XCTAssertEqual(session.totalEstimatedHeight, 4094)
+        
+        let totalLayoutHeight = layouts.reduce(0.0) { $0 + $1.canvasHeight }
+        XCTAssertEqual(totalLayoutHeight, session.totalEstimatedHeight, accuracy: 0.001)
+        
+        // Seam position must align precisely:
+        // slice1 ends at: 2532 - 240 - 450 + 200 = 2042
+        // slice2 starts at: 280 + 200 = 480
+        // The transition in content coordinates is identical: (480 + displacement) == 2042!
+        XCTAssertEqual(layouts[0].sourceHeight, 2042, accuracy: 0.001)
+        XCTAssertEqual(layouts[1].sourceHeight, 2532 - 480, accuracy: 0.001)
     }
 }
