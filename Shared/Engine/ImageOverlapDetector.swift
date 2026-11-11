@@ -20,23 +20,32 @@ public struct ScrollZoneDetectionResult {
     public let bottomAnchorHeight: CGFloat
     public let isSplitScreenMedia: Bool
     public let isChatAppDetected: Bool
+    public let isCardFeedDetected: Bool
+    public let isWebArticleDetected: Bool
     public let scrollVelocityEstimate: CGFloat
     public let confidence: Double
+    public let scenario: AppLayoutScenario
     
     public init(
         topAnchorHeight: CGFloat,
         bottomAnchorHeight: CGFloat,
         isSplitScreenMedia: Bool,
         isChatAppDetected: Bool = false,
+        isCardFeedDetected: Bool = false,
+        isWebArticleDetected: Bool = false,
         scrollVelocityEstimate: CGFloat,
-        confidence: Double
+        confidence: Double,
+        scenario: AppLayoutScenario = .generalScroll
     ) {
         self.topAnchorHeight = topAnchorHeight
         self.bottomAnchorHeight = bottomAnchorHeight
         self.isSplitScreenMedia = isSplitScreenMedia
         self.isChatAppDetected = isChatAppDetected
+        self.isCardFeedDetected = isCardFeedDetected
+        self.isWebArticleDetected = isWebArticleDetected
         self.scrollVelocityEstimate = scrollVelocityEstimate
         self.confidence = confidence
+        self.scenario = scenario
     }
 }
 
@@ -300,8 +309,8 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // Step 6: Chat App Detection (WeChat, iMessage, DingTalk, Feishu)
-        // Characterized by top header in [120..360] pt/px and bottom input bar in [100..360] pt/px
+        // Step 6: Multi-Scenario App Layout Classification
+        // A. Chat App (WeChat, iMessage, QQ, DingTalk): Top in [120..360]px, Bottom in [100..360]px
         var isChatApp = false
         if !isSplitMedia && finalTopAnchor >= 120 && finalTopAnchor <= 360 && bottomAnchor >= 100 && bottomAnchor <= 360 {
             let scrollStart = Int(finalTopAnchor)
@@ -311,13 +320,65 @@ public final class ImageOverlapDetector {
             }
         }
         
+        // B. Card Feed Detection (Weibo, Twitter/X, Shopping cards): Periodic horizontal dividers
+        var isCardFeed = false
+        if !isSplitMedia && !isChatApp {
+            var dividerRows: [Int] = []
+            let bodyStart = Int(finalTopAnchor) + 20
+            let bodyEnd = height - Int(bottomAnchor) - 20
+            if bodyEnd > bodyStart + 180 {
+                for y in (bodyStart + 1)..<(bodyEnd - 1) {
+                    let e = profileTop.horizontalEdgeEnergy[y]
+                    if e > 0.07 && e > profileTop.horizontalEdgeEnergy[y - 1] && e > profileTop.horizontalEdgeEnergy[y + 1] {
+                        dividerRows.append(y)
+                    }
+                }
+            }
+            if dividerRows.count >= 2 {
+                var periodicCount = 0
+                for i in 1..<dividerRows.count {
+                    let diff = dividerRows[i] - dividerRows[i - 1]
+                    if diff >= 100 && diff <= 420 {
+                        periodicCount += 1
+                    }
+                }
+                if periodicCount >= 2 {
+                    isCardFeed = true
+                }
+            }
+        }
+        
+        // C. Web Article Detection (Safari, WeChat Articles, Zhihu): Top header + bottom toolbar + high text density
+        var isWebArticle = false
+        if !isSplitMedia && !isChatApp && !isCardFeed {
+            if finalTopAnchor >= 70 && finalTopAnchor <= 320 && bottomAnchor >= 50 && bottomAnchor <= 240 {
+                isWebArticle = true
+            }
+        }
+        
+        let detectedScenario: AppLayoutScenario
+        if isSplitMedia {
+            detectedScenario = .splitMedia
+        } else if isChatApp {
+            detectedScenario = .chatApp
+        } else if isCardFeed {
+            detectedScenario = .cardFeed
+        } else if isWebArticle {
+            detectedScenario = .webArticle
+        } else {
+            detectedScenario = .generalScroll
+        }
+        
         return ScrollZoneDetectionResult(
             topAnchorHeight: finalTopAnchor,
             bottomAnchorHeight: bottomAnchor,
             isSplitScreenMedia: isSplitMedia,
             isChatAppDetected: isChatApp,
+            isCardFeedDetected: isCardFeed,
+            isWebArticleDetected: isWebArticle,
             scrollVelocityEstimate: CGFloat(dominantDisplacement),
-            confidence: max(0.5, probeConfidence)
+            confidence: max(0.5, probeConfidence),
+            scenario: detectedScenario
         )
     }
     
@@ -329,8 +390,11 @@ public final class ImageOverlapDetector {
                 bottomAnchorHeight: 0,
                 isSplitScreenMedia: false,
                 isChatAppDetected: false,
+                isCardFeedDetected: false,
+                isWebArticleDetected: false,
                 scrollVelocityEstimate: 0,
-                confidence: 0
+                confidence: 0,
+                scenario: .generalScroll
             )
         }
         
@@ -338,6 +402,9 @@ public final class ImageOverlapDetector {
         var bottomAnchors: [CGFloat] = []
         var splitMediaVotes = 0
         var chatAppVotes = 0
+        var cardFeedVotes = 0
+        var webArticleVotes = 0
+        var scenarioVotes: [AppLayoutScenario: Int] = [:]
         var velocities: [CGFloat] = []
         var maxConfidence = 0.0
         
@@ -349,6 +416,9 @@ public final class ImageOverlapDetector {
                 if res.bottomAnchorHeight > 10 { bottomAnchors.append(res.bottomAnchorHeight) }
                 if res.isSplitScreenMedia { splitMediaVotes += 1 }
                 if res.isChatAppDetected { chatAppVotes += 1 }
+                if res.isCardFeedDetected { cardFeedVotes += 1 }
+                if res.isWebArticleDetected { webArticleVotes += 1 }
+                scenarioVotes[res.scenario, default: 0] += 1
                 if res.scrollVelocityEstimate > 10 { velocities.append(res.scrollVelocityEstimate) }
                 maxConfidence = max(maxConfidence, res.confidence)
             }
@@ -357,14 +427,18 @@ public final class ImageOverlapDetector {
         let finalTop = topAnchors.isEmpty ? 0 : topAnchors.sorted()[topAnchors.count / 2]
         let finalBottom = bottomAnchors.isEmpty ? 0 : bottomAnchors.sorted()[bottomAnchors.count / 2]
         let finalVelocity = velocities.isEmpty ? 0 : velocities.sorted()[velocities.count / 2]
+        let consensusScenario = scenarioVotes.max(by: { $0.value < $1.value })?.key ?? .generalScroll
         
         return ScrollZoneDetectionResult(
             topAnchorHeight: finalTop,
             bottomAnchorHeight: finalBottom,
             isSplitScreenMedia: splitMediaVotes > 0,
             isChatAppDetected: chatAppVotes > 0,
+            isCardFeedDetected: cardFeedVotes > 0,
+            isWebArticleDetected: webArticleVotes > 0,
             scrollVelocityEstimate: finalVelocity,
-            confidence: max(0.5, maxConfidence)
+            confidence: max(0.5, maxConfidence),
+            scenario: consensusScenario
         )
     }
     
@@ -392,9 +466,9 @@ public final class ImageOverlapDetector {
         templateLen: Int,
         minOffset: Int,
         maxOffset: Int
-    ) -> (bestOffset: CGFloat, maxCorrelation: Double) {
+    ) -> (bestOffset: CGFloat, maxCorrelation: Double, secondaryOffset: CGFloat?, secondaryCorrelation: Double) {
         guard templateLen > 20, minOffset <= maxOffset, minOffset >= 0 else {
-            return (CGFloat(minOffset), -1.0)
+            return (CGFloat(minOffset), -1.0, nil, -1.0)
         }
         let invTemplateLen = 1.0 / Double(templateLen)
         let tBase = botBase + templateStart
@@ -408,11 +482,13 @@ public final class ImageOverlapDetector {
         }
         let varT = max(0.0, sumSqT - (sumT * sumT) * invTemplateLen)
         guard varT > 0.0001 else {
-            return (CGFloat(minOffset), -1.0)
+            return (CGFloat(minOffset), -1.0, nil, -1.0)
         }
         
         var bestOffset = minOffset
         var maxCorrelation: Double = -1.0
+        var secondaryOffset: Int? = nil
+        var secondaryCorrelation: Double = -1.0
         
         // Step 1: Coarse search with stride 2
         for offset in stride(from: minOffset, through: maxOffset, by: 2) {
@@ -437,8 +513,15 @@ public final class ImageOverlapDetector {
             if denom > 0.0001 {
                 let r = num / denom
                 if r > maxCorrelation {
+                    if abs(offset - bestOffset) >= 35 {
+                        secondaryOffset = bestOffset
+                        secondaryCorrelation = maxCorrelation
+                    }
                     maxCorrelation = r
                     bestOffset = offset
+                } else if r > secondaryCorrelation && abs(offset - bestOffset) >= 35 {
+                    secondaryCorrelation = r
+                    secondaryOffset = offset
                 }
             }
         }
@@ -520,11 +603,12 @@ public final class ImageOverlapDetector {
             }
         }
         
-        return (bestOffset: subpixelOffset, maxCorrelation: refinedCorrelation)
+        let secOffsetFloat: CGFloat? = (secondaryOffset != nil && secondaryCorrelation > 0.20) ? CGFloat(secondaryOffset!) : nil
+        return (bestOffset: subpixelOffset, maxCorrelation: refinedCorrelation, secondaryOffset: secOffsetFloat, secondaryCorrelation: secondaryCorrelation)
     }
     
     /// Calculates optimal vertical overlap with multi-band consensus voting, sub-pixel parabolic peak refinement,
-    /// and velocity continuity prior for 99%+ automated stitching accuracy.
+    /// scenario-adaptive periodic disambiguation, and velocity continuity prior.
     public static func findOverlap(
         topSlice: CGImage,
         bottomSlice: CGImage,
@@ -535,7 +619,8 @@ public final class ImageOverlapDetector {
         templateHeightPt: CGFloat = 120,
         minOverlapRatio: CGFloat = 0.08,
         maxOverlapRatio: CGFloat = 0.88,
-        expectedDisplacement: CGFloat? = nil
+        expectedDisplacement: CGFloat? = nil,
+        scenario: AppLayoutScenario = .generalScroll
     ) -> OverlapMatchResult {
         let width = topSlice.width
         let topHeight = topSlice.height
@@ -592,7 +677,6 @@ public final class ImageOverlapDetector {
         var sumS = [Double](repeating: 0.0, count: topFeatures.count + 1)
         var sumSqS = [Double](repeating: 0.0, count: topFeatures.count + 1)
         for i in 0..<topFeatures.count {
-            let v = topFeatures[i]
             sumS[i + 1] = sumS[i] + v
             sumSqS[i + 1] = sumSqS[i] + v * v
         }
@@ -625,7 +709,7 @@ public final class ImageOverlapDetector {
         
         // Multi-Band Spatial Consensus:
         // Evaluates 3 distinct vertical bands in bottomSlice to outvote sticky date headers and floating widgets
-        var candidateBands: [(impliedDy: CGFloat, correlation: Double, bestOffset: CGFloat)] = []
+        var candidateBands: [(impliedDy: CGFloat, correlation: Double, bestOffset: CGFloat, secondaryDy: CGFloat?, secondaryCorrelation: Double)] = []
         
         topFeatures.withUnsafeBufferPointer { topPtr in
             bottomFeatures.withUnsafeBufferPointer { botPtr in
@@ -647,10 +731,13 @@ public final class ImageOverlapDetector {
                     maxOffset: maxOffset
                 )
                 if match1.maxCorrelation > 0.20 {
+                    let secDy = match1.secondaryOffset.map { $0 - CGFloat(band1Start) }
                     candidateBands.append((
                         impliedDy: match1.bestOffset - CGFloat(band1Start),
                         correlation: match1.maxCorrelation,
-                        bestOffset: match1.bestOffset
+                        bestOffset: match1.bestOffset,
+                        secondaryDy: secDy,
+                        secondaryCorrelation: match1.secondaryCorrelation
                     ))
                 }
                 
@@ -676,10 +763,13 @@ public final class ImageOverlapDetector {
                             maxOffset: maxOff2
                         )
                         if match2.maxCorrelation > 0.20 {
+                            let secDy = match2.secondaryOffset.map { $0 - CGFloat(band2Start) }
                             candidateBands.append((
                                 impliedDy: match2.bestOffset - CGFloat(band2Start),
                                 correlation: match2.maxCorrelation,
-                                bestOffset: match2.bestOffset
+                                bestOffset: match2.bestOffset,
+                                secondaryDy: secDy,
+                                secondaryCorrelation: match2.secondaryCorrelation
                             ))
                         }
                     }
@@ -705,10 +795,13 @@ public final class ImageOverlapDetector {
                             maxOffset: maxOff3
                         )
                         if match3.maxCorrelation > 0.20 {
+                            let secDy = match3.secondaryOffset.map { $0 - CGFloat(band3Start) }
                             candidateBands.append((
                                 impliedDy: match3.bestOffset - CGFloat(band3Start),
                                 correlation: match3.maxCorrelation,
-                                bestOffset: match3.bestOffset
+                                bestOffset: match3.bestOffset,
+                                secondaryDy: secDy,
+                                secondaryCorrelation: match3.secondaryCorrelation
                             ))
                         }
                     }
@@ -719,6 +812,23 @@ public final class ImageOverlapDetector {
         // Multi-Band Spatial Consensus Selection with Subpixel Precision & Velocity Prior
         guard !candidateBands.isEmpty else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        }
+        
+        // Periodic Ambiguity Disambiguation (Card Feeds & Social Feeds):
+        // If secondary peak has high correlation (>= 78% of primary) and expectedDisplacement
+        // shows the secondary peak is consistent with continuous scrolling velocity, snap to secondary peak.
+        if let expected = expectedDisplacement, expected > 40 {
+            for i in 0..<candidateBands.count {
+                let band = candidateBands[i]
+                if let secDy = band.secondaryDy, band.secondaryCorrelation > 0.78 * band.correlation {
+                    let primDiff = abs(band.impliedDy - expected)
+                    let secDiff = abs(secDy - expected)
+                    if secDiff + 25 < primDiff {
+                        candidateBands[i].impliedDy = secDy
+                        candidateBands[i].correlation = band.secondaryCorrelation
+                    }
+                }
+            }
         }
         
         var consensusDy: CGFloat = candidateBands[0].impliedDy
@@ -796,14 +906,15 @@ public final class ImageOverlapDetector {
         let topMatchY = bestOffset - CGFloat(effectiveCropInBottom)
         let overlapHeight = max(0.0, CGFloat(validTopEnd) - topMatchY)
         
-        // Search for minimal energy seam with 5-tap moving window valley centering
+        // Search for minimal energy seam with scenario-adaptive weights
         let seamStart = max(Int(topMatchY) + 6, Int(bestOffset) + 2)
         let seamEnd = max(seamStart + 4, validTopEnd - 6)
         let optimalSeam = findMinimalEnergySeam(
             luminance: topProfile.luminance,
             horizontalEnergy: topProfile.horizontalEdgeEnergy,
             startRow: seamStart,
-            endRow: seamEnd
+            endRow: seamEnd,
+            scenario: scenario
         )
         
         let optimalSeamInBottom = CGFloat(optimalSeam) - bestOffset + CGFloat(effectiveCropInBottom)
@@ -824,7 +935,8 @@ public final class ImageOverlapDetector {
         templateHeightPt: CGFloat = 120,
         minOverlapRatio: CGFloat = 0.08,
         maxOverlapRatio: CGFloat = 0.88,
-        expectedDisplacement: CGFloat? = nil
+        expectedDisplacement: CGFloat? = nil,
+        scenario: AppLayoutScenario = .generalScroll
     ) -> OverlapMatchResult {
         return findOverlap(
             topSlice: topSlice,
@@ -836,7 +948,8 @@ public final class ImageOverlapDetector {
             templateHeightPt: templateHeightPt,
             minOverlapRatio: minOverlapRatio,
             maxOverlapRatio: maxOverlapRatio,
-            expectedDisplacement: expectedDisplacement
+            expectedDisplacement: expectedDisplacement,
+            scenario: scenario
         )
     }
     
@@ -934,7 +1047,8 @@ public final class ImageOverlapDetector {
         luminance: [Double],
         horizontalEnergy: [Double],
         startRow: Int,
-        endRow: Int
+        endRow: Int,
+        scenario: AppLayoutScenario = .generalScroll
     ) -> Int {
         guard startRow < endRow - 2,
               luminance.count > endRow,
@@ -976,13 +1090,54 @@ public final class ImageOverlapDetector {
             
             let avgE = e_0 * 0.50 + (e_m1 + e_p1) * 0.25
             
-            // Edge proximity protection: penalize cutting within 2 rows of any chat bubble or text edge
+            // Scenario-adaptive seam routing
             let maxNearbyEdge = max(hE_m2, max(hE_m1, max(hE_p1, hE_p2)))
-            let edgeProximityPenalty = maxNearbyEdge > 0.08 ? 0.05 : 0.0
+            var edgeProximityPenalty = 0.0
+            var scenarioBonus = 0.0
+            
+            switch scenario {
+            case .chatApp:
+                // Chat apps: heavy penalty for cutting close to speech bubble edges (prevent bubble truncation),
+                // strong bonus for empty whitespace valleys between bubbles
+                if maxNearbyEdge > 0.06 {
+                    edgeProximityPenalty = 0.09
+                }
+                if avgE < 0.025 {
+                    scenarioBonus = -0.07 // Valley centering bonus
+                }
+            case .cardFeed:
+                // Social / Card feeds: snap seam onto card divider hairlines or gray spacer strips
+                let isDividerPeak = hE_0 > 0.07 && hE_0 >= hE_m1 && hE_0 >= hE_p1
+                if isDividerPeak {
+                    scenarioBonus = -0.10 // Hairline divider snap
+                } else if maxNearbyEdge > 0.08 {
+                    edgeProximityPenalty = 0.06
+                }
+            case .webArticle:
+                // Web articles: snap seam into paragraph spacing or article breaks
+                if maxNearbyEdge > 0.07 {
+                    edgeProximityPenalty = 0.07
+                }
+                if avgE < 0.035 && hE_0 < 0.03 {
+                    scenarioBonus = -0.06 // Paragraph gap snap
+                }
+            case .splitMedia:
+                // Split media: lower half comments/content
+                if maxNearbyEdge > 0.07 {
+                    edgeProximityPenalty = 0.06
+                }
+                if avgE < 0.03 {
+                    scenarioBonus = -0.05
+                }
+            case .generalScroll:
+                if maxNearbyEdge > 0.08 {
+                    edgeProximityPenalty = 0.05
+                }
+            }
             
             // Center distance penalty: ensures wide blank margins choose their balanced center
             let centerDistPenalty = (abs(Double(y - midRow)) / windowLen) * 0.03
-            let totalE = avgE + edgeProximityPenalty + centerDistPenalty
+            let totalE = avgE + edgeProximityPenalty + scenarioBonus + centerDistPenalty
             
             if totalE < minSmoothedEnergy {
                 minSmoothedEnergy = totalE

@@ -104,6 +104,9 @@ public final class StitchEngine {
                 var detectedBottomBar: CGFloat = 0
                 var isSplitScreenMedia: Bool = false
                 var isChatAppDetected: Bool = false
+                var isCardFeedDetected: Bool = false
+                var isWebArticleDetected: Bool = false
+                var detectedScenario: AppLayoutScenario = .generalScroll
                 
                 if loadedSlices.count >= 2 {
                     let consensusZone = ImageOverlapDetector.detectConsensusScrollZone(
@@ -113,11 +116,20 @@ public final class StitchEngine {
                     detectedBottomBar = consensusZone.bottomAnchorHeight
                     isSplitScreenMedia = consensusZone.isSplitScreenMedia
                     isChatAppDetected = consensusZone.isChatAppDetected
+                    isCardFeedDetected = consensusZone.isCardFeedDetected
+                    isWebArticleDetected = consensusZone.isWebArticleDetected
+                    detectedScenario = consensusZone.scenario
                 }
                 
-                // If user selected chatRecord mode, or if chat app is detected, ensure safe minimum insets
-                // (WeChat / iMessage: top status bar + nav bar ~280px on @3x, bottom input bar ~240px)
-                if presetMode == .chatRecord || (presetMode == .smartAuto && isChatAppDetected) {
+                let effectiveScenario: AppLayoutScenario
+                if presetMode == .smartAuto {
+                    effectiveScenario = detectedScenario
+                } else {
+                    effectiveScenario = presetMode.correspondingScenario
+                }
+                
+                // Scenario-adaptive fallback safety insets
+                if effectiveScenario == .chatApp {
                     if let firstImage = loadedSlices.first?.image {
                         let h = CGFloat(firstImage.height)
                         let chatTopFallback = min(h * 0.12, 280)
@@ -127,6 +139,18 @@ public final class StitchEngine {
                         }
                         if detectedBottomBar < 100 {
                             detectedBottomBar = max(detectedBottomBar, chatBottomFallback)
+                        }
+                    }
+                } else if effectiveScenario == .webArticle {
+                    if let firstImage = loadedSlices.first?.image {
+                        let h = CGFloat(firstImage.height)
+                        let webTopFallback = min(h * 0.10, 240)
+                        let webBottomFallback = min(h * 0.08, 160)
+                        if detectedTopBar < 80 {
+                            detectedTopBar = max(detectedTopBar, webTopFallback)
+                        }
+                        if detectedBottomBar < 50 {
+                            detectedBottomBar = max(detectedBottomBar, webBottomFallback)
                         }
                     }
                 }
@@ -231,7 +255,8 @@ public final class StitchEngine {
                                 topSliceBottomCrop: prevItem.bottomCropInset,
                                 bottomSliceTopCrop: topCrop,
                                 bottomSliceBottomCrop: bottomCrop,
-                                expectedDisplacement: expectedDisplacement
+                                expectedDisplacement: expectedDisplacement,
+                                scenario: effectiveScenario
                             )
                             overlapOffset = match.offset
                             seamLineY = match.optimalSeamY
@@ -303,7 +328,8 @@ public final class StitchEngine {
                 topSliceTopCrop: topCrop,
                 topSliceBottomCrop: bottomCrop,
                 bottomSliceTopCrop: topCrop,
-                bottomSliceBottomCrop: bottomCrop
+                bottomSliceBottomCrop: bottomCrop,
+                scenario: consensusZone.scenario
             )
             
             let activeHeight = max(1.0, h - topCrop - bottomCrop)

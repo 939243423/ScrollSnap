@@ -21,6 +21,24 @@ public enum StitchError: LocalizedError {
     }
 }
 
+public enum AppLayoutScenario: String, Codable, CaseIterable {
+    case chatApp       // 微信 / 聊天会话 (固定顶栏 + 底部输入框 + 左右气泡)
+    case splitMedia    // 小红书 / 视频图文 (上半部固定视频/大图 + 下半部滚动评论)
+    case cardFeed      // 微博 / 社交与商品信息流 (卡片式布局 + 周期性分割线)
+    case webArticle    // Safari / 网页长文 (吸顶网址栏 + 底部工具栏 + 密集段落文本)
+    case generalScroll // 普通长滚动 / 无明显固定栏
+    
+    public var title: String {
+        switch self {
+        case .chatApp: return "微信聊天"
+        case .splitMedia: return "分屏视频/图文"
+        case .cardFeed: return "社交信息流"
+        case .webArticle: return "网页文章"
+        case .generalScroll: return "长图滚动"
+        }
+    }
+}
+
 public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
     case smartAuto       // 自动识别吸顶导航栏与吸底固定栏
     case chatRecord      // 微信/聊天模式 (保留首图顶栏与尾图底栏，切除中间图的重叠顶栏与输入框)
@@ -48,12 +66,23 @@ public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
         }
     }
     
+    public var correspondingScenario: AppLayoutScenario {
+        switch self {
+        case .smartAuto: return .generalScroll
+        case .chatRecord: return .chatApp
+        case .webArticle: return .webArticle
+        case .continuousFeed: return .cardFeed
+        case .movieSubtitles: return .generalScroll
+        case .horizontalCompare: return .generalScroll
+        }
+    }
+    
     public var defaultTopCropInset: CGFloat {
         switch self {
         case .smartAuto, .chatRecord:
-            return 88.0
+            return 88.0 * 3.0 // 264px @3x
         case .webArticle:
-            return 96.0
+            return 96.0 * 3.0 // 288px @3x
         case .continuousFeed, .movieSubtitles, .horizontalCompare:
             return 0.0
         }
@@ -62,9 +91,9 @@ public enum StitchPresetMode: String, Codable, CaseIterable, Identifiable {
     public var defaultBottomCropInset: CGFloat {
         switch self {
         case .smartAuto, .chatRecord:
-            return 84.0
+            return 80.0 * 3.0 // 240px @3x
         case .webArticle:
-            return 54.0
+            return 54.0 * 3.0 // 162px @3x
         case .continuousFeed, .movieSubtitles, .horizontalCompare:
             return 0.0
         }
