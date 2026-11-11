@@ -84,6 +84,7 @@
 		B23D9B4B49472B028C5720D5 /* AppIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 243466327D3C1EAF88D0A3C3 /* AppIcon.png */; };
 		B4984D21ABB41EEDD8DF2687 /* ExportWatermarkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE564A991A076C2A8DAB690B /* ExportWatermarkManager.swift */; };
 		B5CAA864C2C1946C01E9AAB7 /* StitchEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F927FAAA25D8EF9B0E299F9 /* StitchEditorView.swift */; };
+		C7A1D2E3F4A5B6C7D8E9F002 /* SliceManagerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1D2E3F4A5B6C7D8E9F001 /* SliceManagerSheet.swift */; };
 		BBF6736B6176E99E7C79863F /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DE000ADC8BF01B4B2FC0696 /* AppGroupConstants.swift */; };
 		BF2BDB4202B5FBCBA37DFBCC /* StitchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18D856A121DDC3306C1D4135 /* StitchEngine.swift */; };
 		C478210A685E2FB1C3B01FFB /* ScrollSnapTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A64DA563FCD3D90B695C477 /* ScrollSnapTheme.swift */; };
@@ -164,6 +165,7 @@
 		43798F2A963A88B7A1A11E59 /* InteractiveLoupeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveLoupeView.swift; sourceTree = "<group>"; };
 		55859D56F1AF00904FC53488 /* ScrollSnap.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ScrollSnap.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F927FAAA25D8EF9B0E299F9 /* StitchEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StitchEditorView.swift; sourceTree = "<group>"; };
+		C7A1D2E3F4A5B6C7D8E9F001 /* SliceManagerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliceManagerSheet.swift; sourceTree = "<group>"; };
 		6774710346654B41CA507E0D /* TiledImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TiledImageRenderer.swift; sourceTree = "<group>"; };
 		690CA82A50C0E72ED9E111F9 /* StitchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StitchActivityAttributes.swift; sourceTree = "<group>"; };
 		6C7ABA5E4901FE4BC9A4B35E /* StitchActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StitchActivityWidget.swift; sourceTree = "<group>"; };
@@ -320,6 +322,7 @@
 				11F5A776ACB39B4541CF6CFF /* LiquidBrushRedactionView.swift */,
 				8F63D75D0A440A1F46BCDA9C /* SocialGridStageView.swift */,
 				5F927FAAA25D8EF9B0E299F9 /* StitchEditorView.swift */,
+				C7A1D2E3F4A5B6C7D8E9F001 /* SliceManagerSheet.swift */,
 				F6D0532EB565338CB49D105F /* TactileSeamDialView.swift */,
 			);
 			path = StitchEditor;
@@ -649,6 +652,7 @@
 				AD5A7655D3D69C9D2763461B /* StitchActionIntents.swift in Sources */,
 				ACFA57BFF17FFCA4CEED3D90 /* StitchActivityAttributes.swift in Sources */,
 				B5CAA864C2C1946C01E9AAB7 /* StitchEditorView.swift in Sources */,
+				C7A1D2E3F4A5B6C7D8E9F002 /* SliceManagerSheet.swift in Sources */,
 				A4069606C831425873D21F0B /* StitchEngine.swift in Sources */,
 				D5B500D7DC57B85C5F21DCC4 /* StitchItem.swift in Sources */,
 				619D6D8682D22B2CBC58C908 /* StitchSession.swift in Sources */,
