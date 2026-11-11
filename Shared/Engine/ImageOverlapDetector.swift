@@ -158,10 +158,10 @@ public final class ImageOverlapDetector {
             return (0, 0, false)
         }
         
-        let patchHeight = max(36, min(80, Int(Double(H) * 0.10)))
+        let patchHeight = max(28, min(60, Int(Double(H) * 0.08)))
         
-        // Sample 3 candidate vertical anchors in botBuf (middle 55% of the screen)
-        let anchorRatios: [Double] = [0.30, 0.48, 0.65]
+        // Multi-tier candidate vertical anchors in botBuf covering small, medium, and large scroll displacements (15%..85% overlap)
+        let anchorRatios: [Double] = [0.10, 0.18, 0.28, 0.42, 0.60]
         var candidateMatches: [(dy: CGFloat, mad: Double)] = []
         
         topBuf.data.withUnsafeBufferPointer { topPtr in
@@ -546,6 +546,48 @@ public final class ImageOverlapDetector {
             }
         }
         
+        // Verify that 0..<snapTop actually contains confirmed static UI features (eliminates false top crop on pure docs)
+        var confirmedStaticTopRows = 0
+        if snapTop > 10 {
+            topBuf.data.withUnsafeBufferPointer { topPtr in
+                botBuf.data.withUnsafeBufferPointer { botPtr in
+                    guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
+                    for y in 0..<snapTop {
+                        var diffStaticSum = 0
+                        var sumValB = 0
+                        var sumSqValB = 0
+                        let yaMotion = Int(round(CGFloat(y) + coarseDy))
+                        var diffMotionSum = 0
+                        let offA = y * W
+                        let offB = y * W
+                        let offM = yaMotion * W
+                        for c in marginX..<(W - marginX) {
+                            let vA = Int(topBase[offA + c])
+                            let vB = Int(botBase[offB + c])
+                            diffStaticSum += abs(vA - vB)
+                            sumValB += vB
+                            sumSqValB += vB * vB
+                            if yaMotion < H {
+                                diffMotionSum += abs(Int(topBase[offM + c]) - vB)
+                            } else {
+                                diffMotionSum += 255
+                            }
+                        }
+                        let diffS = Double(diffStaticSum) / Double(activeW)
+                        let diffM = Double(diffMotionSum) / Double(activeW)
+                        let meanB = Double(sumValB) / Double(activeW)
+                        let varB = Double(sumSqValB) / Double(activeW) - (meanB * meanB)
+                        if diffS < 12.0 && diffM > 14.0 && varB > 2.5 {
+                            confirmedStaticTopRows += 1
+                        }
+                    }
+                }
+            }
+        }
+        if confirmedStaticTopRows < 3 {
+            snapTop = 0
+        }
+        
         let fullTopAnchor = CGFloat(snapTop) * topBuf.scaleY
         
         // --- 2. Bottom Chrome Detection (Scan from y=H-1 upward) ---
@@ -619,6 +661,39 @@ public final class ImageOverlapDetector {
                     snapBottom = y
                 }
             }
+        }
+        
+        // Verify that snapBottom..<H actually contains confirmed static UI features (buttons, input field, tab bar)
+        var confirmedStaticBottomRows = 0
+        if snapBottom < H - 10 {
+            topBuf.data.withUnsafeBufferPointer { topPtr in
+                botBuf.data.withUnsafeBufferPointer { botPtr in
+                    guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
+                    for y in snapBottom..<H {
+                        var diffStaticSum = 0
+                        var sumValB = 0
+                        var sumSqValB = 0
+                        let offA = y * W
+                        let offB = y * W
+                        for c in marginX..<(W - marginX) {
+                            let vA = Int(topBase[offA + c])
+                            let vB = Int(botBase[offB + c])
+                            diffStaticSum += abs(vA - vB)
+                            sumValB += vB
+                            sumSqValB += vB * vB
+                        }
+                        let diffS = Double(diffStaticSum) / Double(activeW)
+                        let meanB = Double(sumValB) / Double(activeW)
+                        let varB = Double(sumSqValB) / Double(activeW) - (meanB * meanB)
+                        if diffS < 12.0 && varB > 2.5 {
+                            confirmedStaticBottomRows += 1
+                        }
+                    }
+                }
+            }
+        }
+        if confirmedStaticBottomRows < 3 {
+            snapBottom = H
         }
         
         let fullBottomAnchor = CGFloat(H - snapBottom) * topBuf.scaleY

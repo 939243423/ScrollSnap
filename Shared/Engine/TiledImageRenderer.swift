@@ -81,9 +81,10 @@ public final class TiledImageRenderer {
                     sourceStart = slice.topCropInset
                 } else {
                     let overlapWithPrev = slice.effectiveOverlap
-                    let seamOffset = (slice.optimalSeamLineY > 0 && slice.optimalSeamLineY <= overlapWithPrev)
-                        ? slice.optimalSeamLineY
-                        : (overlapWithPrev * 0.5)
+                    let ratio: CGFloat = (slice.calculatedOverlapWithPrevious > 0)
+                        ? (slice.optimalSeamLineY / slice.calculatedOverlapWithPrevious)
+                        : 0.5
+                    let seamOffset = min(overlapWithPrev, max(0.0, overlapWithPrev * ratio))
                     sourceStart = slice.topCropInset + seamOffset
                 }
                 
@@ -91,9 +92,10 @@ public final class TiledImageRenderer {
                 if index + 1 < slices.count {
                     let nextSlice = slices[index + 1]
                     let overlapWithNext = nextSlice.effectiveOverlap
-                    let nextSeamOffset = (nextSlice.optimalSeamLineY > 0 && nextSlice.optimalSeamLineY <= overlapWithNext)
-                        ? nextSlice.optimalSeamLineY
-                        : (overlapWithNext * 0.5)
+                    let ratio: CGFloat = (nextSlice.calculatedOverlapWithPrevious > 0)
+                        ? (nextSlice.optimalSeamLineY / nextSlice.calculatedOverlapWithPrevious)
+                        : 0.5
+                    let nextSeamOffset = min(overlapWithNext, max(0.0, overlapWithNext * ratio))
                     sourceEnd = max(sourceStart, origH - slice.bottomCropInset - overlapWithNext + nextSeamOffset)
                 } else {
                     sourceEnd = max(sourceStart, origH - slice.bottomCropInset)
