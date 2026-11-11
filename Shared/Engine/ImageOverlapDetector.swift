@@ -8,11 +8,22 @@ public struct OverlapMatchResult {
     public let offset: CGFloat
     public let confidence: Double
     public let optimalSeamY: CGFloat
+    
+    public init(offset: CGFloat, confidence: Double, optimalSeamY: CGFloat) {
+        self.offset = offset
+        self.confidence = confidence
+        self.optimalSeamY = optimalSeamY
+    }
 }
 
 public struct StaticChromeDetectionResult {
     public let topBarHeight: CGFloat
     public let bottomBarHeight: CGFloat
+    
+    public init(topBarHeight: CGFloat, bottomBarHeight: CGFloat) {
+        self.topBarHeight = topBarHeight
+        self.bottomBarHeight = bottomBarHeight
+    }
 }
 
 public struct ScrollZoneDetectionResult {
@@ -49,6 +60,27 @@ public struct ScrollZoneDetectionResult {
     }
 }
 
+public struct ImageBuffer2D {
+    public let width: Int
+    public let height: Int
+    public let data: [UInt8]
+    public let scaleX: CGFloat
+    public let scaleY: CGFloat
+    
+    public init(width: Int, height: Int, data: [UInt8], scaleX: CGFloat, scaleY: CGFloat) {
+        self.width = width
+        self.height = height
+        self.data = data
+        self.scaleX = scaleX
+        self.scaleY = scaleY
+    }
+    
+    @inline(__always)
+    public func pixel(x: Int, y: Int) -> UInt8 {
+        return data[y * width + x]
+    }
+}
+
 public struct ImageProfile1D {
     public let luminance: [Double]
     public let horizontalEdgeEnergy: [Double]
@@ -73,16 +105,348 @@ public struct ImageProfile1D {
 
 public final class ImageOverlapDetector {
     
-    /// Multi-scenario adaptive scroll zone detection (Auto-ROI):
-    /// Analyzes screen geometry and vertical motion coherence to detect stationary navigation bars,
-    /// bottom input/tab bars, and split-screen media players (e.g. Xiaohongshu video notes, Bilibili, Douyin).
+    // MARK: - 2D Grayscale Bitmap Downsampler
+    
+    /// Downscales a high-resolution screenshot into a standardized 2D grayscale analysis buffer (width ~320).
+    /// Preserves complete 2D spatial arrangement of text, icons, avatars, and UI geometry.
+    public static func createGrayscaleBuffer(from cgImage: CGImage, targetWidth: Int = 320) -> ImageBuffer2D? {
+        let origW = cgImage.width
+        let origH = cgImage.height
+        guard origW > 0, origH > 0 else { return nil }
+        
+        let tW = min(targetWidth, origW)
+        let tH = max(1, Int(round(CGFloat(origH) * CGFloat(tW) / CGFloat(origW))))
+        
+        var bytes = [UInt8](repeating: 0, count: tW * tH)
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        guard let ctx = CGContext(
+            data: &bytes,
+            width: tW,
+            height: tH,
+            bitsPerComponent: 8,
+            bytesPerRow: tW,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else { return nil }
+        
+        ctx.interpolationQuality = .medium
+        ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: tW, height: tH))
+        
+        let sX = CGFloat(origW) / CGFloat(tW)
+        let sY = CGFloat(origH) / CGFloat(tH)
+        return ImageBuffer2D(width: tW, height: tH, data: bytes, scaleX: sX, scaleY: sY)
+    }
+    
+    // MARK: - 2D Multi-Patch Spatial Cross-Correlation
+    
+    /// Finds vertical displacement using 2D multi-patch spatial cross-correlation.
+    /// Uses multiple independent 2D templates across the content area to eliminate periodic false matches.
+    private static func match2DPatches(
+        topBuf: ImageBuffer2D,
+        botBuf: ImageBuffer2D,
+        expectedDisplacement: CGFloat? = nil
+    ) -> (displacement: CGFloat, confidence: Double, isReverseOrder: Bool) {
+        let W = topBuf.width
+        let H = topBuf.height
+        guard W > 30, H > 100 else {
+            return (0, 0, false)
+        }
+        
+        let marginX = max(8, Int(Double(W) * 0.05))
+        let activeWidth = W - 2 * marginX
+        guard activeWidth > 20 else {
+            return (0, 0, false)
+        }
+        
+        let patchHeight = max(36, min(80, Int(Double(H) * 0.10)))
+        
+        // Sample 3 candidate vertical anchors in botBuf (middle 55% of the screen)
+        let anchorRatios: [Double] = [0.30, 0.48, 0.65]
+        var candidateMatches: [(dy: CGFloat, mad: Double)] = []
+        
+        topBuf.data.withUnsafeBufferPointer { topPtr in
+            botBuf.data.withUnsafeBufferPointer { botPtr in
+                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
+                
+                for ratio in anchorRatios {
+                    let yB = Int(Double(H) * ratio)
+                    guard yB + patchHeight < H - 20 else { continue }
+                    
+                    // Check patch texture variance (skip flat background)
+                    var sumVal: Int = 0
+                    var sumSqVal: Int = 0
+                    let totalPixels = patchHeight * activeWidth
+                    for r in 0..<patchHeight {
+                        let rowOffset = (yB + r) * W
+                        for c in marginX..<(W - marginX) {
+                            let v = Int(botBase[rowOffset + c])
+                            sumVal += v
+                            sumSqVal += v * v
+                        }
+                    }
+                    let mean = Double(sumVal) / Double(totalPixels)
+                    let variance = Double(sumSqVal) / Double(totalPixels) - (mean * mean)
+                    guard variance > 2.5 else { continue }
+                    
+                    // Downward scroll: content at yB in botBuf was LOWER in topBuf: yA in [yB + 6 ... H - patchHeight - 6]
+                    let searchMin = yB + 4
+                    let searchMax = H - patchHeight - 6
+                    guard searchMin <= searchMax else { continue }
+                    
+                    var bestYA = searchMin
+                    var minMAD = Double.greatestFiniteMagnitude
+                    
+                    // Coarse search with stride 2
+                    for yA in stride(from: searchMin, through: searchMax, by: 2) {
+                        var diffSum: Int = 0
+                        for r in 0..<patchHeight {
+                            let offsetA = (yA + r) * W
+                            let offsetB = (yB + r) * W
+                            for c in marginX..<(W - marginX) {
+                                let diff = abs(Int(topBase[offsetA + c]) - Int(botBase[offsetB + c]))
+                                diffSum += diff
+                            }
+                        }
+                        let mad = Double(diffSum) / Double(totalPixels)
+                        if mad < minMAD {
+                            minMAD = mad
+                            bestYA = yA
+                        }
+                    }
+                    
+                    // Fine search in [-2, +2] neighborhood of peak
+                    let fineStart = max(searchMin, bestYA - 2)
+                    let fineEnd = min(searchMax, bestYA + 2)
+                    for yA in fineStart...fineEnd {
+                        guard yA != bestYA else { continue }
+                        var diffSum: Int = 0
+                        for r in 0..<patchHeight {
+                            let offsetA = (yA + r) * W
+                            let offsetB = (yB + r) * W
+                            for c in marginX..<(W - marginX) {
+                                let diff = abs(Int(topBase[offsetA + c]) - Int(botBase[offsetB + c]))
+                                diffSum += diff
+                            }
+                        }
+                        let mad = Double(diffSum) / Double(totalPixels)
+                        if mad < minMAD {
+                            minMAD = mad
+                            bestYA = yA
+                        }
+                    }
+                    
+                    if minMAD < 35.0 {
+                        let dy = CGFloat(bestYA - yB)
+                        candidateMatches.append((dy: dy, mad: minMAD))
+                    }
+                }
+            }
+        }
+        
+        // Multi-Patch Consensus Voting
+        if !candidateMatches.isEmpty {
+            var votes: [[(dy: CGFloat, mad: Double)]] = []
+            for match in candidateMatches {
+                var added = false
+                for i in 0..<votes.count {
+                    if abs(votes[i][0].dy - match.dy) <= 2.5 {
+                        votes[i].append(match)
+                        added = true
+                        break
+                    }
+                }
+                if !added {
+                    votes.append([match])
+                }
+            }
+            
+            // Pick cluster with highest votes; break ties with lower MAD or matching velocity prior
+            votes.sort { c1, c2 in
+                if c1.count != c2.count {
+                    return c1.count > c2.count
+                }
+                let minMad1 = c1.map(\.mad).min() ?? 999.0
+                let minMad2 = c2.map(\.mad).min() ?? 999.0
+                return minMad1 < minMad2
+            }
+            
+            let bestCluster = votes[0]
+            let avgDy = bestCluster.map(\.dy).reduce(0.0, +) / CGFloat(bestCluster.count)
+            let avgMad = bestCluster.map(\.mad).reduce(0.0, +) / Double(bestCluster.count)
+            let confidence = max(0.50, min(1.0, 1.0 - avgMad / 35.0 + (bestCluster.count > 1 ? 0.08 : 0.0)))
+            
+            return (displacement: avgDy, confidence: confidence, isReverseOrder: false)
+        }
+        
+        // Reverse Sequence Fallback Check:
+        // Test if images were selected in reverse (newest to oldest)
+        var reverseCandidateMatches: [(dy: CGFloat, mad: Double)] = []
+        topBuf.data.withUnsafeBufferPointer { topPtr in
+            botBuf.data.withUnsafeBufferPointer { botPtr in
+                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
+                for ratio in anchorRatios {
+                    let yA = Int(Double(H) * ratio)
+                    guard yA + patchHeight < H - 20 else { continue }
+                    let searchMin = yA + 4
+                    let searchMax = H - patchHeight - 6
+                    guard searchMin <= searchMax else { continue }
+                    
+                    var bestYB = searchMin
+                    var minMAD = Double.greatestFiniteMagnitude
+                    let totalPixels = patchHeight * activeWidth
+                    
+                    for yB in stride(from: searchMin, through: searchMax, by: 2) {
+                        var diffSum: Int = 0
+                        for r in 0..<patchHeight {
+                            let offsetA = (yA + r) * W
+                            let offsetB = (yB + r) * W
+                            for c in marginX..<(W - marginX) {
+                                let diff = abs(Int(topBase[offsetA + c]) - Int(botBase[offsetB + c]))
+                                diffSum += diff
+                            }
+                        }
+                        let mad = Double(diffSum) / Double(totalPixels)
+                        if mad < minMAD {
+                            minMAD = mad
+                            bestYB = yB
+                        }
+                    }
+                    if minMAD < 25.0 {
+                        let dy = CGFloat(bestYB - yA)
+                        reverseCandidateMatches.append((dy: dy, mad: minMAD))
+                    }
+                }
+            }
+        }
+        
+        if !reverseCandidateMatches.isEmpty {
+            let bestRev = reverseCandidateMatches.min(by: { $0.mad < $1.mad })!
+            let confidence = max(0.40, min(1.0, 1.0 - bestRev.mad / 35.0))
+            return (displacement: bestRev.dy, confidence: confidence, isReverseOrder: true)
+        }
+        
+        return (displacement: 0, confidence: 0, isReverseOrder: false)
+    }
+    
+    // MARK: - Full-Resolution 2D Subpixel Refinement
+    
+    /// Refines the coarse 2D displacement at full original resolution to achieve exact sub-pixel alignment.
+    private static func refineFullResolutionSubpixel(
+        topImage: CGImage,
+        bottomImage: CGImage,
+        coarseDisplacement: CGFloat,
+        scaleY: CGFloat
+    ) -> (fineDisplacement: CGFloat, confidence: Double) {
+        let origW = min(topImage.width, bottomImage.width)
+        let origH = min(topImage.height, bottomImage.height)
+        guard origW > 60, origH > 200 else {
+            return (coarseDisplacement * scaleY, 0.5)
+        }
+        
+        let targetDy = coarseDisplacement * scaleY
+        let patchH = min(80, max(40, Int(Double(origH) * 0.05)))
+        let patchStartB = max(100, min(origH - patchH - 120, Int(Double(origH) * 0.45)))
+        
+        // Sample strip across width with stride 2 for speed
+        let sampleW = min(origW - 40, 480)
+        let startX = (origW - sampleW) / 2
+        
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        var patchB = [UInt8](repeating: 0, count: sampleW * patchH)
+        guard let ctxB = CGContext(
+            data: &patchB,
+            width: sampleW,
+            height: patchH,
+            bitsPerComponent: 8,
+            bytesPerRow: sampleW,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else {
+            return (targetDy, 0.8)
+        }
+        ctxB.interpolationQuality = .none
+        ctxB.draw(bottomImage, in: CGRect(x: -startX, y: -patchStartB, width: origW, height: origH))
+        
+        let searchRadius = 10
+        let searchMinDy = max(10, Int(round(targetDy)) - searchRadius)
+        let searchMaxDy = min(origH - patchH - 20, Int(round(targetDy)) + searchRadius)
+        guard searchMinDy <= searchMaxDy else {
+            return (targetDy, 0.8)
+        }
+        
+        let searchSpanH = (searchMaxDy - searchMinDy) + patchH
+        let searchStartA = patchStartB + searchMinDy
+        guard searchStartA + searchSpanH <= origH else {
+            return (targetDy, 0.8)
+        }
+        
+        var stripA = [UInt8](repeating: 0, count: sampleW * searchSpanH)
+        guard let ctxA = CGContext(
+            data: &stripA,
+            width: sampleW,
+            height: searchSpanH,
+            bitsPerComponent: 8,
+            bytesPerRow: sampleW,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else {
+            return (targetDy, 0.8)
+        }
+        ctxA.interpolationQuality = .none
+        ctxA.draw(topImage, in: CGRect(x: -startX, y: -searchStartA, width: origW, height: origH))
+        
+        var bestOffsetDy = searchMinDy
+        var minDiffSum = Int.max
+        var errors: [Int: Double] = [:]
+        let totalCount = sampleW * patchH
+        
+        for dy in searchMinDy...searchMaxDy {
+            let rowOffsetInA = (dy - searchMinDy) * sampleW
+            var diffSum: Int = 0
+            for r in 0..<patchH {
+                let offA = rowOffsetInA + r * sampleW
+                let offB = r * sampleW
+                for c in stride(from: 0, to: sampleW, by: 2) {
+                    diffSum += abs(Int(stripA[offA + c]) - Int(patchB[offB + c]))
+                }
+            }
+            errors[dy] = Double(diffSum) / Double(totalCount / 2)
+            if diffSum < minDiffSum {
+                minDiffSum = diffSum
+                bestOffsetDy = dy
+            }
+        }
+        
+        // Parabolic Subpixel Interpolation on error curve
+        var subpixelDy = CGFloat(bestOffsetDy)
+        if let e0 = errors[bestOffsetDy],
+           let eM1 = errors[bestOffsetDy - 1],
+           let eP1 = errors[bestOffsetDy + 1] {
+            let denom = 2.0 * (eM1 + eP1 - 2.0 * e0)
+            if abs(denom) > 0.0001 {
+                let delta = (eM1 - eP1) / denom
+                if abs(delta) <= 0.5 {
+                    subpixelDy += CGFloat(delta)
+                }
+            }
+        }
+        
+        let avgErr = Double(minDiffSum) / Double(totalCount / 2)
+        let conf = max(0.60, min(1.0, 1.0 - avgErr / 35.0))
+        return (fineDisplacement: subpixelDy, confidence: conf)
+    }
+    
+    // MARK: - 2D Motion-Coherence Chrome & Scenario Detection
+    
+    /// Detects top navigation bars, split-screen video note players, and bottom input/tab bars
+    /// with pixel-level precision using 2D static pixel consistency and hairline divider snapping.
     public static func detectAdaptiveScrollZone(
         topImage: CGImage,
         bottomImage: CGImage
     ) -> ScrollZoneDetectionResult {
-        let width = min(topImage.width, bottomImage.width)
-        let height = min(topImage.height, bottomImage.height)
-        guard width > 0, height > 300 else {
+        let origW = min(topImage.width, bottomImage.width)
+        let origH = min(topImage.height, bottomImage.height)
+        guard origW > 0, origH > 300 else {
             return ScrollZoneDetectionResult(
                 topAnchorHeight: 0,
                 bottomAnchorHeight: 0,
@@ -93,243 +457,192 @@ public final class ImageOverlapDetector {
             )
         }
         
-        let profileTop = calculateVerticalProfile(cgImage: topImage)
-        let profileBottom = calculateVerticalProfile(cgImage: bottomImage)
-        let featA = profileTop.combinedFeature
-        let featB = profileBottom.combinedFeature
+        guard let topBuf = createGrayscaleBuffer(from: topImage, targetWidth: 320),
+              let botBuf = createGrayscaleBuffer(from: bottomImage, targetWidth: 320) else {
+            return ScrollZoneDetectionResult(
+                topAnchorHeight: 0,
+                bottomAnchorHeight: 0,
+                isSplitScreenMedia: false,
+                isChatAppDetected: false,
+                scrollVelocityEstimate: 0,
+                confidence: 0
+            )
+        }
         
-        // Step 1: Detect dominant scroll displacement across multi-point candidate probes (35%, 45%, 55%, 68%, 75%)
-        // Ensures rock-solid tracking for chat dialogues, social comments, and dense article feeds
-        let candidateRatios: [Double] = [0.55, 0.68, 0.45, 0.75, 0.35]
-        let probeLen = min(140, Int(Double(height) * 0.12))
-        var dominantDisplacement: Int = 0
-        var probeConfidence: Double = 0.0
-        var activeProbeStart: Int = Int(Double(height) * 0.55)
+        let W = topBuf.width
+        let H = topBuf.height
+        let marginX = max(8, Int(Double(W) * 0.05))
+        let activeW = W - 2 * marginX
         
-        let invT = 1.0 / Double(probeLen)
-        let searchMin = Int(Double(height) * 0.10)
-        let searchMax = min(height - probeLen, Int(Double(height) * 0.90))
+        // Find coarse displacement across 2D patches
+        let coarseMatch = match2DPatches(topBuf: topBuf, botBuf: botBuf)
+        let coarseDy = coarseMatch.displacement
         
-        for ratio in candidateRatios {
-            let pStart = Int(Double(height) * ratio)
-            guard pStart + probeLen < height - 50 else { continue }
-            
-            let template = Array(featB[pStart..<(pStart + probeLen)])
-            var sumT = 0.0
-            var sumSqT = 0.0
-            for v in template {
-                sumT += v
-                sumSqT += v * v
-            }
-            let varT = max(0.0, sumSqT - (sumT * sumT) * invT)
-            guard varT > 0.0001 else { continue }
-            
-            var bestOffset = pStart
-            var maxR = -1.0
-            
-            for offset in stride(from: searchMin, through: searchMax, by: 2) {
-                var sumS = 0.0
-                var sumSqS = 0.0
-                var dot = 0.0
-                for i in 0..<probeLen {
-                    let s = featA[offset + i]
-                    let t = template[i]
-                    sumS += s
-                    sumSqS += s * s
-                    dot += s * t
-                }
-                let varS = max(0.0, sumSqS - (sumS * sumS) * invT)
-                guard varS > 0.0001 else { continue }
-                let denom = sqrt(varS * varT)
-                if denom > 0.0001 {
-                    let r = (dot - (sumS * sumT) * invT) / denom
-                    if r > maxR {
-                        maxR = r
-                        bestOffset = offset
+        // --- 1. Top Chrome Detection (Scan from y=0 downward) ---
+        var topChromeEnd = 0
+        let maxTopScan = min(Int(Double(H) * 0.65), H - 100)
+        
+        topBuf.data.withUnsafeBufferPointer { topPtr in
+            botBuf.data.withUnsafeBufferPointer { botPtr in
+                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
+                
+                var consecutiveMovingRows = 0
+                for y in 0..<maxTopScan {
+                    var diffStaticSum = 0
+                    var diffMotionSum = 0
+                    let yaMotion = Int(round(CGFloat(y) + coarseDy))
+                    
+                    let offTop = y * W
+                    let offBot = y * W
+                    let offMotion = yaMotion * W
+                    
+                    for c in marginX..<(W - marginX) {
+                        let vTop = Int(topBase[offTop + c])
+                        let vBot = Int(botBase[offBot + c])
+                        diffStaticSum += abs(vTop - vBot)
+                        if yaMotion < H {
+                            let vMotion = Int(topBase[offMotion + c])
+                            diffMotionSum += abs(vMotion - vBot)
+                        } else {
+                            diffMotionSum += 255
+                        }
+                    }
+                    
+                    let diffStatic = Double(diffStaticSum) / Double(activeW)
+                    let diffMotion = Double(diffMotionSum) / Double(activeW)
+                    
+                    // Moving row: motion diff is small, static diff is high (content is scrolling!)
+                    if coarseDy > 20 && diffMotion < 10.0 && diffStatic > 14.0 {
+                        consecutiveMovingRows += 1
+                        if consecutiveMovingRows >= 3 {
+                            topChromeEnd = max(0, y - 2)
+                            break
+                        }
+                    } else {
+                        consecutiveMovingRows = 0
                     }
                 }
             }
-            
-            let candConf = max(0.0, min(1.0, maxR))
-            if candConf > probeConfidence {
-                probeConfidence = candConf
-                dominantDisplacement = pStart - bestOffset
-                activeProbeStart = pStart
-                if candConf > 0.65 {
-                    break
+        }
+        
+        // Hairline divider snapping near topChromeEnd
+        var snapTop = topChromeEnd
+        if topChromeEnd > 15 {
+            let snapRange = max(4, topChromeEnd - 10)...min(maxTopScan, topChromeEnd + 10)
+            var maxEdge = 0.0
+            for y in snapRange {
+                guard y + 1 < H else { break }
+                var edgeSum = 0
+                let off1 = (y + 1) * W
+                let off0 = y * W
+                for c in marginX..<(W - marginX) {
+                    edgeSum += abs(Int(botBuf.data[off1 + c]) - Int(botBuf.data[off0 + c]))
+                }
+                let edge = Double(edgeSum) / Double(activeW)
+                if edge > maxEdge {
+                    maxEdge = edge
+                    snapTop = y + 1
                 }
             }
         }
         
-        // Step 2: Dual Stationary & Motion-Inconsistency Check for Bottom Fixed Anchor (WeChat input bar, tab bar, home indicator)
-        var detectedBottom: Int = 0
-        let maxBottomScan = min(Int(Double(height) * 0.28), 360)
-        var consecutiveNonStaticBottom = 0
-        for i in 0..<maxBottomScan {
-            let yA = height - 1 - i
-            let yB = height - 1 - i
-            guard yA >= 0, yB >= 0 else { break }
-            let diffLum = abs(profileTop.luminance[yA] - profileBottom.luminance[yB])
-            let diffEdge = abs(profileTop.horizontalEdgeEnergy[yA] - profileBottom.horizontalEdgeEnergy[yB])
-            let edgeSum = profileTop.horizontalEdgeEnergy[yA] + profileBottom.horizontalEdgeEnergy[yB]
-            // Translucent frosted glass bar handling: edge structure is static even if background luminance fluctuates
-            let isEdgeCoherent = (edgeSum > 0.03 && diffEdge < 0.035)
-            let isStaticRow = (diffLum < 0.040 && diffEdge < 0.040) || isEdgeCoherent
-            
-            var isMovingRow = false
-            if dominantDisplacement > 25 && yA >= dominantDisplacement {
-                let movingDiff = abs(featB[yA] - featA[yA - dominantDisplacement])
-                if movingDiff < 0.065 {
-                    isMovingRow = true
-                }
-            }
-            
-            if isStaticRow && !isMovingRow {
-                detectedBottom = i
-                consecutiveNonStaticBottom = 0
-            } else {
-                consecutiveNonStaticBottom += 1
-                if i > 40 && consecutiveNonStaticBottom > 14 {
-                    break
-                }
-            }
-        }
-        var bottomAnchor = detectedBottom > 35 ? CGFloat(detectedBottom) : 0
+        let fullTopAnchor = CGFloat(snapTop) * topBuf.scaleY
         
-        // Hairline divider edge snapping for bottom input bar
-        if bottomAnchor > 35 {
-            let bottomRow = height - 1 - Int(bottomAnchor)
-            let snapStart = max(10, bottomRow - 12)
-            let snapEnd = min(height - 10, bottomRow + 12)
-            var maxBorderE = 0.0
-            var snapRow = bottomRow
-            for y in snapStart...snapEnd {
-                let e = max(profileTop.horizontalEdgeEnergy[y], profileBottom.horizontalEdgeEnergy[y])
-                if e > maxBorderE {
-                    maxBorderE = e
-                    snapRow = y
-                }
-            }
-            if maxBorderE > 0.045 {
-                bottomAnchor = CGFloat(height - snapRow)
-            }
-        }
+        // --- 2. Bottom Chrome Detection (Scan from y=H-1 upward) ---
+        var bottomChromeStart = H
+        let maxBottomScan = min(Int(Double(H) * 0.35), H - 100)
         
-        // Step 3: Dual Stationary & Motion-Inconsistency Check for Top Fixed Anchor (Nav bar vs. Half-Screen Media like Xiaohongshu video)
-        var detectedTop: Int = 0
-        let maxTopScan = min(Int(Double(height) * 0.65), height - 200)
-        var consecutiveNonStaticCount = 0
-        
-        for y in 0..<maxTopScan {
-            let diffLum = abs(profileTop.luminance[y] - profileBottom.luminance[y])
-            let diffEdge = abs(profileTop.horizontalEdgeEnergy[y] - profileBottom.horizontalEdgeEnergy[y])
-            let edgeSum = profileTop.horizontalEdgeEnergy[y] + profileBottom.horizontalEdgeEnergy[y]
-            let isEdgeCoherent = (edgeSum > 0.03 && diffEdge < 0.035)
-            let isRowStatic = (diffLum < 0.040 && diffEdge < 0.040) || isEdgeCoherent
-            
-            var isMovingRow = false
-            if dominantDisplacement > 25 && y >= dominantDisplacement {
-                let movingDiff = abs(featB[y] - featA[y - dominantDisplacement])
-                if movingDiff < 0.065 {
-                    isMovingRow = true
-                }
-            }
-            
-            if isRowStatic && !isMovingRow {
-                detectedTop = y
-                consecutiveNonStaticCount = 0
-            } else {
-                consecutiveNonStaticCount += 1
-                if y < 320 && consecutiveNonStaticCount > 20 {
-                    break
-                } else if y >= 320 && consecutiveNonStaticCount > 30 {
-                    break
+        topBuf.data.withUnsafeBufferPointer { topPtr in
+            botBuf.data.withUnsafeBufferPointer { botPtr in
+                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
+                
+                var consecutiveMovingRows = 0
+                for i in 0..<maxBottomScan {
+                    let y = H - 1 - i
+                    guard y >= 0 else { break }
+                    
+                    var diffStaticSum = 0
+                    var sumValA = 0
+                    var sumSqValA = 0
+                    var sumValB = 0
+                    var sumSqValB = 0
+                    
+                    let offA = y * W
+                    let offB = y * W
+                    
+                    for c in marginX..<(W - marginX) {
+                        let vA = Int(topBase[offA + c])
+                        let vB = Int(botBase[offB + c])
+                        diffStaticSum += abs(vA - vB)
+                        sumValA += vA
+                        sumSqValA += vA * vA
+                        sumValB += vB
+                        sumSqValB += vB * vB
+                    }
+                    
+                    let diffStatic = Double(diffStaticSum) / Double(activeW)
+                    let meanA = Double(sumValA) / Double(activeW)
+                    let varA = Double(sumSqValA) / Double(activeW) - (meanA * meanA)
+                    let meanB = Double(sumValB) / Double(activeW)
+                    let varB = Double(sumSqValB) / Double(activeW) - (meanB * meanB)
+                    
+                    // If rows are visually distinct and either screen contains detail (text/cards), content has started!
+                    if diffStatic > 12.0 && max(varA, varB) > 3.0 {
+                        consecutiveMovingRows += 1
+                        if consecutiveMovingRows >= 3 {
+                            bottomChromeStart = min(H, y + 3)
+                            break
+                        }
+                    } else {
+                        consecutiveMovingRows = 0
+                    }
                 }
             }
         }
         
-        // Step 4: Refine split boundary using downward motion coherence when dominant displacement is known
-        var finalTopAnchor = CGFloat(detectedTop > 40 ? detectedTop : 0)
-        if dominantDisplacement > 30 && probeConfidence > 0.35 {
-            let searchUpwardLimit = max(0, Int(Double(height) * 0.08))
-            var motionSplitY = activeProbeStart
-            for y in stride(from: activeProbeStart, through: searchUpwardLimit, by: -4) {
-                let yInA = y - dominantDisplacement
-                guard yInA >= 0, yInA < height else {
-                    motionSplitY = y
-                    break
+        // Hairline divider snapping near bottomChromeStart
+        var snapBottom = bottomChromeStart
+        if bottomChromeStart < H - 15 {
+            let snapRange = max(H - maxBottomScan, bottomChromeStart - 10)...min(H - 2, bottomChromeStart + 10)
+            var maxEdge = 0.0
+            for y in snapRange {
+                guard y + 1 < H else { break }
+                var edgeSum = 0
+                let off1 = (y + 1) * W
+                let off0 = y * W
+                for c in marginX..<(W - marginX) {
+                    edgeSum += abs(Int(botBuf.data[off1 + c]) - Int(botBuf.data[off0 + c]))
                 }
-                let diffMotion = abs(featB[y] - featA[yInA])
-                if diffMotion > 0.08 {
-                    motionSplitY = y
-                    break
+                let edge = Double(edgeSum) / Double(activeW)
+                if edge > maxEdge {
+                    maxEdge = edge
+                    snapBottom = y
                 }
-            }
-            
-            if motionSplitY > 160 && CGFloat(motionSplitY) > finalTopAnchor {
-                finalTopAnchor = CGFloat(motionSplitY)
             }
         }
         
-        let isSplitMedia = finalTopAnchor > (CGFloat(height) * 0.18)
+        let fullBottomAnchor = CGFloat(H - snapBottom) * topBuf.scaleY
         
-        // Step 5: Divider line snapping for split-screen media (Xiaohongshu video notes, Bilibili) or navigation bars
-        // Snaps the cut right below the physical divider edge so neither slice clips the divider line
-        if isSplitMedia {
-            let snapStart = max(40, Int(finalTopAnchor) - 16)
-            let snapEnd = min(height - 100, Int(finalTopAnchor) + 16)
-            var maxDividerE = 0.0
-            var snapRow = Int(finalTopAnchor)
-            for y in snapStart...snapEnd {
-                let e = profileTop.horizontalEdgeEnergy[y]
-                if e > maxDividerE {
-                    maxDividerE = e
-                    snapRow = y
-                }
-            }
-            if maxDividerE > 0.08 {
-                finalTopAnchor = CGFloat(snapRow + 1)
-            }
-        } else if finalTopAnchor > 40 {
-            // Hairline divider snapping for top navigation bar
-            let topRow = Int(finalTopAnchor)
-            let snapStart = max(20, topRow - 12)
-            let snapEnd = min(height - 100, topRow + 12)
-            var maxDividerE = 0.0
-            var snapRow = topRow
-            for y in snapStart...snapEnd {
-                let e = max(profileTop.horizontalEdgeEnergy[y], profileBottom.horizontalEdgeEnergy[y])
-                if e > maxDividerE {
-                    maxDividerE = e
-                    snapRow = y
-                }
-            }
-            if maxDividerE > 0.045 {
-                finalTopAnchor = CGFloat(snapRow + 1)
-            }
-        }
+        // --- 3. Multi-Scenario Classification ---
+        let isSplitMedia = fullTopAnchor > (CGFloat(origH) * 0.18)
+        let isChatApp = !isSplitMedia && fullTopAnchor >= 120 && fullTopAnchor <= 380 && fullBottomAnchor >= 100 && fullBottomAnchor <= 380
         
-        // Step 6: Multi-Scenario App Layout Classification
-        // A. Chat App (WeChat, iMessage, QQ, DingTalk): Top in [120..360]px, Bottom in [100..360]px
-        var isChatApp = false
-        if !isSplitMedia && finalTopAnchor >= 120 && finalTopAnchor <= 360 && bottomAnchor >= 100 && bottomAnchor <= 360 {
-            let scrollStart = Int(finalTopAnchor)
-            let scrollEnd = height - Int(bottomAnchor)
-            if scrollEnd > scrollStart + 100 {
-                isChatApp = true
-            }
-        }
-        
-        // B. Card Feed Detection (Weibo, Twitter/X, Shopping cards): Periodic horizontal dividers
+        // Card Feed Check (regular horizontal dividers)
         var isCardFeed = false
         if !isSplitMedia && !isChatApp {
             var dividerRows: [Int] = []
-            let bodyStart = Int(finalTopAnchor) + 20
-            let bodyEnd = height - Int(bottomAnchor) - 20
-            if bodyEnd > bodyStart + 180 {
+            let bodyStart = snapTop + 10
+            let bodyEnd = snapBottom - 10
+            if bodyEnd > bodyStart + 100 {
                 for y in (bodyStart + 1)..<(bodyEnd - 1) {
-                    let e = profileTop.horizontalEdgeEnergy[y]
-                    if e > 0.07 && e > profileTop.horizontalEdgeEnergy[y - 1] && e > profileTop.horizontalEdgeEnergy[y + 1] {
+                    let off1 = (y + 1) * W
+                    let off0 = y * W
+                    var edgeSum = 0
+                    for c in marginX..<(W - marginX) {
+                        edgeSum += abs(Int(botBuf.data[off1 + c]) - Int(botBuf.data[off0 + c]))
+                    }
+                    let edge = Double(edgeSum) / Double(activeW)
+                    if edge > 16.0 {
                         dividerRows.append(y)
                     }
                 }
@@ -338,7 +651,7 @@ public final class ImageOverlapDetector {
                 var periodicCount = 0
                 for i in 1..<dividerRows.count {
                     let diff = dividerRows[i] - dividerRows[i - 1]
-                    if diff >= 100 && diff <= 420 {
+                    if diff >= 30 && diff <= 140 {
                         periodicCount += 1
                     }
                 }
@@ -348,85 +661,99 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // C. Web Article Detection (Safari, WeChat Articles, Zhihu): Top header + bottom toolbar + high text density
-        var isWebArticle = false
-        if !isSplitMedia && !isChatApp && !isCardFeed {
-            if finalTopAnchor >= 70 && finalTopAnchor <= 320 && bottomAnchor >= 50 && bottomAnchor <= 240 {
-                isWebArticle = true
-            }
-        }
+        let isWebArticle = !isSplitMedia && !isChatApp && !isCardFeed && fullTopAnchor >= 70 && fullTopAnchor <= 320 && fullBottomAnchor >= 45 && fullBottomAnchor <= 240
         
-        let detectedScenario: AppLayoutScenario
+        let scenario: AppLayoutScenario
         if isSplitMedia {
-            detectedScenario = .splitMedia
+            scenario = .splitMedia
         } else if isChatApp {
-            detectedScenario = .chatApp
+            scenario = .chatApp
         } else if isCardFeed {
-            detectedScenario = .cardFeed
+            scenario = .cardFeed
         } else if isWebArticle {
-            detectedScenario = .webArticle
+            scenario = .webArticle
         } else {
-            detectedScenario = .generalScroll
+            scenario = .generalScroll
         }
         
         return ScrollZoneDetectionResult(
-            topAnchorHeight: finalTopAnchor,
-            bottomAnchorHeight: bottomAnchor,
+            topAnchorHeight: fullTopAnchor,
+            bottomAnchorHeight: fullBottomAnchor,
             isSplitScreenMedia: isSplitMedia,
             isChatAppDetected: isChatApp,
             isCardFeedDetected: isCardFeed,
             isWebArticleDetected: isWebArticle,
-            scrollVelocityEstimate: CGFloat(dominantDisplacement),
-            confidence: max(0.5, probeConfidence),
-            scenario: detectedScenario
+            scrollVelocityEstimate: coarseDy * topBuf.scaleY,
+            confidence: max(0.5, coarseMatch.confidence),
+            scenario: scenario
         )
     }
     
-    /// Evaluates multiple slice pairs across a session to obtain a robust consensus on fixed zones
-    public static func detectConsensusScrollZone(slices: [CGImage]) -> ScrollZoneDetectionResult {
+    /// Multi-Slice Spatial Consensus Voting across all adjacent slice pairs
+    public static func detectConsensusScrollZone(
+        slices: [CGImage]
+    ) -> ScrollZoneDetectionResult {
         guard slices.count >= 2 else {
             return ScrollZoneDetectionResult(
                 topAnchorHeight: 0,
                 bottomAnchorHeight: 0,
                 isSplitScreenMedia: false,
                 isChatAppDetected: false,
-                isCardFeedDetected: false,
-                isWebArticleDetected: false,
                 scrollVelocityEstimate: 0,
-                confidence: 0,
-                scenario: .generalScroll
+                confidence: 0
             )
         }
         
-        var topAnchors: [CGFloat] = []
-        var bottomAnchors: [CGFloat] = []
+        var detectedTops: [CGFloat] = []
+        var detectedBottoms: [CGFloat] = []
         var splitMediaVotes = 0
         var chatAppVotes = 0
         var cardFeedVotes = 0
         var webArticleVotes = 0
         var scenarioVotes: [AppLayoutScenario: Int] = [:]
-        var velocities: [CGFloat] = []
         var maxConfidence = 0.0
+        var velocities: [CGFloat] = []
         
-        let pairsToEvaluate = min(4, slices.count - 1)
-        for i in 0..<pairsToEvaluate {
+        let pairCount = min(slices.count - 1, 4)
+        for i in 0..<pairCount {
             let res = detectAdaptiveScrollZone(topImage: slices[i], bottomImage: slices[i + 1])
-            if res.confidence > 0.35 {
-                if res.topAnchorHeight > 10 { topAnchors.append(res.topAnchorHeight) }
-                if res.bottomAnchorHeight > 10 { bottomAnchors.append(res.bottomAnchorHeight) }
+            if res.confidence > 0.40 {
+                detectedTops.append(res.topAnchorHeight)
+                detectedBottoms.append(res.bottomAnchorHeight)
                 if res.isSplitScreenMedia { splitMediaVotes += 1 }
                 if res.isChatAppDetected { chatAppVotes += 1 }
                 if res.isCardFeedDetected { cardFeedVotes += 1 }
                 if res.isWebArticleDetected { webArticleVotes += 1 }
                 scenarioVotes[res.scenario, default: 0] += 1
-                if res.scrollVelocityEstimate > 10 { velocities.append(res.scrollVelocityEstimate) }
                 maxConfidence = max(maxConfidence, res.confidence)
+                velocities.append(res.scrollVelocityEstimate)
             }
         }
         
-        let finalTop = topAnchors.isEmpty ? 0 : topAnchors.sorted()[topAnchors.count / 2]
-        let finalBottom = bottomAnchors.isEmpty ? 0 : bottomAnchors.sorted()[bottomAnchors.count / 2]
-        let finalVelocity = velocities.isEmpty ? 0 : velocities.sorted()[velocities.count / 2]
+        let finalTop: CGFloat
+        if detectedTops.isEmpty {
+            finalTop = 0
+        } else {
+            let sorted = detectedTops.sorted()
+            finalTop = sorted[sorted.count / 2]
+        }
+        
+        let finalBottom: CGFloat
+        if detectedBottoms.isEmpty {
+            finalBottom = 0
+        } else {
+            let sorted = detectedBottoms.sorted()
+            finalBottom = sorted[sorted.count / 2]
+        }
+        
+        let finalVelocity: CGFloat
+        if velocities.isEmpty {
+            finalVelocity = 0
+        } else {
+            let sorted = velocities.sorted()
+            finalVelocity = sorted[sorted.count / 2]
+        }
+        
         let consensusScenario = scenarioVotes.max(by: { $0.value < $1.value })?.key ?? .generalScroll
         
         return ScrollZoneDetectionResult(
@@ -442,7 +769,7 @@ public final class ImageOverlapDetector {
         )
     }
     
-    /// Detects repeating static top navigation bars and bottom bars (e.g. WeChat title bar, input box)
+    /// Detects repeating static top navigation bars and bottom bars
     public static func detectStaticChromeRegions(
         topImage: CGImage,
         bottomImage: CGImage
@@ -454,161 +781,10 @@ public final class ImageOverlapDetector {
         )
     }
     
-    // MARK: - Template Band Cross-Correlation Helper
+    // MARK: - Core 2D Overlap Detection Entry Point
     
-    private static func matchTemplateBand(
-        topBase: UnsafePointer<Double>,
-        botBase: UnsafePointer<Double>,
-        sumS: [Double],
-        sumSqS: [Double],
-        validTopEnd: Int,
-        templateStart: Int,
-        templateLen: Int,
-        minOffset: Int,
-        maxOffset: Int
-    ) -> (bestOffset: CGFloat, maxCorrelation: Double, secondaryOffset: CGFloat?, secondaryCorrelation: Double) {
-        guard templateLen > 20, minOffset <= maxOffset, minOffset >= 0 else {
-            return (CGFloat(minOffset), -1.0, nil, -1.0)
-        }
-        let invTemplateLen = 1.0 / Double(templateLen)
-        let tBase = botBase + templateStart
-        
-        var sumT = 0.0
-        var sumSqT = 0.0
-        for i in 0..<templateLen {
-            let v = tBase[i]
-            sumT += v
-            sumSqT += v * v
-        }
-        let varT = max(0.0, sumSqT - (sumT * sumT) * invTemplateLen)
-        guard varT > 0.0001 else {
-            return (CGFloat(minOffset), -1.0, nil, -1.0)
-        }
-        
-        var bestOffset = minOffset
-        var maxCorrelation: Double = -1.0
-        var secondaryOffset: Int? = nil
-        var secondaryCorrelation: Double = -1.0
-        
-        // Step 1: Coarse search with stride 2
-        for offset in stride(from: minOffset, through: maxOffset, by: 2) {
-            guard offset + templateLen <= validTopEnd else { break }
-            let sSum = sumS[offset + templateLen] - sumS[offset]
-            let sSqSum = sumSqS[offset + templateLen] - sumSqS[offset]
-            let varS = max(0.0, sSqSum - (sSum * sSum) * invTemplateLen)
-            guard varS > 0.0001 else { continue }
-            
-            let sBase = topBase + offset
-            var dot = 0.0
-            #if canImport(Accelerate)
-            vDSP_dotprD(sBase, 1, tBase, 1, &dot, vDSP_Length(templateLen))
-            #else
-            for i in 0..<templateLen {
-                dot += sBase[i] * tBase[i]
-            }
-            #endif
-            
-            let num = dot - (sSum * sumT) * invTemplateLen
-            let denom = sqrt(varS * varT)
-            if denom > 0.0001 {
-                let r = num / denom
-                if r > maxCorrelation {
-                    if abs(offset - bestOffset) >= 35 {
-                        secondaryOffset = bestOffset
-                        secondaryCorrelation = maxCorrelation
-                    }
-                    maxCorrelation = r
-                    bestOffset = offset
-                } else if r > secondaryCorrelation && abs(offset - bestOffset) >= 35 {
-                    secondaryCorrelation = r
-                    secondaryOffset = offset
-                }
-            }
-        }
-        
-        // Step 2: 1-pixel fine search in [-2, +2] neighborhood of peak
-        let fineStart = max(minOffset, bestOffset - 2)
-        let fineEnd = min(maxOffset, bestOffset + 2)
-        for fineOffset in fineStart...fineEnd {
-            guard fineOffset != bestOffset, fineOffset + templateLen <= validTopEnd else { continue }
-            let sSum = sumS[fineOffset + templateLen] - sumS[fineOffset]
-            let sSqSum = sumSqS[fineOffset + templateLen] - sumSqS[fineOffset]
-            let varS = max(0.0, sSqSum - (sSum * sSum) * invTemplateLen)
-            guard varS > 0.0001 else { continue }
-            
-            let sBase = topBase + fineOffset
-            var dot = 0.0
-            #if canImport(Accelerate)
-            vDSP_dotprD(sBase, 1, tBase, 1, &dot, vDSP_Length(templateLen))
-            #else
-            for i in 0..<templateLen {
-                dot += sBase[i] * tBase[i]
-            }
-            #endif
-            
-            let num = dot - (sSum * sumT) * invTemplateLen
-            let denom = sqrt(varS * varT)
-            if denom > 0.0001 {
-                let r = num / denom
-                if r > maxCorrelation {
-                    maxCorrelation = r
-                    bestOffset = fineOffset
-                }
-            }
-        }
-        
-        // Step 3: Parabolic Subpixel Peak Interpolation
-        // Continuous peak offset = k + (r(+1) - r(-1)) / [2 * (2 * r(0) - r(-1) - r(+1))]
-        var subpixelOffset = CGFloat(bestOffset)
-        var refinedCorrelation = maxCorrelation
-        
-        if bestOffset > minOffset && (bestOffset + templateLen) < validTopEnd {
-            let calcR: (Int) -> Double = { off in
-                guard off >= minOffset, off + templateLen <= validTopEnd else { return -1.0 }
-                let sSum = sumS[off + templateLen] - sumS[off]
-                let sSqSum = sumSqS[off + templateLen] - sumSqS[off]
-                let varS = max(0.0, sSqSum - (sSum * sSum) * invTemplateLen)
-                guard varS > 0.0001 else { return -1.0 }
-                let sBase = topBase + off
-                var dot = 0.0
-                #if canImport(Accelerate)
-                vDSP_dotprD(sBase, 1, tBase, 1, &dot, vDSP_Length(templateLen))
-                #else
-                for i in 0..<templateLen {
-                    dot += sBase[i] * tBase[i]
-                }
-                #endif
-                let num = dot - (sSum * sumT) * invTemplateLen
-                let denom = sqrt(varS * varT)
-                return denom > 0.0001 ? (num / denom) : -1.0
-            }
-            
-            let rM1 = calcR(bestOffset - 1)
-            let rP1 = calcR(bestOffset + 1)
-            
-            if rM1 > -0.5 && rP1 > -0.5 {
-                let r0 = maxCorrelation
-                let denom = 2.0 * (2.0 * r0 - rM1 - rP1)
-                if denom > 0.0001 {
-                    let rawDelta = (rP1 - rM1) / denom
-                    let delta = max(-0.5, min(0.5, rawDelta))
-                    subpixelOffset += CGFloat(delta)
-                    
-                    let b = (rP1 - rM1) * 0.5
-                    let a = (rP1 + rM1 - 2.0 * r0) * 0.5
-                    if a < 0 {
-                        refinedCorrelation = max(r0, min(1.0, r0 - (b * b) / (4.0 * a)))
-                    }
-                }
-            }
-        }
-        
-        let secOffsetFloat: CGFloat? = (secondaryOffset != nil && secondaryCorrelation > 0.20) ? CGFloat(secondaryOffset!) : nil
-        return (bestOffset: subpixelOffset, maxCorrelation: refinedCorrelation, secondaryOffset: secOffsetFloat, secondaryCorrelation: secondaryCorrelation)
-    }
-    
-    /// Calculates optimal vertical overlap with multi-band consensus voting, sub-pixel parabolic peak refinement,
-    /// scenario-adaptive periodic disambiguation, and velocity continuity prior.
+    /// Calculates optimal vertical overlap using 2D Spatial Coarse-to-Fine Patch Matching,
+    /// sub-pixel parabolic peak refinement, and scenario-adaptive minimal energy seam carving.
     public static func findOverlap(
         topSlice: CGImage,
         bottomSlice: CGImage,
@@ -617,324 +793,86 @@ public final class ImageOverlapDetector {
         bottomSliceTopCrop: CGFloat = 0,
         bottomSliceBottomCrop: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.08,
-        maxOverlapRatio: CGFloat = 0.88,
+        minOverlapRatio: CGFloat = 0.05,
+        maxOverlapRatio: CGFloat = 0.95,
         expectedDisplacement: CGFloat? = nil,
         scenario: AppLayoutScenario = .generalScroll
     ) -> OverlapMatchResult {
-        let width = topSlice.width
-        let topHeight = topSlice.height
-        let bottomHeight = bottomSlice.height
-        
-        guard width > 0, topHeight > 0, bottomHeight > 0 else {
+        let origW = min(topSlice.width, bottomSlice.width)
+        let topH = topSlice.height
+        let botH = bottomSlice.height
+        guard origW > 0, topH > 100, botH > 100 else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        // Convert vertical projections to 1D luminance, edge gradient, and dual-stripe asymmetry feature profiles
-        let topProfile = calculateVerticalProfile(cgImage: topSlice)
-        let bottomProfile = calculateVerticalProfile(cgImage: bottomSlice)
-        let topFeatures = topProfile.combinedFeature
-        let bottomFeatures = bottomProfile.combinedFeature
-        
-        let validTopStart = Int(topSliceTopCrop)
-        let validTopEnd = topHeight - Int(topSliceBottomCrop)
-        guard validTopEnd > validTopStart + 100 else {
+        guard let topBuf = createGrayscaleBuffer(from: topSlice, targetWidth: 320),
+              let botBuf = createGrayscaleBuffer(from: bottomSlice, targetWidth: 320) else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        // Safety inset to prevent false-positive matching against identical static top status bars
-        // Dynamic Island & status bar on iPhone 14 Pro / 15 / 16 series is 54~59pt (162~177px @3x).
-        // Using max(min(180, 15%), 7.5%) ensures 100% of top chrome is masked out on all modern devices.
-        let statusSafetyInset = max(min(180, Int(CGFloat(topHeight) * 0.15)), Int(CGFloat(topHeight) * 0.075))
-        let templateSafetyInset = max(Int(bottomSliceTopCrop), max(min(180, Int(CGFloat(bottomHeight) * 0.15)), Int(CGFloat(bottomHeight) * 0.075)))
-        let templateStart = templateSafetyInset
-        let effectiveCropInBottom = templateStart - Int(bottomSliceTopCrop)
+        // Step 1: 2D Multi-Patch Spatial Matching
+        let coarseMatch = match2DPatches(
+            topBuf: topBuf,
+            botBuf: botBuf,
+            expectedDisplacement: expectedDisplacement
+        )
         
-        // Home indicator safety: avoid stationary bottom indicator bar (~38pt on @3x)
-        let homeIndicatorInset = min(120, Int(CGFloat(bottomHeight) * 0.045))
-        let effectiveBottomCrop = max(Int(bottomSliceBottomCrop), homeIndicatorInset)
-        
-        let safeTopStart = max(validTopStart + effectiveCropInBottom, max(statusSafetyInset, Int(bottomSliceTopCrop) + effectiveCropInBottom))
-        let dynamicTemplateLen = max(Int(templateHeightPt), min(280, Int(CGFloat(bottomHeight) * 0.10)))
-        let templateLen = min(dynamicTemplateLen, bottomHeight - effectiveBottomCrop - templateStart)
-        guard templateLen > 20 else {
-            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        guard coarseMatch.confidence > 0.20 && coarseMatch.displacement > 5.0 else {
+            return OverlapMatchResult(offset: 0, confidence: coarseMatch.confidence, optimalSeamY: 0)
         }
         
-        let searchSpan = validTopEnd - safeTopStart - templateLen
-        guard searchSpan > 10 else {
-            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        // Step 2: Full-Resolution 2D Subpixel Refinement
+        let refined = refineFullResolutionSubpixel(
+            topImage: topSlice,
+            bottomImage: bottomSlice,
+            coarseDisplacement: coarseMatch.displacement,
+            scaleY: topBuf.scaleY
+        )
+        
+        let displacement = refined.fineDisplacement
+        let rawFullOverlap = CGFloat(topH) - displacement
+        guard rawFullOverlap > 10 else {
+            return OverlapMatchResult(offset: 0, confidence: refined.confidence, optimalSeamY: 0)
         }
         
-        let minOffset = safeTopStart + Int(CGFloat(searchSpan) * minOverlapRatio)
-        let maxOffset = min(validTopEnd - templateLen, safeTopStart + Int(CGFloat(searchSpan) * maxOverlapRatio))
-        
-        guard minOffset <= maxOffset else {
-            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
+        // Effective overlap of the visible cropped content
+        let contentOverlap = max(0.0, rawFullOverlap - topSliceBottomCrop - bottomSliceTopCrop)
+        guard contentOverlap > 10 else {
+            return OverlapMatchResult(offset: 0, confidence: max(0.2, refined.confidence - 0.3), optimalSeamY: 0)
         }
         
-        // Fast O(N) Prefix Sum Tables for S (topFeatures) and S^2
-        var sumS = [Double](repeating: 0.0, count: topFeatures.count + 1)
-        var sumSqS = [Double](repeating: 0.0, count: topFeatures.count + 1)
-        for i in 0..<topFeatures.count {
-            sumS[i + 1] = sumS[i] + v
-            sumSqS[i + 1] = sumSqS[i] + v * v
-        }
+        // Step 3: Scenario-Adaptive Minimal Energy Seam Carving
+        // Search inside the content overlap zone [0 ... contentOverlap]
+        // Row in topSlice: (topH - topSliceBottomCrop - contentOverlap) + k
+        // Row in bottomSlice: bottomSliceTopCrop + k
+        let topBaseRow = Int(CGFloat(topH) - topSliceBottomCrop - contentOverlap)
+        let botBaseRow = Int(bottomSliceTopCrop)
+        let maxK = Int(contentOverlap)
         
-        // Helper: Finds the highest feature-variance row near baseStart to avoid blank empty margins
-        let findRichAnchor: (Int, Int, Int) -> Int = { baseStart, maxShift, len in
-            var bestAnchor = baseStart
-            var maxVar = -1.0
-            let limit = min(baseStart + maxShift, bottomHeight - effectiveBottomCrop - len)
-            guard baseStart <= limit else { return baseStart }
-            for anchor in stride(from: baseStart, through: limit, by: 4) {
-                let span = bottomFeatures[anchor..<(anchor + len)]
-                var sum = 0.0
-                var sumSq = 0.0
-                for v in span {
-                    sum += v
-                    sumSq += v * v
-                }
-                let variance = max(0.0, sumSq - (sum * sum) / Double(len))
-                if variance > maxVar {
-                    maxVar = variance
-                    bestAnchor = anchor
-                }
-                if variance > 0.015 {
-                    return anchor // Strong textual or edge features found
-                }
-            }
-            return bestAnchor
-        }
-        
-        // Multi-Band Spatial Consensus:
-        // Evaluates 3 distinct vertical bands in bottomSlice to outvote sticky date headers and floating widgets
-        var candidateBands: [(impliedDy: CGFloat, correlation: Double, bestOffset: CGFloat, secondaryDy: CGFloat?, secondaryCorrelation: Double)] = []
-        
-        topFeatures.withUnsafeBufferPointer { topPtr in
-            bottomFeatures.withUnsafeBufferPointer { botPtr in
-                guard let topBase = topPtr.baseAddress,
-                      let botBase = botPtr.baseAddress else { return }
-                
-                // Band 1: Primary template with feature-rich anchor search across safe span
-                let band1SearchSpan = min(160, max(60, searchSpan / 3))
-                let band1Start = findRichAnchor(templateStart, band1SearchSpan, templateLen)
-                let match1 = matchTemplateBand(
-                    topBase: topBase,
-                    botBase: botBase,
-                    sumS: sumS,
-                    sumSqS: sumSqS,
-                    validTopEnd: validTopEnd,
-                    templateStart: band1Start,
-                    templateLen: templateLen,
-                    minOffset: minOffset,
-                    maxOffset: maxOffset
-                )
-                if match1.maxCorrelation > 0.20 {
-                    let secDy = match1.secondaryOffset.map { $0 - CGFloat(band1Start) }
-                    candidateBands.append((
-                        impliedDy: match1.bestOffset - CGFloat(band1Start),
-                        correlation: match1.maxCorrelation,
-                        bestOffset: match1.bestOffset,
-                        secondaryDy: secDy,
-                        secondaryCorrelation: match1.secondaryCorrelation
-                    ))
-                }
-                
-                let activeBottomSpan = (bottomHeight - effectiveBottomCrop) - templateStart
-                
-                // Band 2: Middle band (active if activeBottomSpan >= 80)
-                if activeBottomSpan >= 80 {
-                    let rawBand2 = templateStart + Int(Double(activeBottomSpan) * 0.32)
-                    let band2Start = findRichAnchor(rawBand2, 40, templateLen)
-                    let band2Delta = band2Start - templateStart
-                    let minOff2 = max(validTopStart, minOffset + band2Delta)
-                    let maxOff2 = min(validTopEnd - templateLen, maxOffset + band2Delta)
-                    if band2Start + templateLen <= bottomHeight - effectiveBottomCrop && minOff2 <= maxOff2 {
-                        let match2 = matchTemplateBand(
-                            topBase: topBase,
-                            botBase: botBase,
-                            sumS: sumS,
-                            sumSqS: sumSqS,
-                            validTopEnd: validTopEnd,
-                            templateStart: band2Start,
-                            templateLen: templateLen,
-                            minOffset: minOff2,
-                            maxOffset: maxOff2
-                        )
-                        if match2.maxCorrelation > 0.20 {
-                            let secDy = match2.secondaryOffset.map { $0 - CGFloat(band2Start) }
-                            candidateBands.append((
-                                impliedDy: match2.bestOffset - CGFloat(band2Start),
-                                correlation: match2.maxCorrelation,
-                                bestOffset: match2.bestOffset,
-                                secondaryDy: secDy,
-                                secondaryCorrelation: match2.secondaryCorrelation
-                            ))
-                        }
-                    }
-                }
-                
-                // Band 3: Lower band (active if activeBottomSpan >= 160)
-                if activeBottomSpan >= 160 {
-                    let rawBand3 = templateStart + Int(Double(activeBottomSpan) * 0.62)
-                    let band3Start = findRichAnchor(rawBand3, 40, templateLen)
-                    let band3Delta = band3Start - templateStart
-                    let minOff3 = max(validTopStart, minOffset + band3Delta)
-                    let maxOff3 = min(validTopEnd - templateLen, maxOffset + band3Delta)
-                    if band3Start + templateLen <= bottomHeight - effectiveBottomCrop && minOff3 <= maxOff3 {
-                        let match3 = matchTemplateBand(
-                            topBase: topBase,
-                            botBase: botBase,
-                            sumS: sumS,
-                            sumSqS: sumSqS,
-                            validTopEnd: validTopEnd,
-                            templateStart: band3Start,
-                            templateLen: templateLen,
-                            minOffset: minOff3,
-                            maxOffset: maxOff3
-                        )
-                        if match3.maxCorrelation > 0.20 {
-                            let secDy = match3.secondaryOffset.map { $0 - CGFloat(band3Start) }
-                            candidateBands.append((
-                                impliedDy: match3.bestOffset - CGFloat(band3Start),
-                                correlation: match3.maxCorrelation,
-                                bestOffset: match3.bestOffset,
-                                secondaryDy: secDy,
-                                secondaryCorrelation: match3.secondaryCorrelation
-                            ))
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Multi-Band Spatial Consensus Selection with Subpixel Precision & Velocity Prior
-        guard !candidateBands.isEmpty else {
-            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
-        }
-        
-        // Periodic Ambiguity Disambiguation (Card Feeds & Social Feeds):
-        // If secondary peak has high correlation (>= 78% of primary) and expectedDisplacement
-        // shows the secondary peak is consistent with continuous scrolling velocity, snap to secondary peak.
-        if let expected = expectedDisplacement, expected > 40 {
-            for i in 0..<candidateBands.count {
-                let band = candidateBands[i]
-                if let secDy = band.secondaryDy, band.secondaryCorrelation > 0.78 * band.correlation {
-                    let primDiff = abs(band.impliedDy - expected)
-                    let secDiff = abs(secDy - expected)
-                    if secDiff + 25 < primDiff {
-                        candidateBands[i].impliedDy = secDy
-                        candidateBands[i].correlation = band.secondaryCorrelation
-                    }
-                }
-            }
-        }
-        
-        var consensusDy: CGFloat = candidateBands[0].impliedDy
-        var consensusConf: Double = candidateBands[0].correlation
-        var foundPairwiseAgreement = false
-        
-        if candidateBands.count >= 2 {
-            for i in 0..<candidateBands.count {
-                for j in (i + 1)..<candidateBands.count {
-                    let bI = candidateBands[i]
-                    let bJ = candidateBands[j]
-                    if abs(bI.impliedDy - bJ.impliedDy) <= 3.0 {
-                        let totalW = max(0.001, bI.correlation + bJ.correlation)
-                        let weightedDy = (bI.impliedDy * CGFloat(bI.correlation) + bJ.impliedDy * CGFloat(bJ.correlation)) / CGFloat(totalW)
-                        consensusConf = min(1.0, max(bI.correlation, bJ.correlation) + 0.06)
-                        foundPairwiseAgreement = true
-                        
-                        var agreeingDys: [CGFloat] = [weightedDy]
-                        for k in 0..<candidateBands.count {
-                            if k != i && k != j && abs(candidateBands[k].impliedDy - weightedDy) <= 3.0 {
-                                agreeingDys.append(candidateBands[k].impliedDy)
-                                consensusConf = min(1.0, consensusConf + 0.03)
-                            }
-                        }
-                        
-                        // Bayesian weighted average of agreeing spatial bands
-                        consensusDy = agreeingDys.reduce(0.0, +) / CGFloat(agreeingDys.count)
-                        break
-                    }
-                }
-                if foundPairwiseAgreement { break }
-            }
-        }
-        
-        if !foundPairwiseAgreement {
-            // Apply Multi-Slice Velocity Continuity Prior to disambiguate periodic feed cards
-            var bestScore = -1.0
-            var bestCand = candidateBands[0]
-            
-            for cand in candidateBands {
-                var score = cand.correlation
-                if let expected = expectedDisplacement, expected > 40 {
-                    let diff = abs(cand.impliedDy - expected)
-                    let tolerance = max(60.0, expected * 0.25)
-                    if diff < tolerance {
-                        let bonus = 0.06 * (1.0 - diff / tolerance)
-                        score += bonus
-                    }
-                }
-                if score > bestScore {
-                    bestScore = score
-                    bestCand = cand
-                }
-            }
-            consensusDy = bestCand.impliedDy
-            consensusConf = bestCand.correlation
-        }
-        
-        let bestOffset = CGFloat(templateStart) + consensusDy
-        guard bestOffset >= CGFloat(validTopStart) && (bestOffset + CGFloat(templateLen)) <= CGFloat(validTopEnd) else {
-            return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
-        }
-        
-        let normalizedConfidence = max(0.0, min(1.0, consensusConf))
-        
-        // Safety guard: if correlation is below noise threshold (0.20), these are non-continuous or dissimilar images.
-        if normalizedConfidence < 0.20 {
-            return OverlapMatchResult(
-                offset: 0,
-                confidence: normalizedConfidence,
-                optimalSeamY: 0
-            )
-        }
-        
-        let topMatchY = bestOffset - CGFloat(effectiveCropInBottom)
-        let overlapHeight = max(0.0, CGFloat(validTopEnd) - topMatchY)
-        
-        // Search for minimal energy seam with scenario-adaptive weights
-        let seamStart = max(Int(topMatchY) + 6, Int(bestOffset) + 2)
-        let seamEnd = max(seamStart + 4, validTopEnd - 6)
-        let optimalSeam = findMinimalEnergySeam(
-            luminance: topProfile.luminance,
-            horizontalEnergy: topProfile.horizontalEdgeEnergy,
-            startRow: seamStart,
-            endRow: seamEnd,
+        let optimalK = findMinimalEnergySeamOffset(
+            topSlice: topSlice,
+            topBaseRow: topBaseRow,
+            bottomBaseRow: botBaseRow,
+            spanK: maxK,
             scenario: scenario
         )
         
-        let optimalSeamInBottom = CGFloat(optimalSeam) - bestOffset + CGFloat(effectiveCropInBottom)
-        
         return OverlapMatchResult(
-            offset: overlapHeight,
-            confidence: normalizedConfidence,
-            optimalSeamY: max(0.0, min(overlapHeight, optimalSeamInBottom))
+            offset: contentOverlap,
+            confidence: refined.confidence,
+            optimalSeamY: CGFloat(optimalK)
         )
     }
     
-    /// Backward-compatible overload for existing call sites
+    /// Backward-compatible overload
     public static func findOverlap(
         topSlice: CGImage,
         bottomSlice: CGImage,
         topCropInset: CGFloat = 0,
         bottomCropInset: CGFloat = 0,
         templateHeightPt: CGFloat = 120,
-        minOverlapRatio: CGFloat = 0.08,
-        maxOverlapRatio: CGFloat = 0.88,
+        minOverlapRatio: CGFloat = 0.05,
+        maxOverlapRatio: CGFloat = 0.95,
         expectedDisplacement: CGFloat? = nil,
         scenario: AppLayoutScenario = .generalScroll
     ) -> OverlapMatchResult {
@@ -953,7 +891,115 @@ public final class ImageOverlapDetector {
         )
     }
     
-    // MARK: - 1D Vertical Luminance & Horizontal Edge Energy Profiling
+    // MARK: - Minimal Energy Seam Line Search
+    
+    /// Evaluates edge energy and whitespace valleys within the content overlap window [0 ... spanK]
+    /// to cleanly place the seam cut without slicing through message bubbles or text.
+    private static func findMinimalEnergySeamOffset(
+        topSlice: CGImage,
+        topBaseRow: Int,
+        bottomBaseRow: Int,
+        spanK: Int,
+        scenario: AppLayoutScenario
+    ) -> Int {
+        guard spanK > 6 else {
+            return max(0, spanK / 2)
+        }
+        
+        let profile = calculateVerticalProfile(cgImage: topSlice)
+        let luminance = profile.luminance
+        let horizontalEnergy = profile.horizontalEdgeEnergy
+        
+        let midK = spanK / 2
+        let windowLen = max(1.0, Double(spanK))
+        
+        var minSmoothedEnergy = Double.greatestFiniteMagnitude
+        var bestK = midK
+        
+        let scanStart = 4
+        let scanEnd = max(scanStart, spanK - 4)
+        guard scanStart <= scanEnd else {
+            return midK
+        }
+        
+        for k in scanStart...scanEnd {
+            let y = topBaseRow + k
+            guard y >= 2, y < luminance.count - 3 else { continue }
+            
+            let hE_m1 = horizontalEnergy[y - 1]
+            let hE_0  = horizontalEnergy[y]
+            let hE_p1 = horizontalEnergy[y + 1]
+            let hE_m2 = horizontalEnergy[y - 2]
+            let hE_p2 = horizontalEnergy[y + 2]
+            
+            let vE_m1 = abs(luminance[y] - luminance[y - 1])
+            let vE_0  = abs(luminance[y + 1] - luminance[y - 1]) * 0.5
+            let vE_p1 = abs(luminance[y + 1] - luminance[y])
+            
+            let lumContext = (luminance[y] + luminance[y - 1] + luminance[y + 1]) / 3.0
+            let edgeWeight: Double = lumContext < 0.35 ? 0.85 : 0.70
+            let vertWeight: Double = lumContext < 0.35 ? 0.30 : 0.25
+            
+            let e_m1 = hE_m1 * edgeWeight + vE_m1 * vertWeight
+            let e_0  = hE_0  * edgeWeight + vE_0  * vertWeight
+            let e_p1 = hE_p1 * edgeWeight + vE_p1 * vertWeight
+            let avgE = e_0 * 0.50 + (e_m1 + e_p1) * 0.25
+            
+            let maxNearbyEdge = max(hE_m2, max(hE_m1, max(hE_p1, hE_p2)))
+            var edgePenalty = 0.0
+            var scenarioBonus = 0.0
+            
+            switch scenario {
+            case .chatApp:
+                // Chat apps: heavy penalty for cutting close to speech bubble edges,
+                // strong bonus for empty whitespace valleys between bubbles
+                if maxNearbyEdge > 0.06 {
+                    edgePenalty = 0.10
+                }
+                if avgE < 0.025 {
+                    scenarioBonus = -0.08
+                }
+            case .cardFeed:
+                // Social / Card feeds: snap seam onto card divider hairlines or gray spacer strips
+                let isDividerPeak = hE_0 > 0.07 && hE_0 >= hE_m1 && hE_0 >= hE_p1
+                if isDividerPeak {
+                    scenarioBonus = -0.12
+                } else if maxNearbyEdge > 0.08 {
+                    edgePenalty = 0.06
+                }
+            case .webArticle:
+                // Web articles: snap seam into paragraph spacing or article breaks
+                if maxNearbyEdge > 0.07 {
+                    edgePenalty = 0.07
+                }
+                if avgE < 0.035 && hE_0 < 0.03 {
+                    scenarioBonus = -0.06
+                }
+            case .splitMedia:
+                if maxNearbyEdge > 0.07 {
+                    edgePenalty = 0.06
+                }
+                if avgE < 0.03 {
+                    scenarioBonus = -0.05
+                }
+            case .generalScroll:
+                if maxNearbyEdge > 0.08 {
+                    edgePenalty = 0.05
+                }
+            }
+            
+            let centerDistPenalty = (abs(Double(k - midK)) / windowLen) * 0.03
+            let totalE = avgE + edgePenalty + scenarioBonus + centerDistPenalty
+            
+            if totalE < minSmoothedEnergy {
+                minSmoothedEnergy = totalE
+                bestK = k
+            }
+        }
+        return bestK
+    }
+    
+    // MARK: - 1D Vertical Luminance & Edge Profiling (Backward-Compatible)
     
     public static func calculateVerticalProfile(cgImage: CGImage) -> ImageProfile1D {
         let sampleWidth = 128
@@ -981,169 +1027,38 @@ public final class ImageOverlapDetector {
         context.interpolationQuality = .low
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleWidth, height: height))
         
-        // Exclude outer 4% on left and 8% on right (eliminating native scrollbar thumb and gesture edge artifacts)
         let safeLeft = max(2, Int(Double(sampleWidth) * 0.04))
         let safeRight = min(sampleWidth - 2, Int(Double(sampleWidth) * 0.92))
         let safeSpan = max(1, safeRight - safeLeft)
         let invScale = 1.0 / (Double(safeSpan) * 255.0)
         let invGradScale = 1.0 / (Double(max(1, safeSpan - 1)) * 255.0)
         
-        // Dual-Stripe division: Left stripe [safeLeft..<midX], Right stripe [midX..<safeRight]
-        let midX = (safeLeft + safeRight) / 2
-        let leftSpan = max(1, midX - safeLeft)
-        let rightSpan = max(1, safeRight - midX)
-        let invLeftGradScale = 1.0 / (Double(max(1, leftSpan - 1)) * 255.0)
-        let invRightGradScale = 1.0 / (Double(max(1, rightSpan - 1)) * 255.0)
-        
-        var asymValues = [Double](repeating: 0.0, count: height)
         for y in 0..<height {
             let rowOffset = y * bytesPerRow
             var sumLum = Double(rawData[rowOffset + safeLeft])
             var sumGrad: Double = 0.0
             var prevVal = sumLum
             
-            var leftGrad: Double = 0.0
-            var rightGrad: Double = 0.0
-            
             for x in (safeLeft + 1)..<safeRight {
                 let val = Double(rawData[rowOffset + x])
                 let diff = abs(val - prevVal)
                 sumLum += val
                 sumGrad += diff
-                if x < midX {
-                    leftGrad += diff
-                } else {
-                    rightGrad += diff
-                }
                 prevVal = val
             }
             
-            let lum = sumLum * invScale
-            let edge = sumGrad * invGradScale
-            let leftE = leftGrad * invLeftGradScale
-            let rightE = rightGrad * invRightGradScale
-            let asymE = abs(leftE - rightE)
-            
-            luminance[y] = lum
-            edgeEnergy[y] = edge
-            asymValues[y] = asymE
+            luminance[y] = sumLum * invScale
+            edgeEnergy[y] = sumGrad * invGradScale
         }
         
         for y in 0..<height {
             let vertDiff = (y > 0) ? abs(luminance[y] - luminance[y - 1]) : 0.0
-            // Combined feature: 20% overall luminance, 45% horizontal edge gradient energy, 20% left-right spatial asymmetry, 15% vertical contrast
-            combinedFeature[y] = luminance[y] * 0.20 + edgeEnergy[y] * 0.45 + asymValues[y] * 0.20 + vertDiff * 0.15
+            combinedFeature[y] = luminance[y] * 0.25 + edgeEnergy[y] * 0.55 + vertDiff * 0.20
         }
         return ImageProfile1D(luminance: luminance, horizontalEdgeEnergy: edgeEnergy, combinedFeature: combinedFeature)
     }
     
     public static func calculateVerticalLuminanceProfile(cgImage: CGImage) -> [Double] {
         return calculateVerticalProfile(cgImage: cgImage).luminance
-    }
-    
-    // MARK: - Minimum Energy Seam Line Search (Adaptive Contrast & Valley Centering)
-    
-    private static func findMinimalEnergySeam(
-        luminance: [Double],
-        horizontalEnergy: [Double],
-        startRow: Int,
-        endRow: Int,
-        scenario: AppLayoutScenario = .generalScroll
-    ) -> Int {
-        guard startRow < endRow - 2,
-              luminance.count > endRow,
-              horizontalEnergy.count > endRow else {
-            return (startRow + endRow) / 2
-        }
-        
-        let midRow = (startRow + endRow) / 2
-        let windowLen = max(1.0, Double(endRow - startRow))
-        
-        var minSmoothedEnergy = Double.greatestFiniteMagnitude
-        var bestRow = midRow
-        
-        let scanStart = max(startRow + 1, 2)
-        let scanEnd = min(endRow - 1, luminance.count - 3)
-        guard scanStart <= scanEnd else {
-            return midRow
-        }
-        
-        for y in scanStart...scanEnd {
-            let hE_m2 = horizontalEnergy[y - 2]
-            let hE_m1 = horizontalEnergy[y - 1]
-            let hE_0  = horizontalEnergy[y]
-            let hE_p1 = horizontalEnergy[y + 1]
-            let hE_p2 = horizontalEnergy[y + 2]
-            let vE_m1 = abs(luminance[y] - luminance[y - 1])
-            let vE_0  = abs(luminance[y + 1] - luminance[y - 1]) * 0.5
-            let vE_p1 = abs(luminance[y + 1] - luminance[y])
-            
-            // Contrast-adaptive weighting: on dark backgrounds (dark mode chat / dark feed),
-            // slightly amplify horizontal edge detection to reliably preserve bubble borders
-            let lumContext = (luminance[y] + luminance[y - 1] + luminance[y + 1]) / 3.0
-            let edgeWeight: Double = lumContext < 0.35 ? 0.85 : 0.70
-            let vertWeight: Double = lumContext < 0.35 ? 0.30 : 0.25
-            
-            let e_m1 = hE_m1 * edgeWeight + vE_m1 * vertWeight
-            let e_0  = hE_0  * edgeWeight + vE_0  * vertWeight
-            let e_p1 = hE_p1 * edgeWeight + vE_p1 * vertWeight
-            
-            let avgE = e_0 * 0.50 + (e_m1 + e_p1) * 0.25
-            
-            // Scenario-adaptive seam routing
-            let maxNearbyEdge = max(hE_m2, max(hE_m1, max(hE_p1, hE_p2)))
-            var edgeProximityPenalty = 0.0
-            var scenarioBonus = 0.0
-            
-            switch scenario {
-            case .chatApp:
-                // Chat apps: heavy penalty for cutting close to speech bubble edges (prevent bubble truncation),
-                // strong bonus for empty whitespace valleys between bubbles
-                if maxNearbyEdge > 0.06 {
-                    edgeProximityPenalty = 0.09
-                }
-                if avgE < 0.025 {
-                    scenarioBonus = -0.07 // Valley centering bonus
-                }
-            case .cardFeed:
-                // Social / Card feeds: snap seam onto card divider hairlines or gray spacer strips
-                let isDividerPeak = hE_0 > 0.07 && hE_0 >= hE_m1 && hE_0 >= hE_p1
-                if isDividerPeak {
-                    scenarioBonus = -0.10 // Hairline divider snap
-                } else if maxNearbyEdge > 0.08 {
-                    edgeProximityPenalty = 0.06
-                }
-            case .webArticle:
-                // Web articles: snap seam into paragraph spacing or article breaks
-                if maxNearbyEdge > 0.07 {
-                    edgeProximityPenalty = 0.07
-                }
-                if avgE < 0.035 && hE_0 < 0.03 {
-                    scenarioBonus = -0.06 // Paragraph gap snap
-                }
-            case .splitMedia:
-                // Split media: lower half comments/content
-                if maxNearbyEdge > 0.07 {
-                    edgeProximityPenalty = 0.06
-                }
-                if avgE < 0.03 {
-                    scenarioBonus = -0.05
-                }
-            case .generalScroll:
-                if maxNearbyEdge > 0.08 {
-                    edgeProximityPenalty = 0.05
-                }
-            }
-            
-            // Center distance penalty: ensures wide blank margins choose their balanced center
-            let centerDistPenalty = (abs(Double(y - midRow)) / windowLen) * 0.03
-            let totalE = avgE + edgeProximityPenalty + scenarioBonus + centerDistPenalty
-            
-            if totalE < minSmoothedEnergy {
-                minSmoothedEnergy = totalE
-                bestRow = y
-            }
-        }
-        return bestRow
     }
 }
