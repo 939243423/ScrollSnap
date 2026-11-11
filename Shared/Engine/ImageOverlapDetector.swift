@@ -105,10 +105,19 @@ public struct ImageProfile1D {
 
 public final class ImageOverlapDetector {
     
+    // MARK: - Column Fingerprint Data Structure
+    
+    private struct ColumnFingerprintData {
+        let sampleWidth: Int
+        let height: Int
+        let numCols: Int
+        let samples: [UInt8]
+        let rowVariance: [Double]
+    }
+    
     // MARK: - 2D Grayscale Bitmap Downsampler
     
     /// Downscales a high-resolution screenshot into a standardized 2D grayscale analysis buffer (width ~320).
-    /// Preserves complete 2D spatial arrangement of text, icons, avatars, and UI geometry.
     public static func createGrayscaleBuffer(from cgImage: CGImage, targetWidth: Int = 320) -> ImageBuffer2D? {
         let origW = cgImage.width
         let origH = cgImage.height
@@ -137,729 +146,407 @@ public final class ImageOverlapDetector {
         return ImageBuffer2D(width: tW, height: tH, data: bytes, scaleX: sX, scaleY: sY)
     }
     
-    // MARK: - 2D Multi-Patch Spatial Cross-Correlation
+    // MARK: - Spatial Column Fingerprint Extraction
     
-    /// Finds vertical displacement using 2D multi-patch spatial cross-correlation.
-    /// Uses multiple independent 2D templates across the content area to eliminate periodic false matches.
-    private static func match2DPatches(
-        topBuf: ImageBuffer2D,
-        botBuf: ImageBuffer2D,
-        expectedDisplacement: CGFloat? = nil
-    ) -> (displacement: CGFloat, confidence: Double, isReverseOrder: Bool) {
-        let W = topBuf.width
-        let H = topBuf.height
-        guard W > 30, H > 100 else {
-            return (0, 0, false)
-        }
-        
+    /// Extracts a 32-column vertical spatial fingerprint and row variances across the screen.
+    private static func extractFingerprint(buffer: ImageBuffer2D, numCols: Int = 32) -> ColumnFingerprintData {
+        let W = buffer.width
+        let H = buffer.height
         let marginX = max(8, Int(Double(W) * 0.05))
-        let activeWidth = W - 2 * marginX
-        guard activeWidth > 20 else {
-            return (0, 0, false)
+        let activeWidth = max(20, W - 2 * marginX)
+        
+        var colX = [Int](repeating: 0, count: numCols)
+        for m in 0..<numCols {
+            colX[m] = marginX + Int(round(Double(m) * Double(activeWidth - 1) / Double(numCols - 1)))
         }
         
-        let patchHeight = max(28, min(60, Int(Double(H) * 0.08)))
+        var samples = [UInt8](repeating: 0, count: H * numCols)
+        var variances = [Double](repeating: 0.0, count: H)
         
-        // Multi-tier candidate vertical anchors in botBuf covering small, medium, and large scroll displacements (15%..85% overlap)
-        let anchorRatios: [Double] = [0.10, 0.18, 0.28, 0.42, 0.60]
-        var candidateMatches: [(dy: CGFloat, mad: Double)] = []
-        
-        topBuf.data.withUnsafeBufferPointer { topPtr in
-            botBuf.data.withUnsafeBufferPointer { botPtr in
-                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
-                
-                for ratio in anchorRatios {
-                    let yB = Int(Double(H) * ratio)
-                    guard yB + patchHeight < H - 20 else { continue }
-                    
-                    // Check patch texture variance (skip flat background)
-                    var sumVal: Int = 0
-                    var sumSqVal: Int = 0
-                    let totalPixels = patchHeight * activeWidth
-                    for r in 0..<patchHeight {
-                        let rowOffset = (yB + r) * W
-                        for c in marginX..<(W - marginX) {
-                            let v = Int(botBase[rowOffset + c])
-                            sumVal += v
-                            sumSqVal += v * v
-                        }
-                    }
-                    let mean = Double(sumVal) / Double(totalPixels)
-                    let variance = Double(sumSqVal) / Double(totalPixels) - (mean * mean)
-                    guard variance > 2.5 else { continue }
-                    
-                    // Downward scroll: content at yB in botBuf was LOWER in topBuf: yA in [yB + 6 ... H - patchHeight - 6]
-                    let searchMin = yB + 4
-                    let searchMax = H - patchHeight - 6
-                    guard searchMin <= searchMax else { continue }
-                    
-                    var bestYA = searchMin
-                    var minMAD = Double.greatestFiniteMagnitude
-                    
-                    // Coarse search with stride 2
-                    for yA in stride(from: searchMin, through: searchMax, by: 2) {
-                        var diffSum: Int = 0
-                        for r in 0..<patchHeight {
-                            let offsetA = (yA + r) * W
-                            let offsetB = (yB + r) * W
-                            for c in marginX..<(W - marginX) {
-                                let diff = abs(Int(topBase[offsetA + c]) - Int(botBase[offsetB + c]))
-                                diffSum += diff
-                            }
-                        }
-                        let mad = Double(diffSum) / Double(totalPixels)
-                        if mad < minMAD {
-                            minMAD = mad
-                            bestYA = yA
-                        }
-                    }
-                    
-                    // Fine search in [-2, +2] neighborhood of peak
-                    let fineStart = max(searchMin, bestYA - 2)
-                    let fineEnd = min(searchMax, bestYA + 2)
-                    for yA in fineStart...fineEnd {
-                        guard yA != bestYA else { continue }
-                        var diffSum: Int = 0
-                        for r in 0..<patchHeight {
-                            let offsetA = (yA + r) * W
-                            let offsetB = (yB + r) * W
-                            for c in marginX..<(W - marginX) {
-                                let diff = abs(Int(topBase[offsetA + c]) - Int(botBase[offsetB + c]))
-                                diffSum += diff
-                            }
-                        }
-                        let mad = Double(diffSum) / Double(totalPixels)
-                        if mad < minMAD {
-                            minMAD = mad
-                            bestYA = yA
-                        }
-                    }
-                    
-                    if minMAD < 35.0 {
-                        let dy = CGFloat(bestYA - yB)
-                        candidateMatches.append((dy: dy, mad: minMAD))
-                    }
+        buffer.data.withUnsafeBufferPointer { bufPtr in
+            guard let base = bufPtr.baseAddress else { return }
+            for y in 0..<H {
+                let rowOffset = y * W
+                let outOffset = y * numCols
+                var sumVal: Int = 0
+                var sumSqVal: Int = 0
+                for m in 0..<numCols {
+                    let v = Int(base[rowOffset + colX[m]])
+                    samples[outOffset + m] = UInt8(v)
+                    sumVal += v
+                    sumSqVal += v * v
                 }
+                let mean = Double(sumVal) / Double(numCols)
+                variances[y] = max(0.0, (Double(sumSqVal) / Double(numCols)) - (mean * mean))
             }
         }
         
-        // Multi-Patch Consensus Voting
-        if !candidateMatches.isEmpty {
-            var votes: [[(dy: CGFloat, mad: Double)]] = []
-            for match in candidateMatches {
-                var added = false
-                for i in 0..<votes.count {
-                    if abs(votes[i][0].dy - match.dy) <= 2.5 {
-                        votes[i].append(match)
-                        added = true
-                        break
-                    }
-                }
-                if !added {
-                    votes.append([match])
-                }
-            }
-            
-            // Pick cluster with highest votes; break ties with lower MAD or matching velocity prior
-            votes.sort { c1, c2 in
-                if c1.count != c2.count {
-                    return c1.count > c2.count
-                }
-                let minMad1 = c1.map(\.mad).min() ?? 999.0
-                let minMad2 = c2.map(\.mad).min() ?? 999.0
-                return minMad1 < minMad2
-            }
-            
-            let bestCluster = votes[0]
-            let avgDy = bestCluster.map(\.dy).reduce(0.0, +) / CGFloat(bestCluster.count)
-            let avgMad = bestCluster.map(\.mad).reduce(0.0, +) / Double(bestCluster.count)
-            let confidence = max(0.50, min(1.0, 1.0 - avgMad / 35.0 + (bestCluster.count > 1 ? 0.08 : 0.0)))
-            
-            return (displacement: avgDy, confidence: confidence, isReverseOrder: false)
-        }
-        
-        // Reverse Sequence Fallback Check:
-        // Test if images were selected in reverse (newest to oldest)
-        var reverseCandidateMatches: [(dy: CGFloat, mad: Double)] = []
-        topBuf.data.withUnsafeBufferPointer { topPtr in
-            botBuf.data.withUnsafeBufferPointer { botPtr in
-                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
-                for ratio in anchorRatios {
-                    let yA = Int(Double(H) * ratio)
-                    guard yA + patchHeight < H - 20 else { continue }
-                    let searchMin = yA + 4
-                    let searchMax = H - patchHeight - 6
-                    guard searchMin <= searchMax else { continue }
-                    
-                    var bestYB = searchMin
-                    var minMAD = Double.greatestFiniteMagnitude
-                    let totalPixels = patchHeight * activeWidth
-                    
-                    for yB in stride(from: searchMin, through: searchMax, by: 2) {
-                        var diffSum: Int = 0
-                        for r in 0..<patchHeight {
-                            let offsetA = (yA + r) * W
-                            let offsetB = (yB + r) * W
-                            for c in marginX..<(W - marginX) {
-                                let diff = abs(Int(topBase[offsetA + c]) - Int(botBase[offsetB + c]))
-                                diffSum += diff
-                            }
-                        }
-                        let mad = Double(diffSum) / Double(totalPixels)
-                        if mad < minMAD {
-                            minMAD = mad
-                            bestYB = yB
-                        }
-                    }
-                    if minMAD < 25.0 {
-                        let dy = CGFloat(bestYB - yA)
-                        reverseCandidateMatches.append((dy: dy, mad: minMAD))
-                    }
-                }
-            }
-        }
-        
-        if !reverseCandidateMatches.isEmpty {
-            let bestRev = reverseCandidateMatches.min(by: { $0.mad < $1.mad })!
-            let confidence = max(0.40, min(1.0, 1.0 - bestRev.mad / 35.0))
-            return (displacement: bestRev.dy, confidence: confidence, isReverseOrder: true)
-        }
-        
-        return (displacement: 0, confidence: 0, isReverseOrder: false)
+        return ColumnFingerprintData(
+            sampleWidth: W,
+            height: H,
+            numCols: numCols,
+            samples: samples,
+            rowVariance: variances
+        )
     }
     
-    // MARK: - Full-Resolution 2D Subpixel Refinement
+    // MARK: - Static Chrome Isolation
     
-    /// Refines the coarse 2D displacement at full original resolution to achieve exact sub-pixel alignment.
-    private static func refineFullResolutionSubpixel(
+    /// Detects repeating static top navigation bars and bottom tab/input bars
+    /// by comparing the 32-column fingerprints of identical row positions.
+    private static func analyzeStaticChrome(
+        topFP: ColumnFingerprintData,
+        botFP: ColumnFingerprintData
+    ) -> (topChromeRows: Int, botChromeRows: Int) {
+        let H = min(topFP.height, botFP.height)
+        let numCols = topFP.numCols
+        
+        var staticDiff = [Double](repeating: 0.0, count: H)
+        for y in 0..<H {
+            let off = y * numCols
+            var diffSum: Int = 0
+            for m in 0..<numCols {
+                diffSum += abs(Int(topFP.samples[off + m]) - Int(botFP.samples[off + m]))
+            }
+            staticDiff[y] = Double(diffSum) / Double(numCols)
+        }
+        
+        // Scan from top downward (max top chrome: 65% of screen for split media)
+        var topChrome = 0
+        let maxTopScan = min(Int(Double(H) * 0.65), H - 80)
+        var consecutiveMoving = 0
+        for y in 0..<maxTopScan {
+            let isMoving = (staticDiff[y] > 11.0) && (topFP.rowVariance[y] > 3.0 || botFP.rowVariance[y] > 3.0)
+            if isMoving {
+                consecutiveMoving += 1
+                if consecutiveMoving >= 3 {
+                    topChrome = max(0, y - 2)
+                    break
+                }
+            } else {
+                consecutiveMoving = 0
+            }
+        }
+        
+        // Scan from bottom upward (max bottom chrome: 35% of screen)
+        var botChrome = 0
+        let maxBotScan = min(Int(Double(H) * 0.35), H - 80)
+        consecutiveMoving = 0
+        for i in 0..<maxBotScan {
+            let y = H - 1 - i
+            guard y >= 0 else { break }
+            let isMoving = (staticDiff[y] > 11.0) && (topFP.rowVariance[y] > 3.0 || botFP.rowVariance[y] > 3.0)
+            if isMoving {
+                consecutiveMoving += 1
+                if consecutiveMoving >= 3 {
+                    botChrome = max(0, i - 2)
+                    break
+                }
+            } else {
+                consecutiveMoving = 0
+            }
+        }
+        
+        // Verify confirmed static UI features
+        var confirmedTop = 0
+        for y in 0..<topChrome {
+            if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
+                confirmedTop += 1
+            }
+        }
+        if confirmedTop < 2 {
+            topChrome = 0
+        }
+        
+        var confirmedBot = 0
+        for i in 0..<botChrome {
+            let y = H - 1 - i
+            if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
+                confirmedBot += 1
+            }
+        }
+        if confirmedBot < 2 {
+            botChrome = 0
+        }
+        
+        return (topChrome, botChrome)
+    }
+    
+    // MARK: - Global Spatial Displacement Search
+    
+    /// Finds the exact global displacement across all candidate displacements in the active scrolling zone.
+    private static func findDisplacementCandidate(
+        topFP: ColumnFingerprintData,
+        botFP: ColumnFingerprintData,
+        topChrome: Int,
+        botChrome: Int,
+        expectedDisplacement: CGFloat? = nil
+    ) -> (displacement: CGFloat, confidence: Double, isReverse: Bool) {
+        let H = min(topFP.height, botFP.height)
+        let numCols = topFP.numCols
+        
+        let yTop = topChrome
+        let yBot = H - botChrome
+        guard yBot > yTop + 30 else {
+            return (0, 0, false)
+        }
+        
+        let minD = 4
+        let maxD = max(minD, yBot - yTop - 15)
+        
+        var bestD = 0
+        var minScore = Double.greatestFiniteMagnitude
+        
+        // Forward scroll search: content in topFP at y moved to botFP at y - d
+        for d in minD...maxD {
+            let K = yBot - yTop - d
+            guard K >= 15 else { continue }
+            
+            var texturedSum: Int = 0
+            var texturedRows: Int = 0
+            var totalSum: Int = 0
+            
+            for k in 0..<K {
+                let yA = yTop + d + k
+                let yB = yTop + k
+                
+                let offA = yA * numCols
+                let offB = yB * numCols
+                
+                let isTextured = (topFP.rowVariance[yA] > 3.5 || botFP.rowVariance[yB] > 3.5)
+                var rowDiff: Int = 0
+                for m in 0..<numCols {
+                    rowDiff += abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
+                }
+                
+                totalSum += rowDiff
+                if isTextured {
+                    texturedSum += rowDiff
+                    texturedRows += 1
+                }
+            }
+            
+            let effectiveScore: Double
+            if texturedRows >= 10 {
+                effectiveScore = Double(texturedSum) / Double(texturedRows * numCols)
+            } else {
+                effectiveScore = Double(totalSum) / Double(K * numCols)
+            }
+            
+            var velocityPenalty = 0.0
+            if let expected = expectedDisplacement {
+                let dist = abs(CGFloat(d) - expected)
+                velocityPenalty = Double(dist / 50.0) * 0.15
+            }
+            
+            let totalScore = effectiveScore + velocityPenalty
+            if totalScore < minScore {
+                minScore = totalScore
+                bestD = d
+            }
+        }
+        
+        let forwardConfidence: Double
+        if minScore < 30.0 {
+            forwardConfidence = max(0.50, min(1.0, 1.0 - (minScore / 32.0)))
+        } else {
+            forwardConfidence = 0.0
+        }
+        
+        if forwardConfidence > 0.70 {
+            return (CGFloat(bestD), forwardConfidence, false)
+        }
+        
+        // Reverse Sequence Fallback Check (newest to oldest):
+        var bestRevD = 0
+        var minRevScore = Double.greatestFiniteMagnitude
+        for d in minD...maxD {
+            let K = yBot - yTop - d
+            guard K >= 15 else { continue }
+            var texturedSum: Int = 0
+            var texturedRows: Int = 0
+            var totalSum: Int = 0
+            
+            for k in 0..<K {
+                let yB = yTop + d + k
+                let yA = yTop + k
+                let offA = yA * numCols
+                let offB = yB * numCols
+                let isTextured = (topFP.rowVariance[yA] > 3.5 || botFP.rowVariance[yB] > 3.5)
+                var rowDiff: Int = 0
+                for m in 0..<numCols {
+                    rowDiff += abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
+                }
+                totalSum += rowDiff
+                if isTextured {
+                    texturedSum += rowDiff
+                    texturedRows += 1
+                }
+            }
+            let score = texturedRows >= 10 ? (Double(texturedSum) / Double(texturedRows * numCols)) : (Double(totalSum) / Double(K * numCols))
+            if score < minRevScore {
+                minRevScore = score
+                bestRevD = d
+            }
+        }
+        
+        let revConfidence: Double
+        if minRevScore < 30.0 {
+            revConfidence = max(0.40, min(1.0, 1.0 - (minRevScore / 32.0)))
+        } else {
+            revConfidence = 0.0
+        }
+        
+        if revConfidence > forwardConfidence + 0.15 && revConfidence > 0.45 {
+            return (CGFloat(bestRevD), revConfidence, true)
+        }
+        
+        return (CGFloat(bestD), forwardConfidence, false)
+    }
+    
+    // MARK: - Full-Resolution 1-Pixel Subpixel Refinement
+    
+    /// Refines the coarse displacement to exact 1-pixel resolution using 3 distinct multi-band anchors
+    /// inside the verified overlap region, followed by parabolic interpolation.
+    private static func refineFullResolutionMultiBand(
         topImage: CGImage,
         bottomImage: CGImage,
-        coarseDisplacement: CGFloat,
-        scaleY: CGFloat
+        coarseDy: CGFloat,
+        scaleY: CGFloat,
+        topCrop: CGFloat,
+        botCrop: CGFloat
     ) -> (fineDisplacement: CGFloat, confidence: Double) {
         let origW = min(topImage.width, bottomImage.width)
         let origH = min(topImage.height, bottomImage.height)
         guard origW > 60, origH > 200 else {
-            return (coarseDisplacement * scaleY, 0.5)
+            return (coarseDy * scaleY, 0.8)
         }
         
-        let targetDy = coarseDisplacement * scaleY
-        let patchH = min(80, max(40, Int(Double(origH) * 0.05)))
-        let patchStartB = max(100, min(origH - patchH - 120, Int(Double(origH) * 0.45)))
+        let targetDy = coarseDy * scaleY
+        let rawOverlap = CGFloat(origH) - targetDy
+        guard rawOverlap > 30 else {
+            return (targetDy, 0.8)
+        }
         
-        // Sample strip across width with stride 2 for speed
+        let startYB = topCrop + 10
+        let endYB = min(CGFloat(origH) - botCrop - 20, rawOverlap - 10)
+        guard endYB > startYB + 30 else {
+            return (targetDy, 0.8)
+        }
+        
+        let anchorRatios: [CGFloat] = [0.25, 0.50, 0.75]
+        let patchH = 32
         let sampleW = min(origW - 40, 480)
         let startX = (origW - sampleW) / 2
+        let searchRadius = 6
         
+        var refinedVotes: [CGFloat] = []
+        var bestErrors: [Double] = []
         let colorSpace = CGColorSpaceCreateDeviceGray()
-        var patchB = [UInt8](repeating: 0, count: sampleW * patchH)
-        guard let ctxB = CGContext(
-            data: &patchB,
-            width: sampleW,
-            height: patchH,
-            bitsPerComponent: 8,
-            bytesPerRow: sampleW,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
-        ) else {
+        
+        for ratio in anchorRatios {
+            let yB = Int(startYB + (endYB - startYB) * ratio)
+            guard yB + patchH < origH else { continue }
+            
+            var patchB = [UInt8](repeating: 0, count: sampleW * patchH)
+            guard let ctxB = CGContext(
+                data: &patchB,
+                width: sampleW,
+                height: patchH,
+                bitsPerComponent: 8,
+                bytesPerRow: sampleW,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.none.rawValue
+            ) else { continue }
+            ctxB.interpolationQuality = .none
+            ctxB.draw(bottomImage, in: CGRect(x: -startX, y: -yB, width: origW, height: origH))
+            
+            var sumVal = 0
+            var sumSqVal = 0
+            let totalPix = sampleW * patchH
+            for b in patchB {
+                let v = Int(b)
+                sumVal += v
+                sumSqVal += v * v
+            }
+            let mean = Double(sumVal) / Double(totalPix)
+            let variance = (Double(sumSqVal) / Double(totalPix)) - (mean * mean)
+            guard variance > 6.0 else { continue }
+            
+            let baseYA = yB + Int(round(targetDy))
+            let searchMinYA = baseYA - searchRadius
+            let searchMaxYA = baseYA + searchRadius
+            guard searchMinYA >= 0, searchMaxYA + patchH <= origH else { continue }
+            
+            let stripH = (searchMaxYA - searchMinYA) + patchH
+            var stripA = [UInt8](repeating: 0, count: sampleW * stripH)
+            guard let ctxA = CGContext(
+                data: &stripA,
+                width: sampleW,
+                height: stripH,
+                bitsPerComponent: 8,
+                bytesPerRow: sampleW,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.none.rawValue
+            ) else { continue }
+            ctxA.interpolationQuality = .none
+            ctxA.draw(topImage, in: CGRect(x: -startX, y: -searchMinYA, width: origW, height: origH))
+            
+            var bestDelta = 0
+            var minMAD = Double.greatestFiniteMagnitude
+            var errorMap: [Int: Double] = [:]
+            
+            for delta in (-searchRadius)...searchRadius {
+                let offA = (delta + searchRadius) * sampleW
+                var diffSum = 0
+                for r in 0..<patchH {
+                    let rA = offA + r * sampleW
+                    let rB = r * sampleW
+                    for c in stride(from: 0, to: sampleW, by: 2) {
+                        diffSum += abs(Int(stripA[rA + c]) - Int(patchB[rB + c]))
+                    }
+                }
+                let mad = Double(diffSum) / Double(sampleW * patchH / 2)
+                errorMap[delta] = mad
+                if mad < minMAD {
+                    minMAD = mad
+                    bestDelta = delta
+                }
+            }
+            
+            if minMAD < 28.0 {
+                var subDelta = CGFloat(bestDelta)
+                if let e0 = errorMap[bestDelta],
+                   let eM1 = errorMap[bestDelta - 1],
+                   let eP1 = errorMap[bestDelta + 1] {
+                    let denom = 2.0 * (eM1 + eP1 - 2.0 * e0)
+                    if abs(denom) > 0.0001 {
+                        let shift = (eM1 - eP1) / denom
+                        if abs(shift) <= 0.5 {
+                            subDelta += CGFloat(shift)
+                        }
+                    }
+                }
+                let fineDy = round(targetDy) + subDelta
+                refinedVotes.append(fineDy)
+                bestErrors.append(minMAD)
+            }
+        }
+        
+        guard !refinedVotes.isEmpty else {
             return (targetDy, 0.8)
         }
-        ctxB.interpolationQuality = .none
-        ctxB.draw(bottomImage, in: CGRect(x: -startX, y: -patchStartB, width: origW, height: origH))
         
-        let searchRadius = 10
-        let searchMinDy = max(10, Int(round(targetDy)) - searchRadius)
-        let searchMaxDy = min(origH - patchH - 20, Int(round(targetDy)) + searchRadius)
-        guard searchMinDy <= searchMaxDy else {
-            return (targetDy, 0.8)
-        }
-        
-        let searchSpanH = (searchMaxDy - searchMinDy) + patchH
-        let searchStartA = patchStartB + searchMinDy
-        guard searchStartA + searchSpanH <= origH else {
-            return (targetDy, 0.8)
-        }
-        
-        var stripA = [UInt8](repeating: 0, count: sampleW * searchSpanH)
-        guard let ctxA = CGContext(
-            data: &stripA,
-            width: sampleW,
-            height: searchSpanH,
-            bitsPerComponent: 8,
-            bytesPerRow: sampleW,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
-        ) else {
-            return (targetDy, 0.8)
-        }
-        ctxA.interpolationQuality = .none
-        ctxA.draw(topImage, in: CGRect(x: -startX, y: -searchStartA, width: origW, height: origH))
-        
-        var bestOffsetDy = searchMinDy
-        var minDiffSum = Int.max
-        var errors: [Int: Double] = [:]
-        let totalCount = sampleW * patchH
-        
-        for dy in searchMinDy...searchMaxDy {
-            let rowOffsetInA = (dy - searchMinDy) * sampleW
-            var diffSum: Int = 0
-            for r in 0..<patchH {
-                let offA = rowOffsetInA + r * sampleW
-                let offB = r * sampleW
-                for c in stride(from: 0, to: sampleW, by: 2) {
-                    diffSum += abs(Int(stripA[offA + c]) - Int(patchB[offB + c]))
-                }
-            }
-            errors[dy] = Double(diffSum) / Double(totalCount / 2)
-            if diffSum < minDiffSum {
-                minDiffSum = diffSum
-                bestOffsetDy = dy
-            }
-        }
-        
-        // Parabolic Subpixel Interpolation on error curve
-        var subpixelDy = CGFloat(bestOffsetDy)
-        if let e0 = errors[bestOffsetDy],
-           let eM1 = errors[bestOffsetDy - 1],
-           let eP1 = errors[bestOffsetDy + 1] {
-            let denom = 2.0 * (eM1 + eP1 - 2.0 * e0)
-            if abs(denom) > 0.0001 {
-                let delta = (eM1 - eP1) / denom
-                if abs(delta) <= 0.5 {
-                    subpixelDy += CGFloat(delta)
-                }
-            }
-        }
-        
-        let avgErr = Double(minDiffSum) / Double(totalCount / 2)
-        let conf = max(0.60, min(1.0, 1.0 - avgErr / 35.0))
-        return (fineDisplacement: subpixelDy, confidence: conf)
-    }
-    
-    // MARK: - 2D Motion-Coherence Chrome & Scenario Detection
-    
-    /// Detects top navigation bars, split-screen video note players, and bottom input/tab bars
-    /// with pixel-level precision using 2D static pixel consistency and hairline divider snapping.
-    public static func detectAdaptiveScrollZone(
-        topImage: CGImage,
-        bottomImage: CGImage
-    ) -> ScrollZoneDetectionResult {
-        let origW = min(topImage.width, bottomImage.width)
-        let origH = min(topImage.height, bottomImage.height)
-        guard origW > 0, origH > 300 else {
-            return ScrollZoneDetectionResult(
-                topAnchorHeight: 0,
-                bottomAnchorHeight: 0,
-                isSplitScreenMedia: false,
-                isChatAppDetected: false,
-                scrollVelocityEstimate: 0,
-                confidence: 0
-            )
-        }
-        
-        guard let topBuf = createGrayscaleBuffer(from: topImage, targetWidth: 320),
-              let botBuf = createGrayscaleBuffer(from: bottomImage, targetWidth: 320) else {
-            return ScrollZoneDetectionResult(
-                topAnchorHeight: 0,
-                bottomAnchorHeight: 0,
-                isSplitScreenMedia: false,
-                isChatAppDetected: false,
-                scrollVelocityEstimate: 0,
-                confidence: 0
-            )
-        }
-        
-        let W = topBuf.width
-        let H = topBuf.height
-        let marginX = max(8, Int(Double(W) * 0.05))
-        let activeW = W - 2 * marginX
-        
-        // Find coarse displacement across 2D patches
-        let coarseMatch = match2DPatches(topBuf: topBuf, botBuf: botBuf)
-        let coarseDy = coarseMatch.displacement
-        
-        // --- 1. Top Chrome Detection (Scan from y=0 downward) ---
-        var topChromeEnd = 0
-        let maxTopScan = min(Int(Double(H) * 0.65), H - 100)
-        
-        topBuf.data.withUnsafeBufferPointer { topPtr in
-            botBuf.data.withUnsafeBufferPointer { botPtr in
-                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
-                
-                var consecutiveMovingRows = 0
-                for y in 0..<maxTopScan {
-                    var diffStaticSum = 0
-                    var diffMotionSum = 0
-                    let yaMotion = Int(round(CGFloat(y) + coarseDy))
-                    
-                    let offTop = y * W
-                    let offBot = y * W
-                    let offMotion = yaMotion * W
-                    
-                    for c in marginX..<(W - marginX) {
-                        let vTop = Int(topBase[offTop + c])
-                        let vBot = Int(botBase[offBot + c])
-                        diffStaticSum += abs(vTop - vBot)
-                        if yaMotion < H {
-                            let vMotion = Int(topBase[offMotion + c])
-                            diffMotionSum += abs(vMotion - vBot)
-                        } else {
-                            diffMotionSum += 255
-                        }
-                    }
-                    
-                    let diffStatic = Double(diffStaticSum) / Double(activeW)
-                    let diffMotion = Double(diffMotionSum) / Double(activeW)
-                    
-                    // Moving row: motion diff is small, static diff is high (content is scrolling!)
-                    if coarseDy > 20 && diffMotion < 10.0 && diffStatic > 14.0 {
-                        consecutiveMovingRows += 1
-                        if consecutiveMovingRows >= 3 {
-                            topChromeEnd = max(0, y - 2)
-                            break
-                        }
-                    } else {
-                        consecutiveMovingRows = 0
-                    }
-                }
-            }
-        }
-        
-        // Hairline divider snapping near topChromeEnd
-        var snapTop = topChromeEnd
-        if topChromeEnd > 15 {
-            let snapRange = max(4, topChromeEnd - 10)...min(maxTopScan, topChromeEnd + 10)
-            var maxEdge = 0.0
-            for y in snapRange {
-                guard y + 1 < H else { break }
-                var edgeSum = 0
-                let off1 = (y + 1) * W
-                let off0 = y * W
-                for c in marginX..<(W - marginX) {
-                    edgeSum += abs(Int(botBuf.data[off1 + c]) - Int(botBuf.data[off0 + c]))
-                }
-                let edge = Double(edgeSum) / Double(activeW)
-                if edge > maxEdge {
-                    maxEdge = edge
-                    snapTop = y + 1
-                }
-            }
-        }
-        
-        // Verify that 0..<snapTop actually contains confirmed static UI features (eliminates false top crop on pure docs)
-        var confirmedStaticTopRows = 0
-        if snapTop > 10 {
-            topBuf.data.withUnsafeBufferPointer { topPtr in
-                botBuf.data.withUnsafeBufferPointer { botPtr in
-                    guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
-                    for y in 0..<snapTop {
-                        var diffStaticSum = 0
-                        var sumValB = 0
-                        var sumSqValB = 0
-                        let yaMotion = Int(round(CGFloat(y) + coarseDy))
-                        var diffMotionSum = 0
-                        let offA = y * W
-                        let offB = y * W
-                        let offM = yaMotion * W
-                        for c in marginX..<(W - marginX) {
-                            let vA = Int(topBase[offA + c])
-                            let vB = Int(botBase[offB + c])
-                            diffStaticSum += abs(vA - vB)
-                            sumValB += vB
-                            sumSqValB += vB * vB
-                            if yaMotion < H {
-                                diffMotionSum += abs(Int(topBase[offM + c]) - vB)
-                            } else {
-                                diffMotionSum += 255
-                            }
-                        }
-                        let diffS = Double(diffStaticSum) / Double(activeW)
-                        let diffM = Double(diffMotionSum) / Double(activeW)
-                        let meanB = Double(sumValB) / Double(activeW)
-                        let varB = Double(sumSqValB) / Double(activeW) - (meanB * meanB)
-                        if diffS < 12.0 && diffM > 14.0 && varB > 2.5 {
-                            confirmedStaticTopRows += 1
-                        }
-                    }
-                }
-            }
-        }
-        if confirmedStaticTopRows < 3 {
-            snapTop = 0
-        }
-        
-        let fullTopAnchor = CGFloat(snapTop) * topBuf.scaleY
-        
-        // --- 2. Bottom Chrome Detection (Scan from y=H-1 upward) ---
-        var bottomChromeStart = H
-        let maxBottomScan = min(Int(Double(H) * 0.35), H - 100)
-        
-        topBuf.data.withUnsafeBufferPointer { topPtr in
-            botBuf.data.withUnsafeBufferPointer { botPtr in
-                guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
-                
-                var consecutiveMovingRows = 0
-                for i in 0..<maxBottomScan {
-                    let y = H - 1 - i
-                    guard y >= 0 else { break }
-                    
-                    var diffStaticSum = 0
-                    var sumValA = 0
-                    var sumSqValA = 0
-                    var sumValB = 0
-                    var sumSqValB = 0
-                    
-                    let offA = y * W
-                    let offB = y * W
-                    
-                    for c in marginX..<(W - marginX) {
-                        let vA = Int(topBase[offA + c])
-                        let vB = Int(botBase[offB + c])
-                        diffStaticSum += abs(vA - vB)
-                        sumValA += vA
-                        sumSqValA += vA * vA
-                        sumValB += vB
-                        sumSqValB += vB * vB
-                    }
-                    
-                    let diffStatic = Double(diffStaticSum) / Double(activeW)
-                    let meanA = Double(sumValA) / Double(activeW)
-                    let varA = Double(sumSqValA) / Double(activeW) - (meanA * meanA)
-                    let meanB = Double(sumValB) / Double(activeW)
-                    let varB = Double(sumSqValB) / Double(activeW) - (meanB * meanB)
-                    
-                    // If rows are visually distinct and either screen contains detail (text/cards), content has started!
-                    if diffStatic > 12.0 && max(varA, varB) > 3.0 {
-                        consecutiveMovingRows += 1
-                        if consecutiveMovingRows >= 3 {
-                            bottomChromeStart = min(H, y + 3)
-                            break
-                        }
-                    } else {
-                        consecutiveMovingRows = 0
-                    }
-                }
-            }
-        }
-        
-        // Hairline divider snapping near bottomChromeStart
-        var snapBottom = bottomChromeStart
-        if bottomChromeStart < H - 15 {
-            let snapRange = max(H - maxBottomScan, bottomChromeStart - 10)...min(H - 2, bottomChromeStart + 10)
-            var maxEdge = 0.0
-            for y in snapRange {
-                guard y + 1 < H else { break }
-                var edgeSum = 0
-                let off1 = (y + 1) * W
-                let off0 = y * W
-                for c in marginX..<(W - marginX) {
-                    edgeSum += abs(Int(botBuf.data[off1 + c]) - Int(botBuf.data[off0 + c]))
-                }
-                let edge = Double(edgeSum) / Double(activeW)
-                if edge > maxEdge {
-                    maxEdge = edge
-                    snapBottom = y
-                }
-            }
-        }
-        
-        // Verify that snapBottom..<H actually contains confirmed static UI features (buttons, input field, tab bar)
-        var confirmedStaticBottomRows = 0
-        if snapBottom < H - 10 {
-            topBuf.data.withUnsafeBufferPointer { topPtr in
-                botBuf.data.withUnsafeBufferPointer { botPtr in
-                    guard let topBase = topPtr.baseAddress, let botBase = botPtr.baseAddress else { return }
-                    for y in snapBottom..<H {
-                        var diffStaticSum = 0
-                        var sumValB = 0
-                        var sumSqValB = 0
-                        let offA = y * W
-                        let offB = y * W
-                        for c in marginX..<(W - marginX) {
-                            let vA = Int(topBase[offA + c])
-                            let vB = Int(botBase[offB + c])
-                            diffStaticSum += abs(vA - vB)
-                            sumValB += vB
-                            sumSqValB += vB * vB
-                        }
-                        let diffS = Double(diffStaticSum) / Double(activeW)
-                        let meanB = Double(sumValB) / Double(activeW)
-                        let varB = Double(sumSqValB) / Double(activeW) - (meanB * meanB)
-                        if diffS < 12.0 && varB > 2.5 {
-                            confirmedStaticBottomRows += 1
-                        }
-                    }
-                }
-            }
-        }
-        if confirmedStaticBottomRows < 3 {
-            snapBottom = H
-        }
-        
-        let fullBottomAnchor = CGFloat(H - snapBottom) * topBuf.scaleY
-        
-        // --- 3. Multi-Scenario Classification ---
-        let isSplitMedia = fullTopAnchor > (CGFloat(origH) * 0.18)
-        let isChatApp = !isSplitMedia && fullTopAnchor >= 120 && fullTopAnchor <= 380 && fullBottomAnchor >= 100 && fullBottomAnchor <= 380
-        
-        // Card Feed Check (regular horizontal dividers)
-        var isCardFeed = false
-        if !isSplitMedia && !isChatApp {
-            var dividerRows: [Int] = []
-            let bodyStart = snapTop + 10
-            let bodyEnd = snapBottom - 10
-            if bodyEnd > bodyStart + 100 {
-                for y in (bodyStart + 1)..<(bodyEnd - 1) {
-                    let off1 = (y + 1) * W
-                    let off0 = y * W
-                    var edgeSum = 0
-                    for c in marginX..<(W - marginX) {
-                        edgeSum += abs(Int(botBuf.data[off1 + c]) - Int(botBuf.data[off0 + c]))
-                    }
-                    let edge = Double(edgeSum) / Double(activeW)
-                    if edge > 16.0 {
-                        dividerRows.append(y)
-                    }
-                }
-            }
-            if dividerRows.count >= 2 {
-                var periodicCount = 0
-                for i in 1..<dividerRows.count {
-                    let diff = dividerRows[i] - dividerRows[i - 1]
-                    if diff >= 30 && diff <= 140 {
-                        periodicCount += 1
-                    }
-                }
-                if periodicCount >= 2 {
-                    isCardFeed = true
-                }
-            }
-        }
-        
-        let isWebArticle = !isSplitMedia && !isChatApp && !isCardFeed && fullTopAnchor >= 70 && fullTopAnchor <= 320 && fullBottomAnchor >= 45 && fullBottomAnchor <= 240
-        
-        let scenario: AppLayoutScenario
-        if isSplitMedia {
-            scenario = .splitMedia
-        } else if isChatApp {
-            scenario = .chatApp
-        } else if isCardFeed {
-            scenario = .cardFeed
-        } else if isWebArticle {
-            scenario = .webArticle
-        } else {
-            scenario = .generalScroll
-        }
-        
-        return ScrollZoneDetectionResult(
-            topAnchorHeight: fullTopAnchor,
-            bottomAnchorHeight: fullBottomAnchor,
-            isSplitScreenMedia: isSplitMedia,
-            isChatAppDetected: isChatApp,
-            isCardFeedDetected: isCardFeed,
-            isWebArticleDetected: isWebArticle,
-            scrollVelocityEstimate: coarseDy * topBuf.scaleY,
-            confidence: max(0.5, coarseMatch.confidence),
-            scenario: scenario
-        )
-    }
-    
-    /// Multi-Slice Spatial Consensus Voting across all adjacent slice pairs
-    public static func detectConsensusScrollZone(
-        slices: [CGImage]
-    ) -> ScrollZoneDetectionResult {
-        guard slices.count >= 2 else {
-            return ScrollZoneDetectionResult(
-                topAnchorHeight: 0,
-                bottomAnchorHeight: 0,
-                isSplitScreenMedia: false,
-                isChatAppDetected: false,
-                scrollVelocityEstimate: 0,
-                confidence: 0
-            )
-        }
-        
-        var detectedTops: [CGFloat] = []
-        var detectedBottoms: [CGFloat] = []
-        var splitMediaVotes = 0
-        var chatAppVotes = 0
-        var cardFeedVotes = 0
-        var webArticleVotes = 0
-        var scenarioVotes: [AppLayoutScenario: Int] = [:]
-        var maxConfidence = 0.0
-        var velocities: [CGFloat] = []
-        
-        let pairCount = min(slices.count - 1, 4)
-        for i in 0..<pairCount {
-            let res = detectAdaptiveScrollZone(topImage: slices[i], bottomImage: slices[i + 1])
-            if res.confidence > 0.40 {
-                detectedTops.append(res.topAnchorHeight)
-                detectedBottoms.append(res.bottomAnchorHeight)
-                if res.isSplitScreenMedia { splitMediaVotes += 1 }
-                if res.isChatAppDetected { chatAppVotes += 1 }
-                if res.isCardFeedDetected { cardFeedVotes += 1 }
-                if res.isWebArticleDetected { webArticleVotes += 1 }
-                scenarioVotes[res.scenario, default: 0] += 1
-                maxConfidence = max(maxConfidence, res.confidence)
-                velocities.append(res.scrollVelocityEstimate)
-            }
-        }
-        
-        let finalTop: CGFloat
-        if detectedTops.isEmpty {
-            finalTop = 0
-        } else {
-            let sorted = detectedTops.sorted()
-            finalTop = sorted[sorted.count / 2]
-        }
-        
-        let finalBottom: CGFloat
-        if detectedBottoms.isEmpty {
-            finalBottom = 0
-        } else {
-            let sorted = detectedBottoms.sorted()
-            finalBottom = sorted[sorted.count / 2]
-        }
-        
-        let finalVelocity: CGFloat
-        if velocities.isEmpty {
-            finalVelocity = 0
-        } else {
-            let sorted = velocities.sorted()
-            finalVelocity = sorted[sorted.count / 2]
-        }
-        
-        let consensusScenario = scenarioVotes.max(by: { $0.value < $1.value })?.key ?? .generalScroll
-        
-        return ScrollZoneDetectionResult(
-            topAnchorHeight: finalTop,
-            bottomAnchorHeight: finalBottom,
-            isSplitScreenMedia: splitMediaVotes > 0,
-            isChatAppDetected: chatAppVotes > 0,
-            isCardFeedDetected: cardFeedVotes > 0,
-            isWebArticleDetected: webArticleVotes > 0,
-            scrollVelocityEstimate: finalVelocity,
-            confidence: max(0.5, maxConfidence),
-            scenario: consensusScenario
-        )
-    }
-    
-    /// Detects repeating static top navigation bars and bottom bars
-    public static func detectStaticChromeRegions(
-        topImage: CGImage,
-        bottomImage: CGImage
-    ) -> StaticChromeDetectionResult {
-        let zone = detectAdaptiveScrollZone(topImage: topImage, bottomImage: bottomImage)
-        return StaticChromeDetectionResult(
-            topBarHeight: zone.topAnchorHeight,
-            bottomBarHeight: zone.bottomAnchorHeight
-        )
+        let finalDy = refinedVotes.reduce(0.0, +) / CGFloat(refinedVotes.count)
+        let avgErr = bestErrors.reduce(0.0, +) / Double(bestErrors.count)
+        let conf = max(0.60, min(1.0, 1.0 - (avgErr / 30.0)))
+        return (finalDy, conf)
     }
     
     // MARK: - Core 2D Overlap Detection Entry Point
     
-    /// Calculates optimal vertical overlap using 2D Spatial Coarse-to-Fine Patch Matching,
-    /// sub-pixel parabolic peak refinement, and scenario-adaptive minimal energy seam carving.
+    /// Calculates optimal vertical overlap using 32-column spatial fingerprint cross-correlation,
+    /// 3-band full-resolution 1-pixel subpixel refinement, and scenario-adaptive minimal energy seam carving.
     public static func findOverlap(
         topSlice: CGImage,
         bottomSlice: CGImage,
@@ -885,23 +572,33 @@ public final class ImageOverlapDetector {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        // Step 1: 2D Multi-Patch Spatial Matching
-        let coarseMatch = match2DPatches(
-            topBuf: topBuf,
-            botBuf: botBuf,
-            expectedDisplacement: expectedDisplacement
+        let topFP = extractFingerprint(buffer: topBuf)
+        let botFP = extractFingerprint(buffer: botBuf)
+        
+        // Step 1: Detect static chrome rows
+        let chrome = analyzeStaticChrome(topFP: topFP, botFP: botFP)
+        
+        // Step 2: Global spatial displacement candidate search
+        let coarseMatch = findDisplacementCandidate(
+            topFP: topFP,
+            botFP: botFP,
+            topChrome: chrome.topChromeRows,
+            botChrome: chrome.botChromeRows,
+            expectedDisplacement: expectedDisplacement.map { $0 / topBuf.scaleY }
         )
         
-        guard coarseMatch.confidence > 0.20 && coarseMatch.displacement > 5.0 else {
+        guard coarseMatch.confidence > 0.20 && coarseMatch.displacement > 2.0 else {
             return OverlapMatchResult(offset: 0, confidence: coarseMatch.confidence, optimalSeamY: 0)
         }
         
-        // Step 2: Full-Resolution 2D Subpixel Refinement
-        let refined = refineFullResolutionSubpixel(
+        // Step 3: Full-Resolution 1-Pixel Subpixel Refinement
+        let refined = refineFullResolutionMultiBand(
             topImage: topSlice,
             bottomImage: bottomSlice,
-            coarseDisplacement: coarseMatch.displacement,
-            scaleY: topBuf.scaleY
+            coarseDy: coarseMatch.displacement,
+            scaleY: topBuf.scaleY,
+            topCrop: bottomSliceTopCrop,
+            botCrop: topSliceBottomCrop
         )
         
         let displacement = refined.fineDisplacement
@@ -912,14 +609,11 @@ public final class ImageOverlapDetector {
         
         // Effective overlap of the visible cropped content
         let contentOverlap = max(0.0, rawFullOverlap - topSliceBottomCrop - bottomSliceTopCrop)
-        guard contentOverlap > 10 else {
+        guard contentOverlap > 5 else {
             return OverlapMatchResult(offset: 0, confidence: max(0.2, refined.confidence - 0.3), optimalSeamY: 0)
         }
         
-        // Step 3: Scenario-Adaptive Minimal Energy Seam Carving
-        // Search inside the content overlap zone [0 ... contentOverlap]
-        // Row in topSlice: (topH - topSliceBottomCrop - contentOverlap) + k
-        // Row in bottomSlice: bottomSliceTopCrop + k
+        // Step 4: Scenario-Adaptive Minimal Energy Seam Carving
         let topBaseRow = Int(CGFloat(topH) - topSliceBottomCrop - contentOverlap)
         let botBaseRow = Int(bottomSliceTopCrop)
         let maxK = Int(contentOverlap)
@@ -963,6 +657,149 @@ public final class ImageOverlapDetector {
             maxOverlapRatio: maxOverlapRatio,
             expectedDisplacement: expectedDisplacement,
             scenario: scenario
+        )
+    }
+    
+    // MARK: - Scenario & Scroll Zone Detection Entry Point
+    
+    /// Detects top navigation bars, split-screen video note players, and bottom input/tab bars
+    public static func detectAdaptiveScrollZone(
+        topImage: CGImage,
+        bottomImage: CGImage
+    ) -> ScrollZoneDetectionResult {
+        let origW = min(topImage.width, bottomImage.width)
+        let origH = min(topImage.height, bottomImage.height)
+        guard origW > 0, origH > 300 else {
+            return ScrollZoneDetectionResult(
+                topAnchorHeight: 0,
+                bottomAnchorHeight: 0,
+                isSplitScreenMedia: false,
+                isChatAppDetected: false,
+                scrollVelocityEstimate: 0,
+                confidence: 0
+            )
+        }
+        
+        guard let topBuf = createGrayscaleBuffer(from: topImage, targetWidth: 320),
+              let botBuf = createGrayscaleBuffer(from: bottomImage, targetWidth: 320) else {
+            return ScrollZoneDetectionResult(
+                topAnchorHeight: 0,
+                bottomAnchorHeight: 0,
+                isSplitScreenMedia: false,
+                isChatAppDetected: false,
+                scrollVelocityEstimate: 0,
+                confidence: 0
+            )
+        }
+        
+        let topFP = extractFingerprint(buffer: topBuf)
+        let botFP = extractFingerprint(buffer: botBuf)
+        
+        let chrome = analyzeStaticChrome(topFP: topFP, botFP: botFP)
+        let match = findDisplacementCandidate(
+            topFP: topFP,
+            botFP: botFP,
+            topChrome: chrome.topChromeRows,
+            botChrome: chrome.botChromeRows
+        )
+        
+        let fullTopAnchor = CGFloat(chrome.topChromeRows) * topBuf.scaleY
+        let fullBottomAnchor = CGFloat(chrome.botChromeRows) * topBuf.scaleY
+        
+        let isSplitMedia = fullTopAnchor > (CGFloat(origH) * 0.18)
+        let isChatApp = !isSplitMedia && fullTopAnchor >= 100 && fullTopAnchor <= 380 && fullBottomAnchor >= 80 && fullBottomAnchor <= 380
+        let isWebArticle = !isSplitMedia && !isChatApp && fullTopAnchor >= 60 && fullTopAnchor <= 320 && fullBottomAnchor >= 40 && fullBottomAnchor <= 240
+        
+        let scenario: AppLayoutScenario
+        if isSplitMedia {
+            scenario = .splitMedia
+        } else if isChatApp {
+            scenario = .chatApp
+        } else if isWebArticle {
+            scenario = .webArticle
+        } else {
+            scenario = .generalScroll
+        }
+        
+        return ScrollZoneDetectionResult(
+            topAnchorHeight: fullTopAnchor,
+            bottomAnchorHeight: fullBottomAnchor,
+            isSplitScreenMedia: isSplitMedia,
+            isChatAppDetected: isChatApp,
+            isCardFeedDetected: false,
+            isWebArticleDetected: isWebArticle,
+            scrollVelocityEstimate: match.displacement * topBuf.scaleY,
+            confidence: max(0.5, match.confidence),
+            scenario: scenario
+        )
+    }
+    
+    /// Multi-Slice Spatial Consensus Voting across all adjacent slice pairs
+    public static func detectConsensusScrollZone(
+        slices: [CGImage]
+    ) -> ScrollZoneDetectionResult {
+        guard slices.count >= 2 else {
+            return ScrollZoneDetectionResult(
+                topAnchorHeight: 0,
+                bottomAnchorHeight: 0,
+                isSplitScreenMedia: false,
+                isChatAppDetected: false,
+                scrollVelocityEstimate: 0,
+                confidence: 0
+            )
+        }
+        
+        var detectedTops: [CGFloat] = []
+        var detectedBottoms: [CGFloat] = []
+        var splitMediaVotes = 0
+        var chatAppVotes = 0
+        var webArticleVotes = 0
+        var scenarioVotes: [AppLayoutScenario: Int] = [:]
+        var maxConfidence = 0.0
+        var velocities: [CGFloat] = []
+        
+        let pairCount = min(slices.count - 1, 4)
+        for i in 0..<pairCount {
+            let res = detectAdaptiveScrollZone(topImage: slices[i], bottomImage: slices[i + 1])
+            if res.confidence > 0.40 {
+                detectedTops.append(res.topAnchorHeight)
+                detectedBottoms.append(res.bottomAnchorHeight)
+                if res.isSplitScreenMedia { splitMediaVotes += 1 }
+                if res.isChatAppDetected { chatAppVotes += 1 }
+                if res.isWebArticleDetected { webArticleVotes += 1 }
+                scenarioVotes[res.scenario, default: 0] += 1
+                maxConfidence = max(maxConfidence, res.confidence)
+                velocities.append(res.scrollVelocityEstimate)
+            }
+        }
+        
+        let finalTop = detectedTops.isEmpty ? 0 : detectedTops.sorted()[detectedTops.count / 2]
+        let finalBottom = detectedBottoms.isEmpty ? 0 : detectedBottoms.sorted()[detectedBottoms.count / 2]
+        let finalVelocity = velocities.isEmpty ? 0 : velocities.sorted()[velocities.count / 2]
+        let consensusScenario = scenarioVotes.max(by: { $0.value < $1.value })?.key ?? .generalScroll
+        
+        return ScrollZoneDetectionResult(
+            topAnchorHeight: finalTop,
+            bottomAnchorHeight: finalBottom,
+            isSplitScreenMedia: splitMediaVotes > 0,
+            isChatAppDetected: chatAppVotes > 0,
+            isCardFeedDetected: false,
+            isWebArticleDetected: webArticleVotes > 0,
+            scrollVelocityEstimate: finalVelocity,
+            confidence: max(0.5, maxConfidence),
+            scenario: consensusScenario
+        )
+    }
+    
+    /// Detects repeating static top navigation bars and bottom bars
+    public static func detectStaticChromeRegions(
+        topImage: CGImage,
+        bottomImage: CGImage
+    ) -> StaticChromeDetectionResult {
+        let zone = detectAdaptiveScrollZone(topImage: topImage, bottomImage: bottomImage)
+        return StaticChromeDetectionResult(
+            topBarHeight: zone.topAnchorHeight,
+            bottomBarHeight: zone.bottomAnchorHeight
         )
     }
     
@@ -1026,8 +863,6 @@ public final class ImageOverlapDetector {
             
             switch scenario {
             case .chatApp:
-                // Chat apps: heavy penalty for cutting close to speech bubble edges,
-                // strong bonus for empty whitespace valleys between bubbles
                 if maxNearbyEdge > 0.06 {
                     edgePenalty = 0.10
                 }
@@ -1035,7 +870,6 @@ public final class ImageOverlapDetector {
                     scenarioBonus = -0.08
                 }
             case .cardFeed:
-                // Social / Card feeds: snap seam onto card divider hairlines or gray spacer strips
                 let isDividerPeak = hE_0 > 0.07 && hE_0 >= hE_m1 && hE_0 >= hE_p1
                 if isDividerPeak {
                     scenarioBonus = -0.12
@@ -1043,7 +877,6 @@ public final class ImageOverlapDetector {
                     edgePenalty = 0.06
                 }
             case .webArticle:
-                // Web articles: snap seam into paragraph spacing or article breaks
                 if maxNearbyEdge > 0.07 {
                     edgePenalty = 0.07
                 }

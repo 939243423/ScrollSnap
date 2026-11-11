@@ -572,4 +572,30 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(initialTotalHeight - adjustedTotalHeight, 100)
         XCTAssertEqual(layoutAdjusted[1].sourceYStart, 300 + 200)
     }
+    
+    // MARK: - 17. 32-Column Spatial Fingerprint & Chrome Models
+    
+    func testImageBuffer2DModel() {
+        let dummyData = [UInt8](repeating: 128, count: 320 * 200)
+        let buffer = ImageBuffer2D(width: 320, height: 200, data: dummyData, scaleX: 3.65, scaleY: 3.65)
+        
+        XCTAssertEqual(buffer.width, 320)
+        XCTAssertEqual(buffer.height, 200)
+        XCTAssertEqual(buffer.scaleX, 3.65)
+        XCTAssertEqual(buffer.scaleY, 3.65)
+        XCTAssertEqual(buffer.pixel(x: 10, y: 10), 128)
+    }
+    
+    func testStaticChromeResultModel() {
+        let chrome = StaticChromeDetectionResult(topBarHeight: 264, bottomBarHeight: 240)
+        XCTAssertEqual(chrome.topBarHeight, 264)
+        XCTAssertEqual(chrome.bottomBarHeight, 240)
+    }
+    
+    func testOverlapMatchResultProperties() {
+        let match = OverlapMatchResult(offset: 450, confidence: 0.98, optimalSeamY: 225)
+        XCTAssertEqual(match.offset, 450)
+        XCTAssertEqual(match.confidence, 0.98, accuracy: 0.001)
+        XCTAssertEqual(match.optimalSeamY, 225)
+    }
 }
