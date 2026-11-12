@@ -128,12 +128,12 @@ public final class StitchEngine {
                     effectiveScenario = presetMode.correspondingScenario
                 }
                 
-                // Scenario-adaptive fallback safety insets
+                // Scenario-adaptive fallback safety insets (Dynamic Island 294px nav bar, WeChat 270px input bar)
                 if effectiveScenario == .chatApp {
                     if let firstImage = loadedSlices.first?.image {
                         let h = CGFloat(firstImage.height)
-                        let chatTopFallback = min(h * 0.12, 280)
-                        let chatBottomFallback = min(h * 0.10, 240)
+                        let chatTopFallback = min(h * 0.13, 294)
+                        let chatBottomFallback = min(h * 0.11, 270)
                         if detectedTopBar < 120 {
                             detectedTopBar = max(detectedTopBar, chatTopFallback)
                         }

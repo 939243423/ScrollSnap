@@ -12,7 +12,7 @@ public final class BroadcastFrameProcessor {
     private var lastSavedProjection: [Double] = []
     private var pendingFinalData: Data? = nil
     private var lastProcessedTimestamp: TimeInterval = 0
-    private let minimumFrameInterval: TimeInterval = 0.10 // Limit processing to 10 FPS
+    private let minimumFrameInterval: TimeInterval = 0.08 // Limit processing to 12.5 FPS for seamless scroll overlap
     
     #if canImport(UIKit)
     private lazy var ciContext: CIContext = {
@@ -49,16 +49,17 @@ public final class BroadcastFrameProcessor {
         
         let motionDelta = calculateEuclideanDelta(lastLuminanceProjection, currentProjection)
         
-        // Anti-jitter: ignore stationary frames (< 0.035) and erratic jumps (> 0.85)
-        if motionDelta >= 0.035 && motionDelta <= 0.85 {
+        // Anti-jitter: ignore true stationary pauses (< 0.012) and erratic jumps (> 0.85)
+        // Lowered from 0.035 to 0.012 to capture slow/sparse chat scrolling (e.g. WeChat text with large background)
+        if motionDelta >= 0.012 && motionDelta <= 0.85 {
             lastLuminanceProjection = currentProjection
             lastSavedProjection = currentProjection
             pendingFinalData = nil
             saveKeyframe(pixelBuffer: pixelBuffer)
-        } else if motionDelta < 0.035 && !lastSavedProjection.isEmpty {
-            // If movement occurred since last saved keyframe, cache the ending frame so the bottom is never dropped
+        } else if motionDelta < 0.012 && !lastSavedProjection.isEmpty {
+            // If subtle movement occurred since last saved keyframe, cache ending frame so bottom is never lost
             let deltaFromLastSave = calculateEuclideanDelta(lastSavedProjection, currentProjection)
-            if deltaFromLastSave >= 0.015 {
+            if deltaFromLastSave >= 0.008 {
                 autoreleasepool {
                     #if canImport(UIKit)
                     let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
@@ -110,7 +111,16 @@ public final class BroadcastFrameProcessor {
         let sampleCountY = height / stepY
         var projection = [Double](repeating: 0.0, count: sampleCountY)
         
-        let sampleCols = [width / 4, width / 2, (3 * width) / 4]
+        // Sample 16 columns spanning from 0.06W to 0.94W to capture left avatars (x ~ 0.08W),
+        // right avatars (x ~ 0.92W), and sparse text bubbles across the chat screen.
+        let colCount = 16
+        let minX = max(0, Int(Double(width) * 0.06))
+        let maxX = min(width - 1, Int(Double(width) * 0.94))
+        let colStep = Double(maxX - minX) / Double(max(1, colCount - 1))
+        var sampleCols = [Int](repeating: 0, count: colCount)
+        for i in 0..<colCount {
+            sampleCols[i] = minX + Int(round(Double(i) * colStep))
+        }
         
         for (idx, y) in stride(from: 0, to: height, by: stepY).enumerated() {
             guard idx < sampleCountY else { break }

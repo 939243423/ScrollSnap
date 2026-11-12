@@ -211,8 +211,8 @@ public final class ImageOverlapDetector {
             staticDiff[y] = Double(diffSum) / Double(numCols)
         }
         
-        // Scan from top downward (max top chrome: 65% of screen for split media)
-        var topChrome = 0
+        // Scan from top downward for moving content
+        var movingStartTop = 0
         let maxTopScan = min(Int(Double(H) * 0.65), H - 80)
         var consecutiveMoving = 0
         for y in 0..<maxTopScan {
@@ -220,7 +220,7 @@ public final class ImageOverlapDetector {
             if isMoving {
                 consecutiveMoving += 1
                 if consecutiveMoving >= 3 {
-                    topChrome = max(0, y - 2)
+                    movingStartTop = max(0, y - 2)
                     break
                 }
             } else {
@@ -228,8 +228,72 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // Scan from bottom upward (max bottom chrome: 35% of screen)
-        var botChrome = 0
+        let maxStandardNavScan = min(105, Int(Double(H) * 0.16)) // ~380px native max for standard iOS navigation bar
+        
+        // Extended static media verification (e.g. video player in Xiaohongshu video notes)
+        var hasExtendedMedia = false
+        if movingStartTop > maxStandardNavScan {
+            var mediaTexturedCount = 0
+            for y in maxStandardNavScan..<movingStartTop {
+                if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 10.0 || botFP.rowVariance[y] > 10.0) {
+                    mediaTexturedCount += 1
+                }
+            }
+            if mediaTexturedCount >= 30 {
+                hasExtendedMedia = true
+            }
+        }
+        
+        // Hairline separator snap for standard iOS navigation bar (rows 35..maxStandardNavScan)
+        var bestTopHairline = 0
+        let hairlineScanEnd = (movingStartTop > 35 && movingStartTop <= maxStandardNavScan + 5) ? movingStartTop : maxStandardNavScan
+        if hairlineScanEnd >= 35 {
+            for y in stride(from: hairlineScanEnd, through: 35, by: -1) {
+                guard y > 0, y < H else { continue }
+                if staticDiff[y] < 8.0 && staticDiff[y - 1] < 8.0 {
+                    let off0 = (y - 1) * numCols
+                    let off1 = y * numCols
+                    var transitionCols = 0
+                    var edgeSum = 0
+                    for m in 0..<numCols {
+                        let diff = abs(Int(topFP.samples[off1 + m]) - Int(topFP.samples[off0 + m]))
+                        edgeSum += diff
+                        if diff > 14 {
+                            transitionCols += 1
+                        }
+                    }
+                    let edgeMean = Double(edgeSum) / Double(numCols)
+                    if transitionCols >= Int(Double(numCols) * 0.65) && edgeMean > 12.0 {
+                        bestTopHairline = y
+                        break
+                    }
+                }
+            }
+        }
+        
+        var topChrome = 0
+        if hasExtendedMedia {
+            topChrome = movingStartTop
+        } else if bestTopHairline > 0 {
+            topChrome = bestTopHairline
+        } else if movingStartTop > 0 && movingStartTop <= maxStandardNavScan {
+            topChrome = movingStartTop
+        } else {
+            var confirmedTop = 0
+            for y in 0..<maxStandardNavScan {
+                if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
+                    confirmedTop += 1
+                }
+            }
+            if confirmedTop >= 2 {
+                topChrome = min(maxStandardNavScan, 80)
+            } else {
+                topChrome = 0
+            }
+        }
+        
+        // Scan from bottom upward for moving content
+        var movingStartBot = 0
         let maxBotScan = min(Int(Double(H) * 0.35), H - 80)
         consecutiveMoving = 0
         for i in 0..<maxBotScan {
@@ -239,7 +303,7 @@ public final class ImageOverlapDetector {
             if isMoving {
                 consecutiveMoving += 1
                 if consecutiveMoving >= 3 {
-                    botChrome = max(0, i - 2)
+                    movingStartBot = max(0, i - 2)
                     break
                 }
             } else {
@@ -247,67 +311,55 @@ public final class ImageOverlapDetector {
             }
         }
         
-        // Verify confirmed static UI features
-        var confirmedTop = 0
-        for y in 0..<topChrome {
-            if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
-                confirmedTop += 1
-            }
-        }
-        if confirmedTop < 2 {
-            topChrome = 0
-        } else {
-            // Snap to sharp hairline dividers near topChrome (e.g. navigation bar hairline separator)
-            let scanRange = max(4, topChrome - 8)...min(maxTopScan, topChrome + 8)
-            var maxEdge = 0.0
-            var snappedTop = topChrome
-            for y in scanRange {
-                guard y + 1 < H else { break }
-                let off0 = y * numCols
-                let off1 = (y + 1) * numCols
-                var edgeSum = 0
-                for m in 0..<numCols {
-                    edgeSum += abs(Int(botFP.samples[off1 + m]) - Int(botFP.samples[off0 + m]))
+        let maxStandardBotScan = min(90, Int(Double(H) * 0.14)) // ~330px native max for iOS tab/input bar
+        
+        // Hairline separator snap for standard bottom bar (e.g. WeChat chat input bar separator)
+        var bestBotHairline = 0
+        let botHairlineScanEnd = (movingStartBot > 20 && movingStartBot <= maxStandardBotScan + 5) ? movingStartBot : maxStandardBotScan
+        if botHairlineScanEnd >= 20 {
+            for i in stride(from: botHairlineScanEnd, through: 20, by: -1) {
+                let y = H - 1 - i
+                guard y > 0, y < H else { continue }
+                if staticDiff[y] < 8.0 && staticDiff[y - 1] < 8.0 {
+                    let off0 = (y - 1) * numCols
+                    let off1 = y * numCols
+                    var transitionCols = 0
+                    var edgeSum = 0
+                    for m in 0..<numCols {
+                        let diff = abs(Int(topFP.samples[off1 + m]) - Int(topFP.samples[off0 + m]))
+                        edgeSum += diff
+                        if diff > 14 {
+                            transitionCols += 1
+                        }
+                    }
+                    let edgeMean = Double(edgeSum) / Double(numCols)
+                    if transitionCols >= Int(Double(numCols) * 0.65) && edgeMean > 12.0 {
+                        bestBotHairline = i
+                        break
+                    }
                 }
-                let edge = Double(edgeSum) / Double(numCols)
-                if edge > maxEdge && edge > 14.0 {
-                    maxEdge = edge
-                    snappedTop = y + 1
-                }
             }
-            topChrome = snappedTop
         }
         
-        var confirmedBot = 0
-        for i in 0..<botChrome {
-            let y = H - 1 - i
-            if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
-                confirmedBot += 1
-            }
-        }
-        if confirmedBot < 2 {
-            botChrome = 0
+        var botChrome = 0
+        if bestBotHairline > 0 {
+            botChrome = bestBotHairline
+        } else if movingStartBot > 0 && movingStartBot <= maxStandardBotScan {
+            botChrome = movingStartBot
         } else {
-            // Snap to sharp hairline dividers near botChrome (e.g. tab bar separator)
-            let scanRange = max(4, botChrome - 8)...min(maxBotScan, botChrome + 8)
-            var maxEdge = 0.0
-            var snappedBot = botChrome
-            for i in scanRange {
+            var confirmedBot = 0
+            for i in 0..<maxStandardBotScan {
                 let y = H - 1 - i
-                guard y > 0 else { break }
-                let off0 = y * numCols
-                let off1 = (y - 1) * numCols
-                var edgeSum = 0
-                for m in 0..<numCols {
-                    edgeSum += abs(Int(botFP.samples[off0 + m]) - Int(botFP.samples[off1 + m]))
-                }
-                let edge = Double(edgeSum) / Double(numCols)
-                if edge > maxEdge && edge > 14.0 {
-                    maxEdge = edge
-                    snappedBot = i
+                guard y >= 0 else { break }
+                if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
+                    confirmedBot += 1
                 }
             }
-            botChrome = snappedBot
+            if confirmedBot >= 2 {
+                botChrome = min(maxStandardBotScan, 72)
+            } else {
+                botChrome = 0
+            }
         }
         
         return (topChrome, botChrome)
@@ -392,7 +444,7 @@ public final class ImageOverlapDetector {
             }
             
             let effectiveScore: Double
-            if texturedRows >= 10 {
+            if texturedRows >= 3 {
                 effectiveScore = Double(texturedSum) / Double(texturedRows * numCols)
             } else {
                 effectiveScore = Double(totalSum) / Double(K * numCols)
@@ -449,7 +501,7 @@ public final class ImageOverlapDetector {
                     texturedRows += 1
                 }
             }
-            let score = texturedRows >= 10 ? (Double(texturedSum) / Double(texturedRows * numCols)) : (Double(totalSum) / Double(K * numCols))
+            let score = texturedRows >= 3 ? (Double(texturedSum) / Double(texturedRows * numCols)) : (Double(totalSum) / Double(K * numCols))
             if score < minRevScore {
                 minRevScore = score
                 bestRevD = d
@@ -480,7 +532,8 @@ public final class ImageOverlapDetector {
         coarseDy: CGFloat,
         scaleY: CGFloat,
         topCrop: CGFloat,
-        botCrop: CGFloat
+        botCrop: CGFloat,
+        botRowVariances: [Double] = []
     ) -> (fineDisplacement: CGFloat, confidence: Double) {
         let origW = min(topImage.width, bottomImage.width)
         let origH = min(topImage.height, bottomImage.height)
@@ -500,18 +553,54 @@ public final class ImageOverlapDetector {
             return (targetDy, 0.8)
         }
         
-        let anchorRatios: [CGFloat] = [0.25, 0.50, 0.75]
         let patchH = 32
         let sampleW = min(origW - 40, 480)
         let startX = (origW - sampleW) / 2
         let searchRadius = 6
         
+        // 3-Zone dynamic peak anchor selection:
+        // Divides the valid overlap into 3 zones and selects the peak-variance row in each zone
+        // to ensure anchors land on actual chat bubbles and avatars rather than blank wallpaper.
+        var targetYBs: [Int] = []
+        if !botRowVariances.isEmpty && endYB > startYB + 40 {
+            let minRow = Int(startYB / scaleY)
+            let maxRow = Int(endYB / scaleY)
+            let span = maxRow - minRow
+            if span >= 6 {
+                for z in 0..<3 {
+                    let zStart = minRow + Int(Double(z) * Double(span) / 3.0)
+                    let zEnd = minRow + Int(Double(z + 1) * Double(span) / 3.0)
+                    var bestR = zStart + (zEnd - zStart) / 2
+                    var bestVar = 0.0
+                    for r in zStart..<min(zEnd, botRowVariances.count) {
+                        if botRowVariances[r] > bestVar {
+                            bestVar = botRowVariances[r]
+                            bestR = r
+                        }
+                    }
+                    let candidateYB = Int(round(CGFloat(bestR) * scaleY))
+                    if candidateYB + patchH < origH {
+                        targetYBs.append(candidateYB)
+                    }
+                }
+            }
+        }
+        
+        if targetYBs.isEmpty {
+            let anchorRatios: [CGFloat] = [0.25, 0.50, 0.75]
+            for ratio in anchorRatios {
+                let yB = Int(startYB + (endYB - startYB) * ratio)
+                if yB + patchH < origH {
+                    targetYBs.append(yB)
+                }
+            }
+        }
+        
         var refinedVotes: [CGFloat] = []
         var bestErrors: [Double] = []
         let colorSpace = CGColorSpaceCreateDeviceGray()
         
-        for ratio in anchorRatios {
-            let yB = Int(startYB + (endYB - startYB) * ratio)
+        for yB in targetYBs {
             guard yB + patchH < origH else { continue }
             
             var patchB = [UInt8](repeating: 0, count: sampleW * patchH)
@@ -665,7 +754,8 @@ public final class ImageOverlapDetector {
             coarseDy: coarseMatch.displacement,
             scaleY: topBuf.scaleY,
             topCrop: bottomSliceTopCrop,
-            botCrop: topSliceBottomCrop
+            botCrop: topSliceBottomCrop,
+            botRowVariances: botFP.rowVariance
         )
         
         let displacement = refined.fineDisplacement

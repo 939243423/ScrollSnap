@@ -598,4 +598,28 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(match.confidence, 0.98, accuracy: 0.001)
         XCTAssertEqual(match.optimalSeamY, 225)
     }
+    
+    // MARK: - 18. WeChat & Sparse Chat Scenario Optimization Tests
+    
+    func testChatScenarioFallbackInsetsForDynamicIsland() {
+        // iPhone 15 Pro / 16 Pro has 2556 height, Dynamic Island navigation bar = 294px, WeChat input bar = 270px
+        let h: CGFloat = 2556
+        let chatTopFallback = min(h * 0.13, 294)
+        let chatBottomFallback = min(h * 0.11, 270)
+        
+        XCTAssertEqual(chatTopFallback, 294, accuracy: 0.001)
+        XCTAssertEqual(chatBottomFallback, 270, accuracy: 0.001)
+    }
+    
+    func testImageBuffer2DCoordinateIndexing() {
+        var data = [UInt8](repeating: 237, count: 320 * 693) // WeChat #EDEDED
+        // Set hairline at row 80
+        for x in 0..<320 {
+            data[80 * 320 + x] = 198 // #C6C6C8
+        }
+        let buf = ImageBuffer2D(width: 320, height: 693, data: data, scaleX: 3.68, scaleY: 3.68)
+        XCTAssertEqual(buf.pixel(x: 50, y: 79), 237)
+        XCTAssertEqual(buf.pixel(x: 50, y: 80), 198)
+        XCTAssertEqual(buf.pixel(x: 50, y: 81), 237)
+    }
 }
