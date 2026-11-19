@@ -403,7 +403,7 @@ public final class ImageOverlapDetector {
                 dupTexturedRows += 1
             }
         }
-        if dupTexturedRows > 10 {
+        if dupTexturedRows >= 3 {
             let dupScore = Double(dupDiffSum) / Double(dupTexturedRows * numCols)
             if dupScore < 2.5 {
                 return (0, 1.0, false)

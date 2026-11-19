@@ -278,6 +278,7 @@ public final class TiledImageRenderer {
         let pageCount = max(1, Int(ceil(scaledFullHeight / contentHeightPerPage)))
         
         let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: pageWidth, height: pageHeight))
+        let layouts = computeVerticalLayout(session: session, canvasWidth: canvasWidth)
         
         try pdfRenderer.writePDF(to: outputURL) { pdfContext in
             for pageIndex in 0..<pageCount {
@@ -296,7 +297,6 @@ public final class TiledImageRenderer {
                 cgContext.translateBy(x: 20, y: 30 - (sourceY * scaleFactor))
                 cgContext.scaleBy(x: scaleFactor, y: scaleFactor)
                 
-                let layouts = computeVerticalLayout(session: session, canvasWidth: canvasWidth)
                 for layout in layouts {
                     let sliceTop = layout.canvasY
                     let sliceBottom = layout.canvasY + layout.canvasHeight
@@ -654,38 +654,40 @@ public final class TiledImageRenderer {
             
             let layouts = computeVerticalLayout(session: session, canvasWidth: originalContentWidth)
             for layout in layouts {
-                let slice = session.slices[layout.sliceIndex]
-                guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
-                      let image = UIImage(contentsOfFile: fileURL.path) else {
-                    continue
+                autoreleasepool {
+                    let slice = session.slices[layout.sliceIndex]
+                    guard let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
+                          let image = UIImage(contentsOfFile: fileURL.path) else {
+                        return
+                    }
+                    
+                    let isLastSlice = (layout.sliceIndex == layouts.count - 1)
+                    let bleed: CGFloat = isLastSlice ? 0.0 : 0.5
+                    let drawRect = CGRect(x: phoneRect.minX, y: phoneRect.minY + layout.canvasY, width: originalContentWidth, height: layout.canvasHeight + bleed)
+                    
+                    cgContext.saveGState()
+                    cgContext.clip(to: drawRect)
+                    
+                    let imageDrawRect = CGRect(
+                        x: phoneRect.minX,
+                        y: phoneRect.minY + layout.canvasY - (layout.sourceYStart * layout.scale),
+                        width: originalContentWidth,
+                        height: slice.originalHeight * layout.scale
+                    )
+                    image.draw(in: imageDrawRect)
+                    
+                    for redaction in slice.redactions {
+                        let rX = phoneRect.minX + redaction.relativeRect.minX * originalContentWidth
+                        let sliceY = redaction.relativeRect.minY * slice.originalHeight
+                        let rY = phoneRect.minY + layout.canvasY + (sliceY - layout.sourceYStart) * layout.scale
+                        let rW = redaction.relativeRect.width * originalContentWidth
+                        let rH = (redaction.relativeRect.height * slice.originalHeight) * layout.scale
+                        let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
+                        applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
+                    }
+                    
+                    cgContext.restoreGState()
                 }
-                
-                let isLastSlice = (layout.sliceIndex == layouts.count - 1)
-                let bleed: CGFloat = isLastSlice ? 0.0 : 0.5
-                let drawRect = CGRect(x: phoneRect.minX, y: phoneRect.minY + layout.canvasY, width: originalContentWidth, height: layout.canvasHeight + bleed)
-                
-                cgContext.saveGState()
-                cgContext.clip(to: drawRect)
-                
-                let imageDrawRect = CGRect(
-                    x: phoneRect.minX,
-                    y: phoneRect.minY + layout.canvasY - (layout.sourceYStart * layout.scale),
-                    width: originalContentWidth,
-                    height: slice.originalHeight * layout.scale
-                )
-                image.draw(in: imageDrawRect)
-                
-                for redaction in slice.redactions {
-                    let rX = phoneRect.minX + redaction.relativeRect.minX * originalContentWidth
-                    let sliceY = redaction.relativeRect.minY * slice.originalHeight
-                    let rY = phoneRect.minY + layout.canvasY + (sliceY - layout.sourceYStart) * layout.scale
-                    let rW = redaction.relativeRect.width * originalContentWidth
-                    let rH = (redaction.relativeRect.height * slice.originalHeight) * layout.scale
-                    let redactionRect = CGRect(x: rX, y: rY, width: rW, height: rH)
-                    applyRedaction(in: cgContext, rect: redactionRect, style: redaction.style)
-                }
-                
-                cgContext.restoreGState()
             }
             
             // Annotations and Brush Strokes

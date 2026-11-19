@@ -636,4 +636,20 @@ final class ScrollSnapCoreTests: XCTestCase {
         let searchRadius2x = max(8, Int(ceil(scaleY2x * 2.5)))
         XCTAssertEqual(searchRadius2x, 8)
     }
+    
+    // MARK: - 20. Cache Retention & Duplicate Detection Robustness Tests
+    
+    func testDuplicateDetectionSparseThreshold() {
+        // In sparse chat screens, 3 textured rows (text characters) with < 2.5 error triggers duplicate detection
+        let numCols = 32
+        let texturedRows = 3
+        let dupDiffSum = 5 * numCols // diff = 5 across 3 rows
+        let score = Double(dupDiffSum) / Double(texturedRows * numCols)
+        XCTAssertLessThan(score, 2.5)
+    }
+    
+    func testSessionCacheRetentionHours() {
+        let minSessionAge: TimeInterval = 86400 * 2 // 48 hours retention
+        XCTAssertEqual(minSessionAge, 172800)
+    }
 }

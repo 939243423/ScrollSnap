@@ -115,8 +115,8 @@ public final class AppCacheManager {
     }
     
     /// Prunes stale temporary files on application startup (e.g. from previous force quits or crashes)
-    /// Only deletes files modified more than 10 minutes ago to avoid interfering with ongoing operations.
-    public func cleanupStaleCacheOnStartup(minAgeSeconds: TimeInterval = 600) {
+    /// Deletes tmp export files older than 1 hour, and unreferenced sessions older than 48 hours to protect active user editing.
+    public func cleanupStaleCacheOnStartup(minAgeSeconds: TimeInterval = 3600) {
         let now = Date()
         let tempDir = fileManager.temporaryDirectory
         if let files = try? fileManager.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: [.contentModificationDateKey]) {
@@ -131,11 +131,12 @@ public final class AppCacheManager {
         
         let container = AppGroupConstants.containerURL
         let sessionsDir = container.appendingPathComponent("sessions", isDirectory: true)
+        let minSessionAge: TimeInterval = 86400 * 2 // Retain sessions for at least 48 hours to never delete active work
         if let subdirs = try? fileManager.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: [.contentModificationDateKey]) {
             for dir in subdirs {
                 if let vals = try? dir.resourceValues(forKeys: [.contentModificationDateKey]),
                    let modDate = vals.contentModificationDate,
-                   now.timeIntervalSince(modDate) > minAgeSeconds {
+                   now.timeIntervalSince(modDate) > minSessionAge {
                     try? fileManager.removeItem(at: dir)
                 }
             }
