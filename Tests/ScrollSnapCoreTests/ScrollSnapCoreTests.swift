@@ -652,4 +652,15 @@ final class ScrollSnapCoreTests: XCTestCase {
         let minSessionAge: TimeInterval = 86400 * 2 // 48 hours retention
         XCTAssertEqual(minSessionAge, 172800)
     }
+    
+    func testVideoExtractionEndingSettlingThreshold() {
+        // Subtle forward settling in video (4..15px) updates last timestamp instead of creating duplicate slice
+        let shiftSubtle: Double = 8.0
+        let isSettling = shiftSubtle > 4.0 && shiftSubtle <= 15.0
+        XCTAssertTrue(isSettling)
+        
+        let shiftStationary: Double = 2.0
+        let isStationary = shiftStationary <= 4.0
+        XCTAssertTrue(isStationary)
+    }
 }

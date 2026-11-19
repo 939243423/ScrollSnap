@@ -169,8 +169,19 @@ public final class VideoFrameExtractor {
         }
         
         // Ensure final frame timestamp is captured to include the very bottom of the page
-        if let lastCandidate = candidates.last, selectedTimes.last != lastCandidate.time && selectedTimes.count < maxKeyframes {
-            selectedTimes.append(lastCandidate.time)
+        // Avoid duplicate ending frames if the video was stationary at the end
+        if let lastCandidate = candidates.last, selectedTimes.last != lastCandidate.time {
+            let lastMatch = estimateVerticalShift(
+                profileA: currentCandidate.profile,
+                profileB: lastCandidate.profile,
+                probeHeight: probeHeight
+            )
+            if lastMatch.confidence > 0.35 && lastMatch.shift > 15.0 && selectedTimes.count < maxKeyframes {
+                selectedTimes.append(lastCandidate.time)
+            } else if lastMatch.confidence > 0.35 && lastMatch.shift > 4.0 && !selectedTimes.isEmpty {
+                // Subtle forward settling (4..15px): replace last timestamp to capture exact bottom without duplicates
+                selectedTimes[selectedTimes.count - 1] = lastCandidate.time
+            }
         }
         
         // Pass 2: High-Resolution Native Extraction ONLY for selected keyframe timestamps

@@ -33,7 +33,6 @@ public struct StitchEditorView: View {
     
     // Seam Fine-tuning State
     @State private var selectedSliceIndex: Int = 1
-    @State private var seamDialOffset: CGFloat = 0.0
     @State private var seamDragStartOffset: CGFloat = 0.0
     @State private var isGhostingAlignmentEnabled: Bool = false
     @State private var isShowingSliceManagerSheet: Bool = false
@@ -482,10 +481,6 @@ public struct StitchEditorView: View {
     private var verticalLayouts: [SliceCanvasLayout] {
         let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
         return TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: displayWidth)
-    }
-    
-    private var sliceYOffsets: [CGFloat] {
-        return verticalLayouts.map { $0.canvasY }
     }
     
     private var annotatedCanvasStack: some View {
