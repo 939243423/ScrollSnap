@@ -1018,7 +1018,7 @@ public struct HomeStitchView: View {
                     }
                 }
                 
-                let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .photoLibrary)
+                let session = try await StitchEngine.shared.stitchSlices(fileRelativePaths: paths, source: .replayKitBroadcast)
                 await MainActor.run {
                     self.activeSessionToEdit = session
                     self.isProcessingStitch = false

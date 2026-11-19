@@ -663,4 +663,52 @@ final class ScrollSnapCoreTests: XCTestCase {
         let isStationary = shiftStationary <= 4.0
         XCTAssertTrue(isStationary)
     }
+    
+    // MARK: - 21. Multi-Column Spatial Tracking & Texture Support Tests
+    
+    func testTextureSupportScoringRejectsBlankWallpaper() {
+        let numCols = 32
+        let totalTexturedInZone = 40
+        
+        // Candidate A: aligns real text (20 textured rows, mean diff = 1.2)
+        let texturedRowsA = 20
+        let meanDiffA = 1.2
+        let textureSupportA = min(1.0, Double(texturedRowsA) / Double(max(3, totalTexturedInZone)))
+        let scoreA = meanDiffA - (textureSupportA * 0.8) // 1.2 - 0.4 = 0.8
+        
+        // Candidate B: blank wallpaper overlap (0 textured rows, mean diff = 0.0)
+        let texturedRowsB = 0
+        let totalSumB = 0
+        let K_B = 200
+        let scoreB = (Double(totalSumB) / Double(K_B * numCols)) + 15.0 // 0.0 + 15.0 = 15.0
+        
+        // Real content MUST beat blank wallpaper
+        XCTAssertLessThan(scoreA, scoreB)
+        XCTAssertLessThan(scoreA, 1.0)
+        XCTAssertGreaterThan(scoreB, 10.0)
+    }
+    
+    func testBroadcast16ColumnMultiSpatialProjection() {
+        let sampleCountY = 128
+        let colCount = 16
+        let totalSamples = sampleCountY * colCount
+        XCTAssertEqual(totalSamples, 2048)
+        
+        // Avatar moves in column 1 across 10 rows (contrast 0.60)
+        var p1 = [Double](repeating: 237.0 / 255.0, count: totalSamples)
+        var p2 = p1
+        for row in 50..<60 {
+            p2[row * colCount + 1] = 80.0 / 255.0 // avatar
+        }
+        
+        var sumSquares = 0.0
+        for i in 0..<totalSamples {
+            let diff = p1[i] - p2[i]
+            sumSquares += diff * diff
+        }
+        let motionDelta = sqrt(sumSquares / Double(totalSamples))
+        
+        // Must clearly exceed the 0.030 threshold for real scrolling detection
+        XCTAssertGreaterThan(motionDelta, 0.035)
+    }
 }

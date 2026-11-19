@@ -57,36 +57,41 @@ public final class VideoFrameExtractor {
         // Memory-safe: decodes small thumbnails for optical displacement analysis with zero memory pressure.
         generator.maximumSize = CGSize(width: 160, height: 360)
         
-        // Dynamic Scroll Zone Probe on initial keyframes to isolate active scrolling content
-        var activeTopRatio: Double = 0.14
-        var activeBottomRatio: Double = 0.10
-        if candidateTimes.count >= 2,
-           let img0 = try? generator.copyCGImage(at: candidateTimes[0], actualTime: nil),
-           let img1 = try? generator.copyCGImage(at: candidateTimes[min(3, candidateTimes.count - 1)], actualTime: nil) {
-            let zone = ImageOverlapDetector.detectAdaptiveScrollZone(topImage: img0, bottomImage: img1)
-            let h = Double(img0.height)
-            if h > 50 {
-                if zone.topAnchorHeight > 10 {
-                    activeTopRatio = max(0.10, min(0.65, Double(zone.topAnchorHeight) / h))
-                }
-                if zone.bottomAnchorHeight > 10 {
-                    activeBottomRatio = max(0.06, min(0.35, Double(zone.bottomAnchorHeight) / h))
+        // Dynamic Scroll Zone Probe across candidates to isolate active scrolling content
+        var activeTopRatio: Double = 0.12
+        var activeBottomRatio: Double = 0.08
+        if candidateTimes.count >= 4 {
+            let testIndices = [1, min(4, candidateTimes.count - 1), min(10, candidateTimes.count - 1), min(20, candidateTimes.count - 1)]
+            for idx in testIndices {
+                if let img0 = try? generator.copyCGImage(at: candidateTimes[0], actualTime: nil),
+                   let img1 = try? generator.copyCGImage(at: candidateTimes[idx], actualTime: nil) {
+                    let zone = ImageOverlapDetector.detectAdaptiveScrollZone(topImage: img0, bottomImage: img1)
+                    let h = Double(img0.height)
+                    if h > 50 && zone.confidence > 0.40 && zone.scrollVelocityEstimate > 8 {
+                        if zone.topAnchorHeight > 10 {
+                            activeTopRatio = max(0.08, min(0.65, Double(zone.topAnchorHeight) / h))
+                        }
+                        if zone.bottomAnchorHeight > 10 {
+                            activeBottomRatio = max(0.04, min(0.35, Double(zone.bottomAnchorHeight) / h))
+                        }
+                        break
+                    }
                 }
             }
         }
         
-        var candidates: [(time: CMTime, profile: [Double], sharpness: Double)] = []
+        var candidates: [CandidateFrameSignature] = []
         
         for cmTime in candidateTimes {
             autoreleasepool {
                 if let cgImage = try? generator.copyCGImage(at: cmTime, actualTime: nil) {
-                    let (profile, sharpness) = calculate1DLuminanceProfileAndSharpness(
+                    if let sig = extractCandidateSignature(
                         cgImage: cgImage,
+                        time: cmTime,
                         topRatio: activeTopRatio,
                         bottomRatio: activeBottomRatio
-                    )
-                    if !profile.isEmpty {
-                        candidates.append((time: cmTime, profile: profile, sharpness: sharpness))
+                    ) {
+                        candidates.append(sig)
                     }
                 }
             }
@@ -108,8 +113,8 @@ public final class VideoFrameExtractor {
         while i < candidates.count && selectedTimes.count < maxKeyframes {
             let cand = candidates[i]
             let match = estimateVerticalShift(
-                profileA: currentCandidate.profile,
-                profileB: cand.profile,
+                sigA: currentCandidate,
+                sigB: cand,
                 probeHeight: probeHeight
             )
             let shift = match.shift
@@ -145,8 +150,8 @@ public final class VideoFrameExtractor {
                     for nextIdx in (i + 1)..<lookaheadLimit {
                         let nextCand = candidates[nextIdx]
                         let nextMatch = estimateVerticalShift(
-                            profileA: currentCandidate.profile,
-                            profileB: nextCand.profile,
+                            sigA: currentCandidate,
+                            sigB: nextCand,
                             probeHeight: probeHeight
                         )
                         if nextMatch.confidence > 0.35 && nextMatch.shift < maxDisplacement {
@@ -172,8 +177,8 @@ public final class VideoFrameExtractor {
         // Avoid duplicate ending frames if the video was stationary at the end
         if let lastCandidate = candidates.last, selectedTimes.last != lastCandidate.time {
             let lastMatch = estimateVerticalShift(
-                profileA: currentCandidate.profile,
-                profileB: lastCandidate.profile,
+                sigA: currentCandidate,
+                sigB: lastCandidate,
                 probeHeight: probeHeight
             )
             if lastMatch.confidence > 0.35 && lastMatch.shift > 15.0 && selectedTimes.count < maxKeyframes {
@@ -204,130 +209,209 @@ public final class VideoFrameExtractor {
         #endif
     }
     
-    // MARK: - Fast 1D Luminance Profile, Sharpness & Vertical Shift Estimation (<0.2ms per comparison)
+    // MARK: - Candidate Frame Signature & Multi-Column Spatial Fingerprint
     
-    private func calculate1DLuminanceProfileAndSharpness(
+    private struct CandidateFrameSignature {
+        let time: CMTime
+        let numCols: Int
+        let activeRows: Int
+        let samples: [UInt8]       // numCols * activeRows
+        let rowVariances: [Double] // activeRows
+        let sharpness: Double
+    }
+    
+    private func extractCandidateSignature(
         cgImage: CGImage,
-        topRatio: Double = 0.14,
-        bottomRatio: Double = 0.10
-    ) -> (profile: [Double], sharpness: Double) {
+        time: CMTime,
+        topRatio: Double = 0.12,
+        bottomRatio: Double = 0.08,
+        numCols: Int = 16
+    ) -> CandidateFrameSignature? {
         let fullHeight = min(cgImage.height, 600)
-        let width = min(cgImage.width, 160)
+        let width = cgImage.width
+        guard fullHeight > 50, width > 20 else { return nil }
         
         guard let data = cgImage.dataProvider?.data,
               let ptr = CFDataGetBytePtr(data) else {
-            return ([], 0.0)
+            return nil
         }
         
         let bpr = cgImage.bytesPerRow
         let bpp = cgImage.bitsPerPixel / 8
         let stepY = max(1, cgImage.height / fullHeight)
-        let stepX = max(1, cgImage.width / width)
         
-        // Exclude dynamically detected static top zone and bottom bar
         let startY = Int(Double(fullHeight) * topRatio)
         let endY = Int(Double(fullHeight) * (1.0 - bottomRatio))
         let activeRows = max(1, endY - startY)
         
-        var profile = [Double](repeating: 0.0, count: activeRows)
+        // Sample 16 columns spanning from 0.06W to 0.94W to capture left avatars (x ~ 0.08W),
+        // right avatars (x ~ 0.92W), and sparse text bubbles across the chat screen.
+        let marginX = max(4, Int(Double(width) * 0.06))
+        let activeWidth = max(10, width - 2 * marginX)
+        var sampleCols = [Int](repeating: 0, count: numCols)
+        for m in 0..<numCols {
+            sampleCols[m] = marginX + Int(round(Double(m) * Double(activeWidth - 1) / Double(max(1, numCols - 1))))
+        }
+        
+        var samples = [UInt8](repeating: 0, count: activeRows * numCols)
+        var variances = [Double](repeating: 0.0, count: activeRows)
+        var totalGrad = 0.0
         
         for (idx, yIdx) in (startY..<endY).enumerated() {
             let actualY = min(yIdx * stepY, cgImage.height - 1)
             let rowOffset = actualY * bpr
-            var rowSum: Double = 0.0
-            var sampleCount = 0
+            let outOffset = idx * numCols
             
-            for xIdx in 0..<width {
-                let actualX = min(xIdx * stepX, cgImage.width - 1)
-                let pixelOffset = rowOffset + actualX * bpp
+            var sumVal = 0
+            var sumSqVal = 0
+            
+            for (m, x) in sampleCols.enumerated() {
+                let pixelOffset = rowOffset + x * bpp
                 let r = Double(ptr[pixelOffset])
                 let g = Double(ptr[pixelOffset + 1])
                 let b = Double(ptr[pixelOffset + 2])
-                let lum = 0.299 * r + 0.587 * g + 0.114 * b
-                rowSum += lum
-                sampleCount += 1
+                let lum = UInt8(max(0, min(255, Int(round(0.299 * r + 0.587 * g + 0.114 * b)))))
+                samples[outOffset + m] = lum
+                let v = Int(lum)
+                sumVal += v
+                sumSqVal += v * v
             }
-            profile[idx] = sampleCount > 0 ? (rowSum / Double(sampleCount)) : 128.0
+            
+            let mean = Double(sumVal) / Double(numCols)
+            variances[idx] = max(0.0, (Double(sumSqVal) / Double(numCols)) - (mean * mean))
+            
+            if idx > 0 {
+                let prevOut = (idx - 1) * numCols
+                var rowGrad = 0
+                for m in 0..<numCols {
+                    rowGrad += abs(Int(samples[outOffset + m]) - Int(samples[prevOut + m]))
+                }
+                totalGrad += Double(rowGrad) / Double(numCols)
+            }
         }
         
-        // Compute sharpness via row-to-row vertical gradient variance
-        var totalGrad = 0.0
-        if profile.count > 1 {
-            for y in 1..<profile.count {
-                totalGrad += abs(profile[y] - profile[y - 1])
-            }
-        }
-        let sharpness = profile.count > 1 ? (totalGrad / Double(profile.count - 1)) : 0.0
+        let sharpness = activeRows > 1 ? (totalGrad / Double(activeRows - 1)) : 0.0
         
-        return (profile, sharpness)
-    }
-    
-    private func calculate1DLuminanceProfile(
-        cgImage: CGImage,
-        topRatio: Double = 0.14,
-        bottomRatio: Double = 0.10
-    ) -> [Double] {
-        return calculate1DLuminanceProfileAndSharpness(cgImage: cgImage, topRatio: topRatio, bottomRatio: bottomRatio).profile
+        return CandidateFrameSignature(
+            time: time,
+            numCols: numCols,
+            activeRows: activeRows,
+            samples: samples,
+            rowVariances: variances,
+            sharpness: sharpness
+        )
     }
     
     private func estimateVerticalShift(
-        profileA: [Double],
-        profileB: [Double],
+        sigA: CandidateFrameSignature,
+        sigB: CandidateFrameSignature,
         probeHeight: Double
     ) -> (shift: Double, confidence: Double) {
-        let len = min(profileA.count, profileB.count)
+        let len = min(sigA.activeRows, sigB.activeRows)
         guard len > 40 else { return (0, 0) }
+        let numCols = sigA.numCols
         
         let maxShift = Int(Double(len) * 0.75)
         let maxReverseShift = min(30, Int(Double(len) * 0.15))
         var bestShift = 0
-        var minDiff: Double = .greatestFiniteMagnitude
-        var diffTable: [Int: Double] = [:]
+        var minScore: Double = .greatestFiniteMagnitude
+        var scoreTable: [Int: Double] = [:]
+        
+        var totalTextured = 0
+        for y in 0..<len {
+            if sigA.rowVariances[y] > 3.0 || sigB.rowVariances[y] > 3.0 {
+                totalTextured += 1
+            }
+        }
         
         // Coarse pass across both reverse bounce [-maxReverseShift ... 0] and forward scroll [0 ... maxShift]
         for shift in stride(from: -maxReverseShift, through: maxShift, by: 2) {
             let overlapLen = shift >= 0 ? (len - shift) : (len + shift)
-            guard overlapLen > 25 else { continue }
+            guard overlapLen > 20 else { continue }
             
-            var diffSum: Double = 0
-            if shift >= 0 {
-                for y in 0..<overlapLen {
-                    diffSum += abs(profileA[y + shift] - profileB[y])
+            var texturedSum = 0
+            var texturedRows = 0
+            var totalSum = 0
+            
+            for k in 0..<overlapLen {
+                let yA = shift >= 0 ? (shift + k) : k
+                let yB = shift >= 0 ? k : (-shift + k)
+                
+                let isTextured = (sigA.rowVariances[yA] > 3.0 || sigB.rowVariances[yB] > 3.0)
+                let offA = yA * numCols
+                let offB = yB * numCols
+                
+                var rowDiff = 0
+                for m in 0..<numCols {
+                    let diff = abs(Int(sigA.samples[offA + m]) - Int(sigB.samples[offB + m]))
+                    rowDiff += min(diff, 60)
                 }
-            } else {
-                let absShift = -shift
-                for y in 0..<overlapLen {
-                    diffSum += abs(profileA[y] - profileB[y + absShift])
+                
+                totalSum += rowDiff
+                if isTextured {
+                    texturedSum += rowDiff
+                    texturedRows += 1
                 }
             }
-            let avgDiff = diffSum / Double(overlapLen)
-            diffTable[shift] = avgDiff
-            if avgDiff < minDiff {
-                minDiff = avgDiff
+            
+            let score: Double
+            if texturedRows >= 3 {
+                let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
+                let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTextured)))
+                score = meanDiff - (textureSupport * 0.8)
+            } else {
+                score = (Double(totalSum) / Double(overlapLen * numCols)) + 15.0
+            }
+            
+            scoreTable[shift] = score
+            if score < minScore {
+                minScore = score
                 bestShift = shift
             }
         }
         
         // Fine evaluation of immediate neighbor rows
         for fineShift in [bestShift - 1, bestShift + 1] {
-            if fineShift >= -maxReverseShift && fineShift <= maxShift && diffTable[fineShift] == nil {
+            if fineShift >= -maxReverseShift && fineShift <= maxShift && scoreTable[fineShift] == nil {
                 let overlapLen = fineShift >= 0 ? (len - fineShift) : (len + fineShift)
-                if overlapLen > 25 {
-                    var diffSum: Double = 0
-                    if fineShift >= 0 {
-                        for y in 0..<overlapLen {
-                            diffSum += abs(profileA[y + fineShift] - profileB[y])
+                if overlapLen > 20 {
+                    var texturedSum = 0
+                    var texturedRows = 0
+                    var totalSum = 0
+                    
+                    for k in 0..<overlapLen {
+                        let yA = fineShift >= 0 ? (fineShift + k) : k
+                        let yB = fineShift >= 0 ? k : (-fineShift + k)
+                        
+                        let isTextured = (sigA.rowVariances[yA] > 3.0 || sigB.rowVariances[yB] > 3.0)
+                        let offA = yA * numCols
+                        let offB = yB * numCols
+                        
+                        var rowDiff = 0
+                        for m in 0..<numCols {
+                            let diff = abs(Int(sigA.samples[offA + m]) - Int(sigB.samples[offB + m]))
+                            rowDiff += min(diff, 60)
                         }
-                    } else {
-                        let absShift = -fineShift
-                        for y in 0..<overlapLen {
-                            diffSum += abs(profileA[y] - profileB[y + absShift])
+                        
+                        totalSum += rowDiff
+                        if isTextured {
+                            texturedSum += rowDiff
+                            texturedRows += 1
                         }
                     }
-                    let avgDiff = diffSum / Double(overlapLen)
-                    diffTable[fineShift] = avgDiff
-                    if avgDiff < minDiff {
-                        minDiff = avgDiff
+                    
+                    let score: Double
+                    if texturedRows >= 3 {
+                        let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
+                        let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTextured)))
+                        score = meanDiff - (textureSupport * 0.8)
+                    } else {
+                        score = (Double(totalSum) / Double(overlapLen * numCols)) + 15.0
+                    }
+                    
+                    scoreTable[fineShift] = score
+                    if score < minScore {
+                        minScore = score
                         bestShift = fineShift
                     }
                 }
@@ -336,14 +420,21 @@ public final class VideoFrameExtractor {
         
         // Parabolic Subpixel Displacement Refinement
         var subpixelShift = Double(bestShift)
-        if let dM1 = diffTable[bestShift - 1], let dP1 = diffTable[bestShift + 1] {
-            let denom = 2.0 * max(0.0001, (dP1 + dM1 - 2.0 * minDiff))
-            let delta = max(-0.5, min(0.5, (dP1 - dM1) / denom))
+        if let s0 = scoreTable[bestShift],
+           let sM1 = scoreTable[bestShift - 1],
+           let sP1 = scoreTable[bestShift + 1] {
+            let denom = 2.0 * max(0.0001, (sP1 + sM1 - 2.0 * s0))
+            let delta = max(-0.5, min(0.5, (sP1 - sM1) / denom))
             subpixelShift -= delta
         }
         
         let scale = probeHeight / Double(len)
-        let confidence = max(0.0, min(1.0, 1.0 - (minDiff / 40.0)))
+        let confidence: Double
+        if minScore < 25.0 {
+            confidence = max(0.40, min(1.0, 1.0 - (minScore / 28.0)))
+        } else {
+            confidence = 0.0
+        }
         
         return (subpixelShift * scale, confidence)
     }

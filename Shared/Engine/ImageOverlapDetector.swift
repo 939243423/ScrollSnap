@@ -410,6 +410,13 @@ public final class ImageOverlapDetector {
             }
         }
         
+        var totalTexturedInZone = 0
+        for y in yTop..<yBot {
+            if topFP.rowVariance[y] > 3.5 || botFP.rowVariance[y] > 3.5 {
+                totalTexturedInZone += 1
+            }
+        }
+        
         var bestD = 0
         var minScore = Double.greatestFiniteMagnitude
         
@@ -445,9 +452,12 @@ public final class ImageOverlapDetector {
             
             let effectiveScore: Double
             if texturedRows >= 3 {
-                effectiveScore = Double(texturedSum) / Double(texturedRows * numCols)
+                let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
+                let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTexturedInZone)))
+                effectiveScore = meanDiff - (textureSupport * 0.8)
             } else {
-                effectiveScore = Double(totalSum) / Double(K * numCols)
+                // Texture deficiency penalty: blank wallpaper overlap CANNOT falsely beat real content
+                effectiveScore = (Double(totalSum) / Double(K * numCols)) + 15.0
             }
             
             var velocityPenalty = 0.0
@@ -501,7 +511,14 @@ public final class ImageOverlapDetector {
                     texturedRows += 1
                 }
             }
-            let score = texturedRows >= 3 ? (Double(texturedSum) / Double(texturedRows * numCols)) : (Double(totalSum) / Double(K * numCols))
+            let score: Double
+            if texturedRows >= 3 {
+                let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
+                let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTexturedInZone)))
+                score = meanDiff - (textureSupport * 0.8)
+            } else {
+                score = (Double(totalSum) / Double(K * numCols)) + 15.0
+            }
             if score < minRevScore {
                 minRevScore = score
                 bestRevD = d

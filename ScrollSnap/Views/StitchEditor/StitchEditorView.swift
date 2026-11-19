@@ -90,6 +90,7 @@ public struct StitchEditorView: View {
     @State private var isCopiedToClipboardToast: Bool = false
     @State private var toastMessage: String = "长图已复制到剪贴板"
     @State private var isDismissedConfidenceWarning: Bool = false
+    @State private var cachedLayouts: [SliceCanvasLayout] = []
     
     private var hasLowConfidenceSeams: Bool {
         session.slices.dropFirst().contains { $0.confidence < 0.35 }
@@ -445,6 +446,12 @@ public struct StitchEditorView: View {
                 .keyboardShortcut("z", modifiers: .command)
                 .opacity(0)
             }
+            .onAppear {
+                updateCachedLayouts()
+            }
+            .onChange(of: session.slices) { _, _ in
+                updateCachedLayouts()
+            }
             .onDisappear {
                 if let url = exportedFileURL {
                     try? FileManager.default.removeItem(at: url)
@@ -478,9 +485,17 @@ public struct StitchEditorView: View {
         }
     }
     
-    private var verticalLayouts: [SliceCanvasLayout] {
+    private func updateCachedLayouts() {
         let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
-        return TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: displayWidth)
+        cachedLayouts = TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: displayWidth)
+    }
+    
+    private var verticalLayouts: [SliceCanvasLayout] {
+        if cachedLayouts.isEmpty && !session.slices.isEmpty {
+            let displayWidth: CGFloat = (session.slices.first?.originalWidth ?? 393) / 3.0
+            return TiledImageRenderer.computeVerticalLayout(session: session, canvasWidth: displayWidth)
+        }
+        return cachedLayouts
     }
     
     private var annotatedCanvasStack: some View {
