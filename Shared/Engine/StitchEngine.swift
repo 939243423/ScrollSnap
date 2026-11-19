@@ -412,31 +412,22 @@ public final class StitchEngine {
             let nextSlice = slices[i]
             let h = CGFloat(currentCandidate.image.height)
             
-            let match = ImageOverlapDetector.findOverlap(
-                topSlice: currentCandidate.image,
-                bottomSlice: nextSlice.image,
-                topSliceTopCrop: topCrop,
-                topSliceBottomCrop: bottomCrop,
-                bottomSliceTopCrop: topCrop,
-                bottomSliceBottomCrop: bottomCrop,
-                scenario: consensusZone.scenario
+            // Fast downscaled scroll displacement analysis: avoids expensive subpixel & seam passes during deduplication
+            let zone = ImageOverlapDetector.detectAdaptiveScrollZone(
+                topImage: currentCandidate.image,
+                bottomImage: nextSlice.image
             )
             
             let activeHeight = max(1.0, h - topCrop - bottomCrop)
-            let rawDisplacement = activeHeight - match.offset
-            let displacement = max(0, rawDisplacement)
+            let displacement = zone.scrollVelocityEstimate
             let displacementRatio = displacement / activeHeight
             
-            // Drop reverse upward bounce frames (negative displacement with confident match)
-            if rawDisplacement < -10 && match.confidence > 0.45 {
-                continue
-            }
-            
             // Only drop if it is an identical stationary frame (no scroll movement at all in active zone, e.g. pause during recording)
-            if displacementRatio < 0.03 && displacement < 25 && match.confidence > 0.85 {
-                // Stationary pause frame, skip it unless it's the very last frame
-                if i == slices.count - 1 && selected.last?.path != nextSlice.path {
-                    selected.append(nextSlice)
+            if displacementRatio < 0.03 && displacement < 25 && zone.confidence > 0.75 {
+                // If ending frame has subtle forward settling (4..24px), replace the last slice so the final view
+                // extends to the true bottom without creating a duplicated slice
+                if i == slices.count - 1 && displacement > 4 && !selected.isEmpty {
+                    selected[selected.count - 1] = nextSlice
                 }
                 continue
             }

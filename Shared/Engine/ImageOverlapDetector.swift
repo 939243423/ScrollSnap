@@ -556,7 +556,8 @@ public final class ImageOverlapDetector {
         let patchH = 32
         let sampleW = min(origW - 40, 480)
         let startX = (origW - sampleW) / 2
-        let searchRadius = 6
+        // Scale-adaptive search radius: guarantees capturing coarse estimation drift (up to 2.5 downscaled rows) on @3x displays
+        let searchRadius = max(8, Int(ceil(scaleY * 2.5)))
         
         // 3-Zone dynamic peak anchor selection:
         // Divides the valid overlap into 3 zones and selects the peak-variance row in each zone
@@ -693,7 +694,44 @@ public final class ImageOverlapDetector {
             return (targetDy, 0.8)
         }
         
-        let finalDy = refinedVotes.reduce(0.0, +) / CGFloat(refinedVotes.count)
+        // Robust consensus clustering: reject outlier votes from live reaction animations,
+        // typing indicator dots, or dynamically updating relative timestamp badges ("刚刚").
+        let finalDy: CGFloat
+        if refinedVotes.count == 1 {
+            finalDy = refinedVotes[0]
+        } else if refinedVotes.count == 2 {
+            if abs(refinedVotes[0] - refinedVotes[1]) <= 2.5 {
+                finalDy = (refinedVotes[0] + refinedVotes[1]) / 2.0
+            } else {
+                finalDy = bestErrors[0] <= bestErrors[1] ? refinedVotes[0] : refinedVotes[1]
+            }
+        } else {
+            var pairs: [(dist: CGFloat, i: Int, j: Int)] = []
+            for i in 0..<refinedVotes.count {
+                for j in (i + 1)..<refinedVotes.count {
+                    pairs.append((abs(refinedVotes[i] - refinedVotes[j]), i, j))
+                }
+            }
+            pairs.sort(by: { $0.dist < $1.dist })
+            
+            if let bestPair = pairs.first, bestPair.dist <= 2.5 {
+                var cluster = [refinedVotes[bestPair.i], refinedVotes[bestPair.j]]
+                let mid = (refinedVotes[bestPair.i] + refinedVotes[bestPair.j]) / 2.0
+                for k in 0..<refinedVotes.count {
+                    if k != bestPair.i && k != bestPair.j {
+                        if abs(refinedVotes[k] - mid) <= 2.5 {
+                            cluster.append(refinedVotes[k])
+                        }
+                    }
+                }
+                finalDy = cluster.reduce(0.0, +) / CGFloat(cluster.count)
+            } else {
+                // Outlier-resistant median fallback
+                let sorted = refinedVotes.sorted()
+                finalDy = sorted[sorted.count / 2]
+            }
+        }
+        
         let avgErr = bestErrors.reduce(0.0, +) / Double(bestErrors.count)
         let conf = max(0.60, min(1.0, 1.0 - (avgErr / 30.0)))
         return (finalDy, conf)
@@ -776,7 +814,8 @@ public final class ImageOverlapDetector {
         let maxK = Int(contentOverlap)
         
         let optimalK = findMinimalEnergySeamOffset(
-            topSlice: topSlice,
+            topBuf: topBuf,
+            botBuf: botBuf,
             topBaseRow: topBaseRow,
             bottomBaseRow: botBaseRow,
             spanK: maxK,
@@ -962,8 +1001,86 @@ public final class ImageOverlapDetector {
     
     // MARK: - Minimal Energy Seam Line Search
     
-    /// Evaluates edge energy and whitespace valleys within the content overlap window [0 ... spanK]
-    /// to cleanly place the seam cut without slicing through message bubbles or text.
+    /// Evaluates edge energy and cross-slice similarity within the content overlap window [0 ... spanK]
+    /// directly from pre-existing 2D grayscale buffers with zero additional bitmap allocations.
+    private static func findMinimalEnergySeamOffset(
+        topBuf: ImageBuffer2D,
+        botBuf: ImageBuffer2D,
+        topBaseRow: Int,
+        bottomBaseRow: Int,
+        spanK: Int,
+        scenario: AppLayoutScenario
+    ) -> Int {
+        guard spanK > 6 else {
+            return max(0, spanK / 2)
+        }
+        
+        let scaleY = topBuf.scaleY
+        let W = topBuf.width
+        let downTopBase = Int(CGFloat(topBaseRow) / scaleY)
+        let downBotBase = Int(CGFloat(bottomBaseRow) / scaleY)
+        let downSpanK = Int(CGFloat(spanK) / scaleY)
+        
+        let midK = downSpanK / 2
+        guard downSpanK > 6 else {
+            return spanK / 2
+        }
+        
+        var minEnergy = Double.greatestFiniteMagnitude
+        var bestK = midK
+        
+        let scanStart = 2
+        let scanEnd = max(scanStart, downSpanK - 2)
+        let windowLen = max(1.0, Double(downSpanK))
+        
+        for k in scanStart...scanEnd {
+            let yA = downTopBase + k
+            let yB = downBotBase + k
+            guard yA > 0, yA < topBuf.height - 1, yB >= 0, yB < botBuf.height else { continue }
+            
+            var edgeSum = 0
+            var diffSum = 0
+            let rowOffA = yA * W
+            let rowOffB = yB * W
+            
+            for x in 1..<W {
+                let pA0 = Int(topBuf.data[rowOffA + x - 1])
+                let pA1 = Int(topBuf.data[rowOffA + x])
+                edgeSum += abs(pA1 - pA0)
+                
+                let pB = Int(botBuf.data[rowOffB + x])
+                diffSum += abs(pA1 - pB)
+            }
+            
+            let edgeEnergy = Double(edgeSum) / (Double(W) * 255.0)
+            let diffEnergy = Double(diffSum) / (Double(W) * 255.0)
+            
+            var scenarioBonus = 0.0
+            switch scenario {
+            case .chatApp:
+                if edgeEnergy < 0.025 { scenarioBonus = -0.08 }
+            case .cardFeed:
+                if edgeEnergy < 0.035 { scenarioBonus = -0.10 }
+            case .webArticle:
+                if edgeEnergy < 0.030 { scenarioBonus = -0.07 }
+            case .splitMedia, .generalScroll:
+                if edgeEnergy < 0.028 { scenarioBonus = -0.05 }
+            }
+            
+            let centerDistPenalty = (abs(Double(k - midK)) / windowLen) * 0.04
+            let totalE = edgeEnergy + (diffEnergy * 1.5) + scenarioBonus + centerDistPenalty
+            
+            if totalE < minEnergy {
+                minEnergy = totalE
+                bestK = k
+            }
+        }
+        
+        let nativeK = Int(round(CGFloat(bestK) * scaleY))
+        return min(spanK, max(0, nativeK))
+    }
+
+    /// Backward-compatible overload accepting CGImage
     private static func findMinimalEnergySeamOffset(
         topSlice: CGImage,
         topBaseRow: Int,

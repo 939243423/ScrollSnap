@@ -16,7 +16,7 @@ public final class BroadcastFrameProcessor {
     
     #if canImport(UIKit)
     private lazy var ciContext: CIContext = {
-        CIContext(options: [.useSoftwareRenderer: false])
+        CIContext(options: [.useSoftwareRenderer: false, .cacheIntermediates: false])
     }()
     #endif
     

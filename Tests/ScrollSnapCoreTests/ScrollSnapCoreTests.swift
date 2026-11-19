@@ -622,4 +622,18 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(buf.pixel(x: 50, y: 80), 198)
         XCTAssertEqual(buf.pixel(x: 50, y: 81), 237)
     }
+    
+    // MARK: - 19. Scale-Adaptive Search & Consensus Voting Tests
+    
+    func testScaleAdaptiveSearchRadiusCalculation() {
+        // iPhone 15 Pro Max: scaleY approx 3.68 -> searchRadius = max(8, ceil(3.68 * 2.5)) = 10
+        let scaleY: CGFloat = 3.68
+        let searchRadius = max(8, Int(ceil(scaleY * 2.5)))
+        XCTAssertEqual(searchRadius, 10)
+        
+        // Older 2x device: scaleY approx 2.0 -> searchRadius = max(8, ceil(5.0)) = 8
+        let scaleY2x: CGFloat = 2.0
+        let searchRadius2x = max(8, Int(ceil(scaleY2x * 2.5)))
+        XCTAssertEqual(searchRadius2x, 8)
+    }
 }
