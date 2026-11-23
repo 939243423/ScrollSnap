@@ -271,6 +271,16 @@ public final class ImageOverlapDetector {
             }
         }
         
+        // Find deepest static feature row in top navigation zone (Dynamic Island, time/battery, back button, title text)
+        var lastStaticFeatureTop = 0
+        var confirmedTopCount = 0
+        for y in 0..<maxStandardNavScan {
+            if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
+                lastStaticFeatureTop = y
+                confirmedTopCount += 1
+            }
+        }
+        
         var topChrome = 0
         if hasExtendedMedia {
             topChrome = movingStartTop
@@ -278,18 +288,11 @@ public final class ImageOverlapDetector {
             topChrome = bestTopHairline
         } else if movingStartTop > 0 && movingStartTop <= maxStandardNavScan {
             topChrome = movingStartTop
+        } else if confirmedTopCount >= 2 {
+            // Whitespace below title text (e.g. WeChat chat background): navigation bar ends after title text features
+            topChrome = min(maxStandardNavScan, max(78, lastStaticFeatureTop + 4))
         } else {
-            var confirmedTop = 0
-            for y in 0..<maxStandardNavScan {
-                if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
-                    confirmedTop += 1
-                }
-            }
-            if confirmedTop >= 2 {
-                topChrome = min(maxStandardNavScan, 80)
-            } else {
-                topChrome = 0
-            }
+            topChrome = 0
         }
         
         // Scan from bottom upward for moving content
@@ -341,25 +344,28 @@ public final class ImageOverlapDetector {
             }
         }
         
+        // Find highest static feature row in bottom bar zone (input box, voice icon, plus button, home indicator)
+        var lastStaticFeatureBot = 0
+        var confirmedBotCount = 0
+        for i in 0..<maxStandardBotScan {
+            let y = H - 1 - i
+            guard y >= 0 else { break }
+            if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
+                lastStaticFeatureBot = i
+                confirmedBotCount += 1
+            }
+        }
+        
         var botChrome = 0
         if bestBotHairline > 0 {
             botChrome = bestBotHairline
         } else if movingStartBot > 0 && movingStartBot <= maxStandardBotScan {
             botChrome = movingStartBot
+        } else if confirmedBotCount >= 2 {
+            // Whitespace above bottom bar (e.g. WeChat chat background): bottom bar ends before input bar features
+            botChrome = min(maxStandardBotScan, max(74, lastStaticFeatureBot + 4))
         } else {
-            var confirmedBot = 0
-            for i in 0..<maxStandardBotScan {
-                let y = H - 1 - i
-                guard y >= 0 else { break }
-                if staticDiff[y] < 8.0 && (topFP.rowVariance[y] > 2.0 || botFP.rowVariance[y] > 2.0) {
-                    confirmedBot += 1
-                }
-            }
-            if confirmedBot >= 2 {
-                botChrome = min(maxStandardBotScan, 72)
-            } else {
-                botChrome = 0
-            }
+            botChrome = 0
         }
         
         return (topChrome, botChrome)
@@ -789,12 +795,20 @@ public final class ImageOverlapDetector {
         // Step 1: Detect static chrome rows
         let chrome = analyzeStaticChrome(topFP: topFP, botFP: botFP)
         
+        // Pass caller-provided crop boundaries (from consensus zone or preset scenario)
+        // to guarantee that known static chrome is strictly excluded from displacement correlation
+        let passedTopCropRows = Int(ceil(max(topSliceTopCrop, bottomSliceTopCrop) / topBuf.scaleY))
+        let passedBotCropRows = Int(ceil(max(topSliceBottomCrop, bottomSliceBottomCrop) / topBuf.scaleY))
+        
+        let effectiveTopChrome = max(chrome.topChromeRows, passedTopCropRows)
+        let effectiveBotChrome = max(chrome.botChromeRows, passedBotCropRows)
+        
         // Step 2: Global spatial displacement candidate search
         let coarseMatch = findDisplacementCandidate(
             topFP: topFP,
             botFP: botFP,
-            topChrome: chrome.topChromeRows,
-            botChrome: chrome.botChromeRows,
+            topChrome: effectiveTopChrome,
+            botChrome: effectiveBotChrome,
             expectedDisplacement: expectedDisplacement.map { $0 / topBuf.scaleY }
         )
         
@@ -920,7 +934,7 @@ public final class ImageOverlapDetector {
         let fullBottomAnchor = CGFloat(chrome.botChromeRows) * topBuf.scaleY
         
         let isSplitMedia = fullTopAnchor > (CGFloat(origH) * 0.18)
-        let isChatApp = !isSplitMedia && fullTopAnchor >= 100 && fullTopAnchor <= 380 && fullBottomAnchor >= 80 && fullBottomAnchor <= 380
+        let isChatApp = !isSplitMedia && fullTopAnchor >= 80 && fullTopAnchor <= 380 && fullBottomAnchor >= 70 && fullBottomAnchor <= 380
         let isWebArticle = !isSplitMedia && !isChatApp && fullTopAnchor >= 60 && fullTopAnchor <= 320 && fullBottomAnchor >= 40 && fullBottomAnchor <= 240
         
         let scenario: AppLayoutScenario

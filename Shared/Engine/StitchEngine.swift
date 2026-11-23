@@ -129,29 +129,21 @@ public final class StitchEngine {
                 }
                 
                 // Scenario-adaptive fallback safety insets (Dynamic Island 294px nav bar, WeChat 270px input bar)
-                if effectiveScenario == .chatApp {
+                if effectiveScenario == .chatApp || presetMode == .chatRecord {
                     if let firstImage = loadedSlices.first?.image {
                         let h = CGFloat(firstImage.height)
-                        let chatTopFallback = min(h * 0.13, 294)
-                        let chatBottomFallback = min(h * 0.11, 270)
-                        if detectedTopBar < 120 {
-                            detectedTopBar = max(detectedTopBar, chatTopFallback)
-                        }
-                        if detectedBottomBar < 100 {
-                            detectedBottomBar = max(detectedBottomBar, chatBottomFallback)
-                        }
+                        let chatTopFallback = min(h * 0.13, 294.0)
+                        let chatBottomFallback = min(h * 0.11, 270.0)
+                        detectedTopBar = max(detectedTopBar, chatTopFallback)
+                        detectedBottomBar = max(detectedBottomBar, chatBottomFallback)
                     }
-                } else if effectiveScenario == .webArticle {
+                } else if effectiveScenario == .webArticle || presetMode == .webArticle {
                     if let firstImage = loadedSlices.first?.image {
                         let h = CGFloat(firstImage.height)
-                        let webTopFallback = min(h * 0.10, 240)
-                        let webBottomFallback = min(h * 0.08, 160)
-                        if detectedTopBar < 80 {
-                            detectedTopBar = max(detectedTopBar, webTopFallback)
-                        }
-                        if detectedBottomBar < 50 {
-                            detectedBottomBar = max(detectedBottomBar, webBottomFallback)
-                        }
+                        let webTopFallback = min(h * 0.10, 240.0)
+                        let webBottomFallback = min(h * 0.08, 160.0)
+                        detectedTopBar = max(detectedTopBar, webTopFallback)
+                        detectedBottomBar = max(detectedBottomBar, webBottomFallback)
                     }
                 }
                 

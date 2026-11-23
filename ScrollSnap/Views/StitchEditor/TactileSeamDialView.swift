@@ -511,28 +511,44 @@ public struct TactileSeamDialView: View {
                 .buttonStyle(.plain)
             }
             
-            // 批量应用与预设快捷键
-            HStack(spacing: 8) {
-                // 常见预设
+            // 批量应用与场景快捷键
+            HStack(spacing: 6) {
+                // 常见应用快捷预设
                 HStack(spacing: 4) {
-                    Button("不切顶栏") {
-                        topCrop = 0
+                    Button("聊天") {
+                        topCrop = 294
+                        bottomCrop = 270
                         HapticFeedbackManager.shared.triggerSelection()
                     }
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: (topCrop == 294 && bottomCrop == 270) ? .bold : .regular))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3.5)
-                    .background(Color.primary.opacity(0.05), in: Capsule())
+                    .background((topCrop == 294 && bottomCrop == 270) ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05), in: Capsule())
+                    .foregroundStyle((topCrop == 294 && bottomCrop == 270) ? Color.accentColor : Color.primary)
                     .buttonStyle(.plain)
                     
-                    Button("不切底栏") {
+                    Button("网页") {
+                        topCrop = 240
+                        bottomCrop = 160
+                        HapticFeedbackManager.shared.triggerSelection()
+                    }
+                    .font(.system(size: 10, weight: (topCrop == 240 && bottomCrop == 160) ? .bold : .regular))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3.5)
+                    .background((topCrop == 240 && bottomCrop == 160) ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05), in: Capsule())
+                    .foregroundStyle((topCrop == 240 && bottomCrop == 160) ? Color.accentColor : Color.primary)
+                    .buttonStyle(.plain)
+                    
+                    Button("不切") {
+                        topCrop = 0
                         bottomCrop = 0
                         HapticFeedbackManager.shared.triggerSelection()
                     }
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: (topCrop == 0 && bottomCrop == 0) ? .bold : .regular))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3.5)
-                    .background(Color.primary.opacity(0.05), in: Capsule())
+                    .background((topCrop == 0 && bottomCrop == 0) ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.05), in: Capsule())
+                    .foregroundStyle((topCrop == 0 && bottomCrop == 0) ? Color.accentColor : Color.primary)
                     .buttonStyle(.plain)
                 }
                 
@@ -550,10 +566,10 @@ public struct TactileSeamDialView: View {
                         HStack(spacing: 4) {
                             Image(systemName: showAppliedToast ? "checkmark" : "doc.on.doc")
                                 .font(.system(size: 10, weight: .bold))
-                            Text(showAppliedToast ? "已应用全部" : "应用到全部截图")
+                            Text(showAppliedToast ? "已应用全部" : "应用到全部")
                                 .font(.system(size: 10, weight: .semibold))
                         }
-                        .padding(.horizontal, 9)
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.accentColor.opacity(0.12), in: Capsule())
                         .foregroundStyle(Color.accentColor)

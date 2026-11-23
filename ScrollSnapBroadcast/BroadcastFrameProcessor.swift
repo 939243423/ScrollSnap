@@ -49,18 +49,18 @@ public final class BroadcastFrameProcessor {
         
         let motionDelta = calculateEuclideanDelta(lastLuminanceProjection, currentProjection)
         
-        // Anti-jitter: ignore true stationary pauses (< 0.030) and erratic jumps (> 0.85)
-        // With 16-column spatial tracking, avatar/text shifts yield motionDelta ~ 0.04 - 0.25,
-        // reliably detecting WeChat, Xiaohongshu, and Safari scrolling without washing out sparse chats.
-        if motionDelta >= 0.030 && motionDelta <= 0.85 {
+        // Anti-jitter: ignore true stationary pauses (< 0.018) and erratic jumps (> 0.85)
+        // With 16-column spatial tracking, avatar/text shifts yield motionDelta ~ 0.020 - 0.25,
+        // reliably detecting WeChat, Xiaohongshu, and Safari scrolling without dropping sparse chats.
+        if motionDelta >= 0.018 && motionDelta <= 0.85 {
             lastLuminanceProjection = currentProjection
             lastSavedProjection = currentProjection
             pendingFinalData = nil
             saveKeyframe(pixelBuffer: pixelBuffer)
-        } else if motionDelta < 0.030 && !lastSavedProjection.isEmpty {
+        } else if motionDelta < 0.018 && !lastSavedProjection.isEmpty {
             // If subtle movement occurred since last saved keyframe, cache ending frame so bottom is never lost
             let deltaFromLastSave = calculateEuclideanDelta(lastSavedProjection, currentProjection)
-            if deltaFromLastSave >= 0.012 {
+            if deltaFromLastSave >= 0.010 {
                 autoreleasepool {
                     #if canImport(UIKit)
                     let ciImage = CIImage(cvPixelBuffer: pixelBuffer)

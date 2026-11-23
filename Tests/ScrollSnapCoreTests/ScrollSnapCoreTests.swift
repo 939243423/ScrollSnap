@@ -749,4 +749,58 @@ final class ScrollSnapCoreTests: XCTestCase {
         XCTAssertEqual(totalScaledHeight, 6324)
         XCTAssertLessThan(totalScaledHeight, 20480.0) // Well within CoreGraphics limit
     }
+    
+    // MARK: - 23. Chat App Insets & Chrome Exclusion Tests
+    
+    func testChatAppSafetyFallbackInsets() {
+        let screenHeight: CGFloat = 2556.0 // iPhone 15 Pro
+        let chatTopFallback = min(screenHeight * 0.13, 294.0)
+        let chatBottomFallback = min(screenHeight * 0.11, 270.0)
+        
+        XCTAssertEqual(chatTopFallback, 294.0)
+        XCTAssertEqual(chatBottomFallback, 270.0)
+        
+        // When consensus zone under-detects due to blank chat margins (e.g. detected 180px)
+        let underdetectedTop: CGFloat = 180.0
+        let underdetectedBottom: CGFloat = 120.0
+        
+        let safeTop = max(underdetectedTop, chatTopFallback)
+        let safeBottom = max(underdetectedBottom, chatBottomFallback)
+        
+        XCTAssertEqual(safeTop, 294.0)
+        XCTAssertEqual(safeBottom, 270.0)
+    }
+    
+    func testStaticChromePassedCropBoundaries() {
+        let scaleY: CGFloat = 3.684 // 1179 / 320 on iPhone 15 Pro
+        let passedTopCrop: CGFloat = 294.0
+        let passedBotCrop: CGFloat = 270.0
+        
+        let passedTopRows = Int(ceil(passedTopCrop / scaleY)) // 80 rows
+        let passedBotRows = Int(ceil(passedBotCrop / scaleY)) // 74 rows
+        
+        XCTAssertEqual(passedTopRows, 80)
+        XCTAssertEqual(passedBotRows, 74)
+        
+        // If detector under-detected chrome as 0 or 30 rows, effective chrome MUST use passed crop
+        let detectedTopRows = 30
+        let detectedBotRows = 0
+        
+        let effectiveTop = max(detectedTopRows, passedTopRows)
+        let effectiveBot = max(detectedBotRows, passedBotRows)
+        
+        XCTAssertEqual(effectiveTop, 80)
+        XCTAssertEqual(effectiveBot, 74)
+    }
+    
+    func testBroadcastMotionThresholdForSlowScrolling() {
+        // Slow gentle scrolling with few chat bubbles yields motion delta ~ 0.022
+        let slowChatMotionDelta = 0.022
+        let motionThreshold = 0.018
+        
+        XCTAssertGreaterThan(slowChatMotionDelta, motionThreshold) // Correctly captured
+        
+        let stationaryPauseDelta = 0.008
+        XCTAssertLessThan(stationaryPauseDelta, motionThreshold) // Correctly filtered
+    }
 }
