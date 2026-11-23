@@ -286,22 +286,28 @@ public struct WebCaptureView: View {
         captureStatusHint = "正在生成完整网页长截图..."
         HapticFeedbackManager.shared.triggerSnap()
         
-        // 优先使用 iOS 原生 WebKit createPDF 生成全页长图（零黑屏、完整捕获视口外所有内容）
-        let pdfConfiguration = WKPDFConfiguration()
-        
-        webView.createPDF(configuration: pdfConfiguration) { result in
-            switch result {
-            case .success(let pdfData):
-                if let renderedImage = self.renderPDFDataToImage(pdfData),
-                   let data = renderedImage.jpegData(compressionQuality: 0.92) {
-                    self.finishWebCapture(image: renderedImage, data: data)
-                    return
+        // Wait for web fonts & layout ready before capturing to prevent blank elements
+        let checkFontsScript = "document.fonts ? document.fonts.ready.then(() => true) : Promise.resolve(true)"
+        webView.evaluateJavaScript(checkFontsScript) { [weak self] _, _ in
+            guard let self = self else { return }
+            
+            // 优先使用 iOS 原生 WebKit createPDF 生成全页长图（零黑屏、完整捕获视口外所有内容）
+            let pdfConfiguration = WKPDFConfiguration()
+            
+            self.webView.createPDF(configuration: pdfConfiguration) { result in
+                switch result {
+                case .success(let pdfData):
+                    if let renderedImage = self.renderPDFDataToImage(pdfData),
+                       let data = renderedImage.jpegData(compressionQuality: 0.92) {
+                        self.finishWebCapture(image: renderedImage, data: data)
+                        return
+                    }
+                    // 若 PDF 栅格化失败，走备用快照逻辑
+                    self.fallbackSnapshotCapture()
+                    
+                case .failure:
+                    self.fallbackSnapshotCapture()
                 }
-                // 若 PDF 栅格化失败，走备用快照逻辑
-                self.fallbackSnapshotCapture()
-                
-            case .failure:
-                self.fallbackSnapshotCapture()
             }
         }
     }
@@ -322,19 +328,40 @@ public struct WebCaptureView: View {
     
     private func renderPDFDataToImage(_ data: Data) -> UIImage? {
         guard let provider = CGDataProvider(data: data as CFData),
-              let document = CGPDFDocument(provider),
-              let page = document.page(at: 1) else {
+              let document = CGPDFDocument(provider) else {
             return nil
         }
         
-        let pageRect = page.getBoxRect(.mediaBox)
-        guard pageRect.width > 0, pageRect.height > 0 else { return nil }
+        let pageCount = document.numberOfPages
+        guard pageCount > 0, let firstPage = document.page(at: 1) else {
+            return nil
+        }
+        
+        let firstPageRect = firstPage.getBoxRect(.mediaBox)
+        guard firstPageRect.width > 0, firstPageRect.height > 0 else { return nil }
         
         // 保证清晰度同时控制内存占用，最大宽度 1170（Retina 宽度）
-        let targetWidth: CGFloat = min(max(pageRect.width * 2.0, 750), 1170)
-        let scale = targetWidth / pageRect.width
-        let scaledHeight = pageRect.height * scale
-        let targetHeight = min(scaledHeight, 18000) // 最大高度上限
+        let targetWidth: CGFloat = min(max(firstPageRect.width * 2.0, 750), 1170)
+        let scale = targetWidth / firstPageRect.width
+        
+        // 计算跨越所有 PDF 页面的完整高度，杜绝多页长文被截断
+        var totalScaledHeight: CGFloat = 0
+        var pageRects: [CGRect] = []
+        pageRects.reserveCapacity(pageCount)
+        
+        for i in 1...pageCount {
+            guard let page = document.page(at: i) else { continue }
+            let box = page.getBoxRect(.mediaBox)
+            pageRects.append(box)
+            totalScaledHeight += box.height * scale
+        }
+        
+        guard totalScaledHeight > 0 else { return nil }
+        
+        // 内存保护：限制最大高度上限为 20,480px
+        let targetHeight = min(totalScaledHeight, 20480.0)
+        let heightScale = (totalScaledHeight > 20480.0) ? (20480.0 / totalScaledHeight) : 1.0
+        let effectiveScale = scale * heightScale
         let targetSize = CGSize(width: targetWidth, height: targetHeight)
         
         let format = UIGraphicsImageRendererFormat.default()
@@ -346,13 +373,24 @@ public struct WebCaptureView: View {
             UIColor.white.set()
             ctx.fill(CGRect(origin: .zero, size: targetSize))
             
-            ctx.cgContext.saveGState()
-            let tx = -pageRect.origin.x * scale
-            let ty = (pageRect.origin.y + pageRect.height) * scale
-            ctx.cgContext.translateBy(x: tx, y: ty)
-            ctx.cgContext.scaleBy(x: scale, y: -scale)
-            ctx.cgContext.drawPDFPage(page)
-            ctx.cgContext.restoreGState()
+            var currentY: CGFloat = 0
+            for i in 1...pageCount {
+                guard let page = document.page(at: i) else { continue }
+                let box = (i - 1 < pageRects.count) ? pageRects[i - 1] : page.getBoxRect(.mediaBox)
+                let pageScaledH = box.height * effectiveScale
+                
+                ctx.cgContext.saveGState()
+                ctx.cgContext.clip(to: CGRect(x: 0, y: currentY, width: targetWidth, height: pageScaledH))
+                
+                let tx = -box.origin.x * effectiveScale
+                let ty = currentY + (box.origin.y + box.height) * effectiveScale
+                ctx.cgContext.translateBy(x: tx, y: ty)
+                ctx.cgContext.scaleBy(x: effectiveScale, y: -effectiveScale)
+                ctx.cgContext.drawPDFPage(page)
+                ctx.cgContext.restoreGState()
+                
+                currentY += pageScaledH
+            }
         }
     }
     

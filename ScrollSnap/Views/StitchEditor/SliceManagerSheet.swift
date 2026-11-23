@@ -187,9 +187,8 @@ public struct SliceManagerSheet: View {
     
     @ViewBuilder
     private func sliceThumbnail(for slice: StitchItem) -> some View {
-        if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
-           let image = UIImage(contentsOfFile: fileURL.path) {
-            Image(uiImage: image)
+        if let thumb = SliceImageCache.shared.thumbnail(for: slice.relativeFilePath, maxPixelSize: 180) {
+            Image(uiImage: thumb)
                 .resizable()
                 .scaledToFill()
         } else {

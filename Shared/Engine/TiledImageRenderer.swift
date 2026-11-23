@@ -131,7 +131,8 @@ public final class TiledImageRenderer {
         canvasBackground: CanvasBackgroundStyle? = nil,
         outputURL: URL,
         format: ExportFormat = .jpeg,
-        quality: CGFloat = 0.94
+        quality: CGFloat = 0.94,
+        isWatermarkAppended: Bool = false
     ) throws {
         guard !session.slices.isEmpty else {
             throw StitchError.emptySlices
@@ -169,8 +170,12 @@ public final class TiledImageRenderer {
             return
         }
         
-        var totalHeight = session.totalEstimatedHeight
-        var canvasWidth = session.slices.first?.originalWidth ?? 393
+        let watermarkFooterHeight: CGFloat = isWatermarkAppended ? 54.0 : 0.0
+        let originalCanvasWidth = session.slices.first?.originalWidth ?? 393
+        let unwatermarkedTotalHeight = session.totalEstimatedHeight
+        let originalTotalHeight = unwatermarkedTotalHeight + watermarkFooterHeight
+        var totalHeight = originalTotalHeight
+        var canvasWidth = originalCanvasWidth
         var scaleFactor: CGFloat = 1.0
         
         // Memory safety guard: cap bitmap height to 20,480px to prevent CoreGraphics texture allocation failure on ultra-long scrolls
@@ -189,9 +194,6 @@ public final class TiledImageRenderer {
             size: CGSize(width: canvasWidth, height: totalHeight),
             format: rendererFormat
         )
-        
-        let originalCanvasWidth = session.slices.first?.originalWidth ?? 393
-        let originalTotalHeight = session.totalEstimatedHeight
         
         let drawBlock: (UIGraphicsImageRendererContext) -> Void = { context in
             let cgContext = context.cgContext
@@ -240,10 +242,34 @@ public final class TiledImageRenderer {
             }
             
             // Draw all annotations onto the full stitched canvas
-            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: originalTotalHeight))
+            drawAnnotations(annotations: annotations, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: unwatermarkedTotalHeight))
             
             // Draw all privacy brush strokes onto the full stitched canvas
-            drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: originalTotalHeight))
+            drawBrushStrokes(brushStrokes: brushStrokes, in: cgContext, canvasSize: CGSize(width: originalCanvasWidth, height: unwatermarkedTotalHeight))
+            
+            // Draw minimalist watermark footer directly in this single pass if requested
+            if isWatermarkAppended {
+                let footerY = unwatermarkedTotalHeight
+                let footerRect = CGRect(x: 0, y: footerY, width: originalCanvasWidth, height: watermarkFooterHeight)
+                
+                cgContext.setFillColor(UIColor.systemBackground.cgColor)
+                cgContext.fill(footerRect)
+                
+                let hairlineRect = CGRect(x: 24, y: footerY, width: originalCanvasWidth - 48, height: 0.5)
+                cgContext.setFillColor(UIColor.separator.cgColor)
+                cgContext.fill(hairlineRect)
+                
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.alignment = .center
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 12, weight: .medium),
+                    .foregroundColor: UIColor.secondaryLabel,
+                    .paragraphStyle: paragraphStyle
+                ]
+                let watermarkText = "由 ScrollSnap 拼接"
+                let textRect = CGRect(x: 0, y: footerY + 18, width: originalCanvasWidth, height: 20)
+                (watermarkText as NSString).draw(in: textRect, withAttributes: attributes)
+            }
         }
         
         let data: Data

@@ -458,6 +458,9 @@ public struct StitchEditorView: View {
                     exportedFileURL = nil
                 }
                 AppCacheManager.shared.cleanupSession(sessionId: session.id)
+                #if canImport(UIKit)
+                SliceImageCache.shared.removeAll()
+                #endif
             }
         }
     }
@@ -527,6 +530,19 @@ public struct StitchEditorView: View {
             // Ghosting Double-Exposure Alignment Overlay when active
             if activeToolMode == .seamTuner && isGhostingAlignmentEnabled && selectedSliceIndex > 0 && selectedSliceIndex < session.slices.count {
                 renderGhostingAlignmentOverlay(displayWidth: displayWidth, layouts: layouts)
+            }
+            
+            // Visible Seam Guidelines Layer in Seam Tuner Mode (Unclipped)
+            if activeToolMode == .seamTuner && !isHorizontal {
+                ForEach(1..<session.slices.count, id: \.self) { seamIndex in
+                    if seamIndex < layouts.count {
+                        renderSeamGuideline(
+                            seamIndex: seamIndex,
+                            seamY: layouts[seamIndex].canvasY,
+                            displayWidth: displayWidth
+                        )
+                    }
+                }
             }
             
             // Middle: Rendered Annotations
@@ -608,8 +624,7 @@ public struct StitchEditorView: View {
     private func renderHorizontalSliceView(index: Int, slice: StitchItem, targetHeight: CGFloat) -> some View {
         let scaledWidth = (slice.originalWidth / max(1, slice.originalHeight)) * targetHeight
         return Group {
-            if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
-               let image = UIImage(contentsOfFile: fileURL.path) {
+            if let image = SliceImageCache.shared.image(for: slice.relativeFilePath) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
@@ -624,9 +639,7 @@ public struct StitchEditorView: View {
     
     private func renderSliceView(index: Int, slice: StitchItem, layout: SliceCanvasLayout, displayWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
-            if let fileURL = SharedStore.shared.resolveFileURL(relativePath: slice.relativeFilePath),
-               let image = UIImage(contentsOfFile: fileURL.path) {
-                
+            if let image = SliceImageCache.shared.image(for: slice.relativeFilePath) {
                 let displayOriginalHeight = slice.originalHeight * layout.scale
                 let displaySourceY = layout.sourceYStart * layout.scale
                 let displayVisibleHeight = layout.canvasHeight
@@ -648,79 +661,6 @@ public struct StitchEditorView: View {
                         }
                         .stroke(Color.orange.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     }
-                    
-                    // Seam indicator line when tuner mode is active
-                    if activeToolMode == .seamTuner && index > 0 {
-                        let isSelected = (selectedSliceIndex == index)
-                        
-                        // Full width seam guide line
-                        Rectangle()
-                            .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.35))
-                            .frame(height: isSelected ? 2.5 : 1)
-                            .shadow(color: isSelected ? Color.accentColor.opacity(0.4) : Color.clear, radius: 4)
-                            .overlay(
-                                HStack(spacing: 4) {
-                                    Image(systemName: "arrow.up.and.down")
-                                        .font(.system(size: 10, weight: .bold))
-                                    Text("第 \(index) 处接缝")
-                                        .font(.caption2.bold())
-                                    if abs(slice.manualOffsetAdjustment) > 0.5 {
-                                        Text("\(slice.manualOffsetAdjustment > 0 ? "+" : "")\(Int(slice.manualOffsetAdjustment))px")
-                                            .font(.caption2.monospacedDigit())
-                                            .foregroundStyle(Color.white.opacity(0.9))
-                                    }
-                                    if slice.confidence < 0.4 {
-                                        Image(systemName: "exclamationmark.triangle.fill")
-                                            .font(.system(size: 9))
-                                            .foregroundStyle(Color.orange)
-                                    }
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(isSelected ? Color.accentColor : Color(white: 0.22))
-                                .foregroundStyle(.white)
-                                .clipShape(Capsule())
-                                .shadow(color: Color.black.opacity(0.22), radius: 4, y: 2)
-                                .scaleEffect(isSelected ? 1.05 : 0.95)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedSliceIndex)
-                                .offset(y: -14)
-                            )
-                        
-                        // Generous 44pt touch hit target across full width for intuitive direct dragging
-                        Color.white.opacity(0.001)
-                            .frame(width: displayWidth, height: 44)
-                            .offset(y: -22)
-                            .gesture(
-                                DragGesture(minimumDistance: 2)
-                                    .onChanged { gesture in
-                                        if selectedSliceIndex != index {
-                                            selectedSliceIndex = index
-                                            seamDragStartOffset = session.slices[index].manualOffsetAdjustment
-                                        }
-                                        // Natural drag: dragging UP pulls lower image UP (increases overlap)
-                                        // dragging DOWN pulls lower image DOWN (decreases overlap)
-                                        let newOffset = seamDragStartOffset - gesture.translation.height * 3.0
-                                        let range = currentSliceSeamRange
-                                        if abs(newOffset) < 3.5 {
-                                            if session.slices[index].manualOffsetAdjustment != 0 {
-                                                HapticFeedbackManager.shared.triggerDialDetent()
-                                            }
-                                            session.slices[index].manualOffsetAdjustment = 0
-                                        } else {
-                                            session.slices[index].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
-                                        }
-                                    }
-                                    .onEnded { _ in
-                                        seamDragStartOffset = session.slices[index].manualOffsetAdjustment
-                                        HapticFeedbackManager.shared.triggerSnap()
-                                    }
-                            )
-                            .onTapGesture {
-                                selectedSliceIndex = index
-                                seamDragStartOffset = session.slices[index].manualOffsetAdjustment
-                                HapticFeedbackManager.shared.triggerSelection()
-                            }
-                    }
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -734,6 +674,84 @@ public struct StitchEditorView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Seam Guideline Overlay (Unclipped Canvas Layer)
+    
+    @ViewBuilder
+    private func renderSeamGuideline(seamIndex: Int, seamY: CGFloat, displayWidth: CGFloat) -> some View {
+        let isSelected = (selectedSliceIndex == seamIndex)
+        let slice = session.slices[seamIndex]
+        
+        ZStack(alignment: .center) {
+            // Full width seam guide line
+            Rectangle()
+                .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.4))
+                .frame(width: displayWidth, height: isSelected ? 2.5 : 1.0)
+                .shadow(color: isSelected ? Color.accentColor.opacity(0.4) : Color.clear, radius: 4)
+            
+            // Centered floating tag pill
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.up.and.down")
+                    .font(.system(size: 10, weight: .bold))
+                Text("第 \(seamIndex) 处接缝")
+                    .font(.caption2.bold())
+                if abs(slice.manualOffsetAdjustment) > 0.5 {
+                    Text("\(slice.manualOffsetAdjustment > 0 ? "+" : "")\(Int(slice.manualOffsetAdjustment))px")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(Color.white.opacity(0.9))
+                }
+                if slice.confidence < 0.4 {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Color.orange)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(isSelected ? Color.accentColor : Color(white: 0.22))
+            .foregroundStyle(.white)
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(0.22), radius: 4, y: 2)
+            .scaleEffect(isSelected ? 1.05 : 0.95)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedSliceIndex)
+            
+            // Generous 44pt touch hit target across full width for intuitive direct dragging
+            Color.white.opacity(0.001)
+                .frame(width: displayWidth, height: 44)
+                .gesture(
+                    DragGesture(minimumDistance: 2)
+                        .onChanged { gesture in
+                            if selectedSliceIndex != seamIndex {
+                                selectedSliceIndex = seamIndex
+                                seamDragStartOffset = session.slices[seamIndex].manualOffsetAdjustment
+                            }
+                            // Natural drag: dragging UP pulls lower image UP (increases overlap)
+                            // dragging DOWN pulls lower image DOWN (decreases overlap)
+                            let newOffset = seamDragStartOffset - gesture.translation.height * 3.0
+                            let range = currentSliceSeamRange
+                            if abs(newOffset) < 3.5 {
+                                if session.slices[seamIndex].manualOffsetAdjustment != 0 {
+                                    HapticFeedbackManager.shared.triggerDialDetent()
+                                }
+                                session.slices[seamIndex].manualOffsetAdjustment = 0
+                            } else {
+                                session.slices[seamIndex].manualOffsetAdjustment = max(range.lowerBound, min(range.upperBound, newOffset))
+                            }
+                        }
+                        .onEnded { _ in
+                            seamDragStartOffset = session.slices[seamIndex].manualOffsetAdjustment
+                            HapticFeedbackManager.shared.triggerSnap()
+                        }
+                )
+                .onTapGesture {
+                    selectedSliceIndex = seamIndex
+                    seamDragStartOffset = session.slices[seamIndex].manualOffsetAdjustment
+                    HapticFeedbackManager.shared.triggerSelection()
+                }
+        }
+        .frame(width: displayWidth, height: 44)
+        .offset(y: seamY - 22)
     }
     
     // MARK: - Ghosting Double-Exposure Alignment Overlay
@@ -751,10 +769,8 @@ public struct StitchEditorView: View {
             let boxHeight: CGFloat = 160.0
             let boxTop = seamY - boxHeight / 2.0
             
-            if let topURL = SharedStore.shared.resolveFileURL(relativePath: topSlice.relativeFilePath),
-               let botURL = SharedStore.shared.resolveFileURL(relativePath: bottomSlice.relativeFilePath),
-               let topImg = UIImage(contentsOfFile: topURL.path),
-               let botImg = UIImage(contentsOfFile: botURL.path) {
+            if let topImg = SliceImageCache.shared.image(for: topSlice.relativeFilePath),
+               let botImg = SliceImageCache.shared.image(for: bottomSlice.relativeFilePath) {
                 
                 let topOriginalH = topSlice.originalHeight * layout.scale
                 let topSourceY = layouts[topIndex].sourceYStart * layout.scale
@@ -1880,17 +1896,18 @@ public struct StitchEditorView: View {
             let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
             defer { try? FileManager.default.removeItem(at: tempOutput) }
             do {
+                let shouldWatermark = ExportWatermarkManager.shared.isWatermarkEnabled && !storeKit.isProUser
                 try TiledImageRenderer.renderStitchedImageToFile(
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
                     outputURL: tempOutput,
-                    format: .jpeg
+                    format: .jpeg,
+                    isWatermarkAppended: shouldWatermark
                 )
                 
                 if let image = UIImage(contentsOfFile: tempOutput.path) {
-                    let finalImage = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: storeKit.isProUser)
-                    UIPasteboard.general.image = finalImage
+                    UIPasteboard.general.image = image
                     quotaManager.recordStitchUsage()
                     
                     await MainActor.run {
@@ -1982,29 +1999,24 @@ public struct StitchEditorView: View {
         
         Task {
             do {
+                let shouldWatermark = ExportWatermarkManager.shared.isWatermarkEnabled && !storeKit.isProUser
                 try TiledImageRenderer.renderStitchedImageToFile(
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
                     outputURL: tempOutput,
                     format: .jpeg,
-                    quality: 0.95
+                    quality: 0.95,
+                    isWatermarkAppended: shouldWatermark
                 )
                 
                 #if canImport(UIKit)
-                guard let image = UIImage(contentsOfFile: tempOutput.path) else {
-                    await MainActor.run { isExporting = false }
-                    return
-                }
-                
-                let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: storeKit.isProUser)
-                
                 try await PHPhotoLibrary.shared().performChanges {
-                    PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
+                    PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: tempOutput)
                 }
                 
                 // Save copy to AppGroup completed_stitches directory so recent history is updated
-                if let jpegData = watermarked.jpegData(compressionQuality: 0.90) {
+                if let jpegData = try? Data(contentsOf: tempOutput) {
                     SharedStore.shared.saveCompletedStitch(data: jpegData)
                 }
                 
@@ -2055,21 +2067,19 @@ public struct StitchEditorView: View {
         
         Task {
             do {
+                let shouldWatermark = ExportWatermarkManager.shared.isWatermarkEnabled && !storeKit.isProUser && selectedExportFormat != .pdf
                 try TiledImageRenderer.renderStitchedImageToFile(
                     session: session,
                     annotations: annotations,
                     brushStrokes: brushStrokes,
                     outputURL: outputURL,
-                    format: selectedExportFormat
+                    format: selectedExportFormat,
+                    isWatermarkAppended: shouldWatermark
                 )
                 
                 #if canImport(UIKit)
-                if selectedExportFormat != .pdf, let rawImage = UIImage(contentsOfFile: outputURL.path) {
-                    let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: rawImage, isProUser: storeKit.isProUser)
-                    if let data = (selectedExportFormat == .png ? watermarked.pngData() : watermarked.jpegData(compressionQuality: 0.9)) {
-                        try? data.write(to: outputURL)
-                        SharedStore.shared.saveCompletedStitch(data: data)
-                    }
+                if selectedExportFormat != .pdf, let data = try? Data(contentsOf: outputURL) {
+                    SharedStore.shared.saveCompletedStitch(data: data)
                 }
                 #endif
                 

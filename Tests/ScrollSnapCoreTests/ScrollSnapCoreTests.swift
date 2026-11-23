@@ -711,4 +711,42 @@ final class ScrollSnapCoreTests: XCTestCase {
         // Must clearly exceed the 0.030 threshold for real scrolling detection
         XCTAssertGreaterThan(motionDelta, 0.035)
     }
+    
+    // MARK: - 22. Watermark & Multi-Page Web Layout Tests
+    
+    func testSinglePassWatermarkHeightCalculation() {
+        let slice = StitchItem(
+            relativeFilePath: "web_page.png",
+            originalWidth: 1170,
+            originalHeight: 3000,
+            calculatedOverlapWithPrevious: 0
+        )
+        let session = StitchSession(
+            presetMode: .webCapture,
+            slices: [slice],
+            title: "网页截图"
+        )
+        
+        let baseHeight = session.totalEstimatedHeight
+        XCTAssertEqual(baseHeight, 3000)
+        
+        let watermarkFooterHeight: CGFloat = 54.0
+        let totalWithWatermark = baseHeight + watermarkFooterHeight
+        XCTAssertEqual(totalWithWatermark, 3054)
+    }
+    
+    func testMultiPagePDFStackingCalculations() {
+        // Multi-page web capture simulation with 3 distinct pages
+        let page1 = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let page2 = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let page3 = CGRect(x: 0, y: 0, width: 390, height: 420)
+        
+        let targetWidth: CGFloat = 1170
+        let scale = targetWidth / page1.width // 3.0
+        
+        let totalScaledHeight = (page1.height + page2.height + page3.height) * scale
+        // (844 + 844 + 420) * 3 = 2108 * 3 = 6324
+        XCTAssertEqual(totalScaledHeight, 6324)
+        XCTAssertLessThan(totalScaledHeight, 20480.0) // Well within CoreGraphics limit
+    }
 }

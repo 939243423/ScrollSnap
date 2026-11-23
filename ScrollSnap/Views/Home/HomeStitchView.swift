@@ -1074,23 +1074,23 @@ public struct HomeStitchView: View {
                 defer {
                     try? FileManager.default.removeItem(at: tempOutput)
                 }
-                try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
+                let isPro = await MainActor.run { self.storeKit.isProUser }
+                let shouldWatermark = ExportWatermarkManager.shared.isWatermarkEnabled && !isPro
+                try TiledImageRenderer.renderStitchedImageToFile(
+                    session: session,
+                    outputURL: tempOutput,
+                    format: .jpeg,
+                    quality: 0.95,
+                    isWatermarkAppended: shouldWatermark
+                )
                 
                 #if canImport(UIKit)
-                guard let image = UIImage(contentsOfFile: tempOutput.path) else {
-                    await MainActor.run { self.isProcessingStitch = false }
-                    return
-                }
-                
-                let isPro = await MainActor.run { self.storeKit.isProUser }
-                let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: isPro)
-                
-                // 1. Save stitched image to photo library
+                // 1. Save stitched image to photo library directly from file without huge RAM duplicate
                 try await PHPhotoLibrary.shared().performChanges {
-                    PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
+                    PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: tempOutput)
                 }
                 
-                if let jpegData = watermarked.jpegData(compressionQuality: 0.90) {
+                if let jpegData = try? Data(contentsOf: tempOutput) {
                     SharedStore.shared.saveCompletedStitch(data: jpegData)
                 }
                 
@@ -1100,12 +1100,16 @@ public struct HomeStitchView: View {
                         PHAssetChangeRequest.deleteAssets(sortedAssets as NSArray)
                     }
                 }
+                
+                let savedPreview = UIImage(contentsOfFile: tempOutput.path)
                 #endif
                 
                 await MainActor.run {
                     self.isProcessingStitch = false
                     self.quotaManager.recordStitchUsage()
-                    self.lastSavedImage = watermarked
+                    #if canImport(UIKit)
+                    self.lastSavedImage = savedPreview
+                    #endif
                     self.refreshCompletedStitches()
                     HapticFeedbackManager.shared.triggerSnap()
                     SoundEffectManager.shared.playShutter()
@@ -1237,23 +1241,23 @@ public struct HomeStitchView: View {
                     defer {
                         try? FileManager.default.removeItem(at: tempOutput)
                     }
-                    try TiledImageRenderer.renderStitchedImageToFile(session: session, outputURL: tempOutput, format: .jpeg, quality: 0.95)
+                    let isPro = await MainActor.run { self.storeKit.isProUser }
+                    let shouldWatermark = ExportWatermarkManager.shared.isWatermarkEnabled && !isPro
+                    try TiledImageRenderer.renderStitchedImageToFile(
+                        session: session,
+                        outputURL: tempOutput,
+                        format: .jpeg,
+                        quality: 0.95,
+                        isWatermarkAppended: shouldWatermark
+                    )
                     
                     #if canImport(UIKit)
-                    guard let image = UIImage(contentsOfFile: tempOutput.path) else {
-                        await MainActor.run { self.isProcessingStitch = false }
-                        return
-                    }
-                    
-                    let isPro = await MainActor.run { self.storeKit.isProUser }
-                    let watermarked = ExportWatermarkManager.shared.appendWatermarkIfNeeded(to: image, isProUser: isPro)
-                    
-                    // 1. Save stitched image to photo library
+                    // 1. Save stitched image to photo library directly from file
                     try await PHPhotoLibrary.shared().performChanges {
-                        PHAssetChangeRequest.creationRequestForAsset(from: watermarked)
+                        PHAssetChangeRequest.creationRequestForAssetFromImage(atFileURL: tempOutput)
                     }
                     
-                    if let jpegData = watermarked.jpegData(compressionQuality: 0.90) {
+                    if let jpegData = try? Data(contentsOf: tempOutput) {
                         SharedStore.shared.saveCompletedStitch(data: jpegData)
                     }
                     
@@ -1263,12 +1267,16 @@ public struct HomeStitchView: View {
                             PHAssetChangeRequest.deleteAssets([asset] as NSArray)
                         }
                     }
+                    
+                    let savedPreview = UIImage(contentsOfFile: tempOutput.path)
                     #endif
                     
                     await MainActor.run {
                         self.isProcessingStitch = false
                         self.quotaManager.recordStitchUsage()
-                        self.lastSavedImage = watermarked
+                        #if canImport(UIKit)
+                        self.lastSavedImage = savedPreview
+                        #endif
                         self.refreshCompletedStitches()
                         HapticFeedbackManager.shared.triggerSnap()
                         SoundEffectManager.shared.playShutter()
