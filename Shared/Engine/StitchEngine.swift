@@ -67,17 +67,40 @@ public final class StitchEngine {
                 
                 // Intelligent Bidirectional Sequence Detection:
                 // If user selected slices in reverse order (e.g. from newest to oldest in PhotosPicker),
-                // compare forward correlation vs reverse correlation and auto-correct slice order.
+                // evaluate forward vs reverse correlation across multiple adjacent slice pairs to reach consensus.
                 if loadedSlices.count >= 2 && (presetMode != .movieSubtitles && presetMode != .horizontalCompare) {
-                    let forwardCheck = ImageOverlapDetector.findOverlap(
-                        topSlice: loadedSlices[0].image,
-                        bottomSlice: loadedSlices[1].image
-                    )
-                    let reverseCheck = ImageOverlapDetector.findOverlap(
-                        topSlice: loadedSlices[1].image,
-                        bottomSlice: loadedSlices[0].image
-                    )
-                    if reverseCheck.confidence > forwardCheck.confidence + 0.20 && reverseCheck.confidence > 0.35 {
+                    let pairsToTest = min(loadedSlices.count - 1, 3)
+                    var forwardScore: Double = 0.0
+                    var reverseScore: Double = 0.0
+                    var forwardVotes: Int = 0
+                    var reverseVotes: Int = 0
+                    
+                    for p in 0..<pairsToTest {
+                        let sliceA = loadedSlices[p].image
+                        let sliceB = loadedSlices[p + 1].image
+                        let fwd = ImageOverlapDetector.findOverlap(topSlice: sliceA, bottomSlice: sliceB)
+                        let rev = ImageOverlapDetector.findOverlap(topSlice: sliceB, bottomSlice: sliceA)
+                        
+                        forwardScore += fwd.confidence
+                        reverseScore += rev.confidence
+                        
+                        if fwd.confidence > rev.confidence + 0.15 && fwd.confidence >= 0.40 {
+                            forwardVotes += 1
+                        } else if rev.confidence > fwd.confidence + 0.15 && rev.confidence >= 0.40 {
+                            reverseVotes += 1
+                        }
+                    }
+                    
+                    let shouldReverse: Bool
+                    if reverseVotes > forwardVotes && reverseScore > forwardScore {
+                        shouldReverse = true
+                    } else if reverseScore > forwardScore + (Double(pairsToTest) * 0.22) && reverseScore > Double(pairsToTest) * 0.35 {
+                        shouldReverse = true
+                    } else {
+                        shouldReverse = false
+                    }
+                    
+                    if shouldReverse {
                         loadedSlices.reverse()
                     }
                 }
@@ -233,8 +256,8 @@ public final class StitchEngine {
                             // to break periodic aliasing ties on repetitive feed cards or button rows.
                             var expectedDisplacement: CGFloat? = nil
                             if index >= 2 && prevItem.confidence > 0.60 && prevItem.calculatedOverlapWithPrevious > 20 {
-                                let prevH = prevItem.originalHeight
-                                let prevDisplacement = prevH - prevItem.topCropInset - prevItem.calculatedOverlapWithPrevious
+                                let prevPrevItem = items[index - 2]
+                                let prevDisplacement = prevPrevItem.originalHeight - prevPrevItem.bottomCropInset - prevItem.topCropInset - prevItem.calculatedOverlapWithPrevious
                                 if prevDisplacement > 40 {
                                     expectedDisplacement = prevDisplacement
                                 }

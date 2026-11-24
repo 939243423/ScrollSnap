@@ -803,4 +803,101 @@ final class ScrollSnapCoreTests: XCTestCase {
         let stationaryPauseDelta = 0.008
         XCTAssertLessThan(stationaryPauseDelta, motionThreshold) // Correctly filtered
     }
+    
+    // MARK: - 16. EXIF Date Parsing & Chronological Sorting Tests
+    
+    func testExifDateParserStandardAndSubsecond() {
+        let dateStr = "2026:11:24 14:30:00"
+        let parsed = ExifDateParser.parseDateString(dateStr, subsec: "500")
+        XCTAssertNotNil(parsed)
+        
+        let parsedNoSubsec = ExifDateParser.parseDateString(dateStr)
+        XCTAssertNotNil(parsedNoSubsec)
+        
+        if let p1 = parsed, let p0 = parsedNoSubsec {
+            XCTAssertEqual(p1.timeIntervalSince(p0), 0.5, accuracy: 0.001)
+        }
+        
+        let isoStr = "2026-11-24T14:30:00.250Z"
+        let parsedIso = ExifDateParser.parseDateString(isoStr)
+        XCTAssertNotNil(parsedIso)
+        
+        // Invalid data returns nil safely
+        let emptyData = Data()
+        XCTAssertNil(ExifDateParser.extractCaptureDate(from: emptyData))
+    }
+    
+    func testChronologicalCandidateSorting() {
+        struct MockCandidate {
+            let originalIndex: Int
+            let captureDate: Date?
+        }
+        
+        let base = Date(timeIntervalSince1970: 1764000000)
+        let c0 = MockCandidate(originalIndex: 0, captureDate: base.addingTimeInterval(10)) // middle
+        let c1 = MockCandidate(originalIndex: 1, captureDate: base.addingTimeInterval(20)) // newest
+        let c2 = MockCandidate(originalIndex: 2, captureDate: base)                        // oldest
+        
+        let candidates = [c0, c1, c2] // tapped in arbitrary order 0, 1, 2
+        
+        let sorted = candidates.sorted { (a, b) -> Bool in
+            if let da = a.captureDate, let db = b.captureDate {
+                if da != db {
+                    return da < db
+                }
+            } else if a.captureDate != nil {
+                return true
+            } else if b.captureDate != nil {
+                return false
+            }
+            return a.originalIndex < b.originalIndex
+        }
+        
+        XCTAssertEqual(sorted.map(\.originalIndex), [2, 0, 1]) // Correctly sorted oldest-to-newest
+    }
+    
+    func testMultiSliceDisplacementContinuityFormula() {
+        let prevPrevH: CGFloat = 2556
+        let prevPrevBottomCrop: CGFloat = 270
+        let prevTopCrop: CGFloat = 294
+        let prevCalculatedOverlap: CGFloat = 350
+        
+        // Real displacement = total original height minus crops and visible overlap
+        let prevDisplacement = prevPrevH - prevPrevBottomCrop - prevTopCrop - prevCalculatedOverlap
+        XCTAssertEqual(prevDisplacement, 1642.0)
+        XCTAssertGreaterThan(prevDisplacement, 40.0)
+    }
+    
+    func testBidirectionalSequenceVotingLogic() {
+        // Simulate forward vs reverse checks across 3 slice pairs
+        let pairsToTest = 3
+        var forwardScore: Double = 0.0
+        var reverseScore: Double = 0.0
+        var forwardVotes: Int = 0
+        var reverseVotes: Int = 0
+        
+        let fwdConfidences = [0.35, 0.40, 0.30]
+        let revConfidences = [0.85, 0.90, 0.88]
+        
+        for p in 0..<pairsToTest {
+            let fwdConf = fwdConfidences[p]
+            let revConf = revConfidences[p]
+            
+            forwardScore += fwdConf
+            reverseScore += revConf
+            
+            if fwdConf > revConf + 0.15 && fwdConf >= 0.40 {
+                forwardVotes += 1
+            } else if revConf > fwdConf + 0.15 && revConf >= 0.40 {
+                reverseVotes += 1
+            }
+        }
+        
+        XCTAssertEqual(reverseVotes, 3)
+        XCTAssertEqual(forwardVotes, 0)
+        XCTAssertGreaterThan(reverseScore, forwardScore + (Double(pairsToTest) * 0.22))
+        
+        let shouldReverse = (reverseVotes > forwardVotes && reverseScore > forwardScore)
+        XCTAssertTrue(shouldReverse)
+    }
 }

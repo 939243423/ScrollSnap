@@ -922,10 +922,54 @@ public struct HomeStitchView: View {
         processingStatusMessage = "正在读取并拼接截图..."
         isProcessingStitch = true
         Task {
-            var paths: [String] = []
+            struct LoadedCandidate {
+                let originalIndex: Int
+                let data: Data
+                let captureDate: Date?
+            }
+            
+            var candidates: [LoadedCandidate] = []
             for (index, item) in items.enumerated() {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let savedRelPath = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    let date = ExifDateParser.extractCaptureDate(from: data)
+                    candidates.append(LoadedCandidate(originalIndex: index, data: data, captureDate: date))
+                }
+            }
+            
+            guard candidates.count >= 2 else {
+                await MainActor.run {
+                    self.isProcessingStitch = false
+                    self.selectedPhotoItems.removeAll()
+                    self.showToast(message: "请至少选择 2 张连续截图进行拼接")
+                }
+                return
+            }
+            
+            // Chronological auto-sorting:
+            // When EXIF/TIFF capture timestamps exist, sort oldest-to-newest to ensure adjacent slices
+            // align with the physical scroll path regardless of the order user tapped images in the picker.
+            let hasValidDates = candidates.filter { $0.captureDate != nil }.count >= 2
+            let sortedCandidates: [LoadedCandidate]
+            if hasValidDates {
+                sortedCandidates = candidates.sorted { (a, b) -> Bool in
+                    if let da = a.captureDate, let db = b.captureDate {
+                        if da != db {
+                            return da < db
+                        }
+                    } else if a.captureDate != nil {
+                        return true
+                    } else if b.captureDate != nil {
+                        return false
+                    }
+                    return a.originalIndex < b.originalIndex
+                }
+            } else {
+                sortedCandidates = candidates
+            }
+            
+            var paths: [String] = []
+            for (idx, candidate) in sortedCandidates.enumerated() {
+                if let savedRelPath = SharedStore.shared.writeBroadcastSlice(data: candidate.data, index: idx) {
                     paths.append(savedRelPath)
                 }
             }

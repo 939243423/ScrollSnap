@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B6A1E4C82D7F4B0E89A12402 /* SliceImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12401 /* SliceImageCache.swift */; };
+		B6A1E4C82D7F4B0E89A12403 /* SliceImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12401 /* SliceImageCache.swift */; };
+		B6A1E4C82D7F4B0E89A12404 /* SliceImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12401 /* SliceImageCache.swift */; };
+		B6A1E4C82D7F4B0E89A12502 /* ExifDateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12501 /* ExifDateParser.swift */; };
+		B6A1E4C82D7F4B0E89A12503 /* ExifDateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12501 /* ExifDateParser.swift */; };
+		B6A1E4C82D7F4B0E89A12504 /* ExifDateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A1E4C82D7F4B0E89A12501 /* ExifDateParser.swift */; };
 		00D0019889014A3694669417 /* DeviceFrameStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C0CF5F0E3B8F904963E1C6 /* DeviceFrameStyles.swift */; };
 		03B35AFC1F8E08F37171A00A /* HomeStitchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C801CCE8818C9535EDDBCD /* HomeStitchView.swift */; };
 		0499FD242172952E41820C57 /* StitchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 690CA82A50C0E72ED9E111F9 /* StitchActivityAttributes.swift */; };
@@ -374,6 +380,8 @@
 				A1CAE29CB8D6A8AC5215243F /* CrossProcessNotifier.swift */,
 				0E2507E6F588BE6DCD924FE2 /* HapticFeedbackManager.swift */,
 				3BDAD4A24B16B3AF141A2C3E /* SharedStore.swift */,
+				B6A1E4C82D7F4B0E89A12401 /* SliceImageCache.swift */,
+				B6A1E4C82D7F4B0E89A12501 /* ExifDateParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";

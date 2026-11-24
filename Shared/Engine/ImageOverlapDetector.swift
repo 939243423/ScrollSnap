@@ -380,14 +380,14 @@ public final class ImageOverlapDetector {
         topChrome: Int,
         botChrome: Int,
         expectedDisplacement: CGFloat? = nil
-    ) -> (displacement: CGFloat, confidence: Double, isReverse: Bool) {
+    ) -> (displacement: CGFloat, confidence: Double) {
         let H = min(topFP.height, botFP.height)
         let numCols = topFP.numCols
         
         let yTop = topChrome
         let yBot = H - botChrome
         guard yBot > yTop + 30 else {
-            return (0, 0, false)
+            return (0, 0)
         }
         
         let minD = 4
@@ -412,7 +412,7 @@ public final class ImageOverlapDetector {
         if dupTexturedRows >= 3 {
             let dupScore = Double(dupDiffSum) / Double(dupTexturedRows * numCols)
             if dupScore < 2.5 {
-                return (0, 1.0, false)
+                return (0, 1.0)
             }
         }
         
@@ -486,63 +486,7 @@ public final class ImageOverlapDetector {
             forwardConfidence = 0.0
         }
         
-        if forwardConfidence > 0.70 {
-            return (CGFloat(bestD), forwardConfidence, false)
-        }
-        
-        // Reverse Sequence Fallback Check (newest to oldest):
-        var bestRevD = 0
-        var minRevScore = Double.greatestFiniteMagnitude
-        for d in minD...maxD {
-            let K = yBot - yTop - d
-            guard K >= 15 else { continue }
-            var texturedSum: Int = 0
-            var texturedRows: Int = 0
-            var totalSum: Int = 0
-            
-            for k in 0..<K {
-                let yB = yTop + d + k
-                let yA = yTop + k
-                let offA = yA * numCols
-                let offB = yB * numCols
-                let isTextured = (topFP.rowVariance[yA] > 3.5 || botFP.rowVariance[yB] > 3.5)
-                var rowDiff: Int = 0
-                for m in 0..<numCols {
-                    let diff = abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
-                    rowDiff += min(diff, 60)
-                }
-                totalSum += rowDiff
-                if isTextured {
-                    texturedSum += rowDiff
-                    texturedRows += 1
-                }
-            }
-            let score: Double
-            if texturedRows >= 3 {
-                let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
-                let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTexturedInZone)))
-                score = meanDiff - (textureSupport * 0.8)
-            } else {
-                score = (Double(totalSum) / Double(K * numCols)) + 15.0
-            }
-            if score < minRevScore {
-                minRevScore = score
-                bestRevD = d
-            }
-        }
-        
-        let revConfidence: Double
-        if minRevScore < 30.0 {
-            revConfidence = max(0.40, min(1.0, 1.0 - (minRevScore / 32.0)))
-        } else {
-            revConfidence = 0.0
-        }
-        
-        if revConfidence > forwardConfidence + 0.15 && revConfidence > 0.45 {
-            return (CGFloat(bestRevD), revConfidence, true)
-        }
-        
-        return (CGFloat(bestD), forwardConfidence, false)
+        return (CGFloat(bestD), forwardConfidence)
     }
     
     // MARK: - Full-Resolution 1-Pixel Subpixel Refinement
@@ -582,18 +526,18 @@ public final class ImageOverlapDetector {
         // Scale-adaptive search radius: guarantees capturing coarse estimation drift (up to 2.5 downscaled rows) on @3x displays
         let searchRadius = max(8, Int(ceil(scaleY * 2.5)))
         
-        // 3-Zone dynamic peak anchor selection:
-        // Divides the valid overlap into 3 zones and selects the peak-variance row in each zone
+        // 4-Zone dynamic peak anchor selection:
+        // Divides the valid overlap into 4 zones and selects the peak-variance row in each zone
         // to ensure anchors land on actual chat bubbles and avatars rather than blank wallpaper.
         var targetYBs: [Int] = []
         if !botRowVariances.isEmpty && endYB > startYB + 40 {
             let minRow = Int(startYB / scaleY)
             let maxRow = Int(endYB / scaleY)
             let span = maxRow - minRow
-            if span >= 6 {
-                for z in 0..<3 {
-                    let zStart = minRow + Int(Double(z) * Double(span) / 3.0)
-                    let zEnd = minRow + Int(Double(z + 1) * Double(span) / 3.0)
+            if span >= 8 {
+                for z in 0..<4 {
+                    let zStart = minRow + Int(Double(z) * Double(span) / 4.0)
+                    let zEnd = minRow + Int(Double(z + 1) * Double(span) / 4.0)
                     var bestR = zStart + (zEnd - zStart) / 2
                     var bestVar = 0.0
                     for r in zStart..<min(zEnd, botRowVariances.count) {
@@ -611,7 +555,7 @@ public final class ImageOverlapDetector {
         }
         
         if targetYBs.isEmpty {
-            let anchorRatios: [CGFloat] = [0.25, 0.50, 0.75]
+            let anchorRatios: [CGFloat] = [0.20, 0.40, 0.60, 0.80]
             for ratio in anchorRatios {
                 let yB = Int(startYB + (endYB - startYB) * ratio)
                 if yB + patchH < origH {
@@ -650,7 +594,7 @@ public final class ImageOverlapDetector {
             }
             let mean = Double(sumVal) / Double(totalPix)
             let variance = (Double(sumSqVal) / Double(totalPix)) - (mean * mean)
-            guard variance > 6.0 else { continue }
+            guard variance > 2.5 else { continue }
             
             let baseYA = yB + Int(round(targetDy))
             let searchMinYA = baseYA - searchRadius
@@ -934,7 +878,7 @@ public final class ImageOverlapDetector {
         let fullBottomAnchor = CGFloat(chrome.botChromeRows) * topBuf.scaleY
         
         let isSplitMedia = fullTopAnchor > (CGFloat(origH) * 0.18)
-        let isChatApp = !isSplitMedia && fullTopAnchor >= 80 && fullTopAnchor <= 380 && fullBottomAnchor >= 70 && fullBottomAnchor <= 380
+        let isChatApp = !isSplitMedia && fullTopAnchor >= 70 && fullTopAnchor <= 420 && fullBottomAnchor >= 50 && fullBottomAnchor <= 420
         let isWebArticle = !isSplitMedia && !isChatApp && fullTopAnchor >= 60 && fullTopAnchor <= 320 && fullBottomAnchor >= 40 && fullBottomAnchor <= 240
         
         let scenario: AppLayoutScenario
