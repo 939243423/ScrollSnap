@@ -75,17 +75,20 @@ public struct RedactionStroke: Codable, Identifiable, Sendable {
     public var points: [CGPoint]
     public var brushType: RedactionBrushType
     public var lineWidth: CGFloat
+    public var referenceCanvasSize: CGSize?
     
     public init(
         id: UUID = UUID(),
         points: [CGPoint] = [],
         brushType: RedactionBrushType = .frostedGlass,
-        lineWidth: CGFloat = 24.0
+        lineWidth: CGFloat = 24.0,
+        referenceCanvasSize: CGSize? = nil
     ) {
         self.id = id
         self.points = points
         self.brushType = brushType
         self.lineWidth = lineWidth
+        self.referenceCanvasSize = referenceCanvasSize
     }
 }
 

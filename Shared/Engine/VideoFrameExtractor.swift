@@ -266,11 +266,16 @@ public final class VideoFrameExtractor {
             var sumSqVal = 0
             
             for (m, x) in sampleCols.enumerated() {
-                let pixelOffset = rowOffset + x * bpp
-                let r = Double(ptr[pixelOffset])
-                let g = Double(ptr[pixelOffset + 1])
-                let b = Double(ptr[pixelOffset + 2])
-                let lum = UInt8(max(0, min(255, Int(round(0.299 * r + 0.587 * g + 0.114 * b)))))
+                let pixelOffset = rowOffset + x * max(1, bpp)
+                let lum: UInt8
+                if bpp >= 3 {
+                    let r = Double(ptr[pixelOffset])
+                    let g = Double(ptr[pixelOffset + 1])
+                    let b = Double(ptr[pixelOffset + 2])
+                    lum = UInt8(max(0, min(255, Int(round(0.299 * r + 0.587 * g + 0.114 * b)))))
+                } else {
+                    lum = ptr[pixelOffset]
+                }
                 samples[outOffset + m] = lum
                 let v = Int(lum)
                 sumVal += v
@@ -324,10 +329,9 @@ public final class VideoFrameExtractor {
             }
         }
         
-        // Coarse pass across both reverse bounce [-maxReverseShift ... 0] and forward scroll [0 ... maxShift]
-        for shift in stride(from: -maxReverseShift, through: maxShift, by: 2) {
+        let evaluateShift: (Int) -> Double? = { shift in
             let overlapLen = shift >= 0 ? (len - shift) : (len + shift)
-            guard overlapLen > 20 else { continue }
+            guard overlapLen > 20 else { return nil }
             
             var texturedSum = 0
             var texturedRows = 0
@@ -354,15 +358,18 @@ public final class VideoFrameExtractor {
                 }
             }
             
-            let score: Double
             if texturedRows >= 3 {
                 let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
                 let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTextured)))
-                score = meanDiff - (textureSupport * 0.8)
+                return meanDiff - (textureSupport * 0.8)
             } else {
-                score = (Double(totalSum) / Double(overlapLen * numCols)) + 15.0
+                return (Double(totalSum) / Double(overlapLen * numCols)) + 15.0
             }
-            
+        }
+        
+        // Coarse pass across both reverse bounce [-maxReverseShift ... 0] and forward scroll [0 ... maxShift]
+        for shift in stride(from: -maxReverseShift, through: maxShift, by: 2) {
+            guard let score = evaluateShift(shift) else { continue }
             scoreTable[shift] = score
             if score < minScore {
                 minScore = score
@@ -373,42 +380,7 @@ public final class VideoFrameExtractor {
         // Fine evaluation of immediate neighbor rows
         for fineShift in [bestShift - 1, bestShift + 1] {
             if fineShift >= -maxReverseShift && fineShift <= maxShift && scoreTable[fineShift] == nil {
-                let overlapLen = fineShift >= 0 ? (len - fineShift) : (len + fineShift)
-                if overlapLen > 20 {
-                    var texturedSum = 0
-                    var texturedRows = 0
-                    var totalSum = 0
-                    
-                    for k in 0..<overlapLen {
-                        let yA = fineShift >= 0 ? (fineShift + k) : k
-                        let yB = fineShift >= 0 ? k : (-fineShift + k)
-                        
-                        let isTextured = (sigA.rowVariances[yA] > 3.0 || sigB.rowVariances[yB] > 3.0)
-                        let offA = yA * numCols
-                        let offB = yB * numCols
-                        
-                        var rowDiff = 0
-                        for m in 0..<numCols {
-                            let diff = abs(Int(sigA.samples[offA + m]) - Int(sigB.samples[offB + m]))
-                            rowDiff += min(diff, 60)
-                        }
-                        
-                        totalSum += rowDiff
-                        if isTextured {
-                            texturedSum += rowDiff
-                            texturedRows += 1
-                        }
-                    }
-                    
-                    let score: Double
-                    if texturedRows >= 3 {
-                        let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
-                        let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTextured)))
-                        score = meanDiff - (textureSupport * 0.8)
-                    } else {
-                        score = (Double(totalSum) / Double(overlapLen * numCols)) + 15.0
-                    }
-                    
+                if let score = evaluateShift(fineShift) {
                     scoreTable[fineShift] = score
                     if score < minScore {
                         minScore = score

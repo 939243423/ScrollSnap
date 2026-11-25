@@ -89,6 +89,7 @@ public struct StitchEditorView: View {
     @State private var isShowingPaywall: Bool = false
     @State private var isCopiedToClipboardToast: Bool = false
     @State private var toastMessage: String = "长图已复制到剪贴板"
+    @State private var toastDismissTask: Task<Void, Never>? = nil
     @State private var isDismissedConfidenceWarning: Bool = false
     @State private var cachedLayouts: [SliceCanvasLayout] = []
     
@@ -297,7 +298,12 @@ public struct StitchEditorView: View {
                 }
                 
                 ToolbarItem(placement: .principal) {
-                    presetModeMenu
+                    if session.slices.count > 1 {
+                        presetModeMenu
+                    } else {
+                        Text("编辑长图")
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    }
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -728,7 +734,10 @@ public struct StitchEditorView: View {
                             }
                             // Natural drag: dragging UP pulls lower image UP (increases overlap)
                             // dragging DOWN pulls lower image DOWN (decreases overlap)
-                            let newOffset = seamDragStartOffset - gesture.translation.height * 3.0
+                            let displayScale = (seamIndex < verticalLayouts.count)
+                                ? verticalLayouts[seamIndex].scale
+                                : (displayWidth / max(1.0, slice.originalWidth))
+                            let newOffset = seamDragStartOffset - (gesture.translation.height / max(0.1, displayScale))
                             let range = currentSliceSeamRange
                             if abs(newOffset) < 3.5 {
                                 if session.slices[seamIndex].manualOffsetAdjustment != 0 {
@@ -825,6 +834,7 @@ public struct StitchEditorView: View {
                     .offset(x: (displayWidth - 170) / 2.0, y: 8)
                 }
                 .frame(width: displayWidth, height: boxHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .offset(y: boxTop)
                 .shadow(color: Color.black.opacity(0.2), radius: 10, y: 4)
                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
@@ -1107,7 +1117,8 @@ public struct StitchEditorView: View {
                 currentBrushStroke = RedactionStroke(
                     points: [loc],
                     brushType: redactionStyleChoice.brushType,
-                    lineWidth: brushStrokeWidth
+                    lineWidth: brushStrokeWidth,
+                    referenceCanvasSize: canvasSize
                 )
             } else {
                 currentBrushStroke?.points.append(loc)
@@ -1271,13 +1282,20 @@ public struct StitchEditorView: View {
                             isShowingSliceManagerSheet = true
                         },
                         onApplyCropToAll: { top, bottom in
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                for i in 0..<session.slices.count {
-                                    if i > 0 {
-                                        session.slices[i].topCropInset = top
-                                    }
-                                    if i < session.slices.count - 1 {
-                                        session.slices[i].bottomCropInset = bottom
+                            var updated = session
+                            for i in 0..<updated.slices.count {
+                                if i > 0 {
+                                    updated.slices[i].topCropInset = top
+                                }
+                                if i < updated.slices.count - 1 {
+                                    updated.slices[i].bottomCropInset = bottom
+                                }
+                            }
+                            Task.detached(priority: .userInitiated) {
+                                StitchEngine.recomputeSlices(in: &updated)
+                                await MainActor.run {
+                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                        self.session = updated
                                     }
                                 }
                             }
@@ -1304,8 +1322,9 @@ public struct StitchEditorView: View {
             }
             
             // Primary 4-Tab Liquid Glass Bar
+            let visibleModes = EditorToolMode.allCases.filter { $0 != .seamTuner || session.slices.count > 1 }
             HStack(spacing: 8) {
-                ForEach(EditorToolMode.allCases) { mode in
+                ForEach(visibleModes) { mode in
                     Button {
                         HapticFeedbackManager.shared.triggerSelection()
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
@@ -1412,8 +1431,8 @@ public struct StitchEditorView: View {
                     }
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .background(Color.indigo.opacity(0.18))
-                    .foregroundStyle(Color.indigo)
+                    .background(Color.accentColor.opacity(0.14))
+                    .foregroundStyle(Color.accentColor)
                     .clipShape(Capsule())
                 }
                 
@@ -1723,6 +1742,17 @@ public struct StitchEditorView: View {
                 }
             }
         }
+        if newMode != .movieSubtitles && newMode != .horizontalCompare && session.slices.count > 1 {
+            var updated = session
+            Task.detached(priority: .userInitiated) {
+                StitchEngine.recomputeSlices(in: &updated)
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self.session = updated
+                    }
+                }
+            }
+        }
         HapticFeedbackManager.shared.triggerSnap()
     }
     
@@ -1977,12 +2007,17 @@ public struct StitchEditorView: View {
     }
     
     private func showToast() {
+        toastDismissTask?.cancel()
         withAnimation {
             isCopiedToClipboardToast = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
-                isCopiedToClipboardToast = false
+        toastDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation {
+                    isCopiedToClipboardToast = false
+                }
             }
         }
     }
@@ -1995,9 +2030,9 @@ public struct StitchEditorView: View {
         
         isExporting = true
         let tempOutput = FileManager.default.temporaryDirectory.appendingPathComponent("ScrollSnap_\(Int(Date().timeIntervalSince1970)).jpg")
-        defer { try? FileManager.default.removeItem(at: tempOutput) }
         
         Task {
+            defer { try? FileManager.default.removeItem(at: tempOutput) }
             do {
                 let shouldWatermark = ExportWatermarkManager.shared.isWatermarkEnabled && !storeKit.isProUser
                 try TiledImageRenderer.renderStitchedImageToFile(

@@ -43,6 +43,7 @@ public struct HomeStitchView: View {
     @State private var activeBroadcastSlices: [String] = []
     @State private var toastMessage: String = ""
     @State private var isShowingToast: Bool = false
+    @State private var toastDismissTask: Task<Void, Never>? = nil
     @State private var detectedClipboardURL: URL?
     @State private var lastSavedImage: UIImage?
     @State private var selectedVideoPickerItems: [PhotosPickerItem] = []
@@ -230,13 +231,18 @@ public struct HomeStitchView: View {
     }
     
     private func showToast(message: String) {
+        toastDismissTask?.cancel()
         self.toastMessage = message
         withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
             self.isShowingToast = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                self.isShowingToast = false
+        toastDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 2_800_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    self.isShowingToast = false
+                }
             }
         }
     }
@@ -749,12 +755,12 @@ public struct HomeStitchView: View {
                 
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(completedStitchFiles) { item in
-                        Button {
-                            HapticFeedbackManager.shared.triggerSelection()
-                            openCompletedStitch(item)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ZStack(alignment: .bottom) {
+                        ZStack(alignment: .bottomTrailing) {
+                            Button {
+                                HapticFeedbackManager.shared.triggerSelection()
+                                openCompletedStitch(item)
+                            } label: {
+                                ZStack(alignment: .bottomLeading) {
                                     // Top-aligned content preview loaded asynchronously without memory blowup
                                     GeometryReader { cardGeo in
                                         RecentStitchThumbnailView(url: item.url)
@@ -773,45 +779,19 @@ public struct HomeStitchView: View {
                                     .frame(height: 64)
                                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                     
-                                    // Bottom information strip
-                                    HStack {
-                                        if item.pixelWidth > 0 && item.pixelHeight > 0 {
-                                            HStack(spacing: 3) {
-                                                Image(systemName: "arrow.up.and.down")
-                                                    .font(.system(size: 8, weight: .bold))
-                                                Text("\(item.pixelWidth) × \(item.pixelHeight)")
-                                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            }
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 3)
-                                            .background(.ultraThinMaterial.opacity(0.85), in: Capsule())
+                                    if item.pixelWidth > 0 && item.pixelHeight > 0 {
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "arrow.up.and.down")
+                                                .font(.system(size: 8, weight: .bold))
+                                            Text("\(item.pixelWidth) × \(item.pixelHeight)")
+                                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                         }
-                                        
-                                        Spacer()
-                                        
-                                        // One-tap quick copy button
-                                        Button {
-                                            if let img = UIImage(contentsOfFile: item.url.path) {
-                                                UIPasteboard.general.image = img
-                                                HapticFeedbackManager.shared.triggerSnap()
-                                                showToast(message: "已复制长截图到剪贴板")
-                                            }
-                                        } label: {
-                                            HStack(spacing: 3) {
-                                                Image(systemName: "doc.on.doc.fill")
-                                                    .font(.system(size: 9, weight: .semibold))
-                                                Text("复制")
-                                                    .font(.system(size: 10, weight: .bold))
-                                            }
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(.ultraThinMaterial, in: Capsule())
-                                            .foregroundStyle(.white)
-                                        }
-                                        .buttonStyle(.plain)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(.ultraThinMaterial.opacity(0.85), in: Capsule())
+                                        .padding(8)
                                     }
-                                    .padding(8)
                                 }
                                 .frame(height: 210)
                                 .background(Color(uiColor: .secondarySystemGroupedBackground))
@@ -821,8 +801,30 @@ public struct HomeStitchView: View {
                                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8)
                                 )
                             }
+                            .buttonStyle(.plain)
+                            
+                            // One-tap quick copy button (sibling outside card Button to avoid nested tap conflict)
+                            Button {
+                                if let img = UIImage(contentsOfFile: item.url.path) {
+                                    UIPasteboard.general.image = img
+                                    HapticFeedbackManager.shared.triggerSnap()
+                                    showToast(message: "已复制长截图到剪贴板")
+                                }
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "doc.on.doc.fill")
+                                        .font(.system(size: 9, weight: .semibold))
+                                    Text("复制")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .foregroundStyle(.white)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(8)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             } else {
@@ -967,9 +969,12 @@ public struct HomeStitchView: View {
                 sortedCandidates = candidates
             }
             
+            let importId = UUID()
+            defer { SharedStore.shared.cleanupImportDirectory(importId: importId) }
+            
             var paths: [String] = []
             for (idx, candidate) in sortedCandidates.enumerated() {
-                if let savedRelPath = SharedStore.shared.writeBroadcastSlice(data: candidate.data, index: idx) {
+                if let savedRelPath = SharedStore.shared.writeImportSlice(data: candidate.data, index: idx, importId: importId) {
                     paths.append(savedRelPath)
                 }
             }
@@ -1015,8 +1020,10 @@ public struct HomeStitchView: View {
         processingStatusMessage = "正在提取视频画面..."
         isProcessingStitch = true
         Task {
+            let importId = UUID()
             var tempURL: URL?
             defer {
+                SharedStore.shared.cleanupImportDirectory(importId: importId)
                 if let url = tempURL {
                     try? FileManager.default.removeItem(at: url)
                 }
@@ -1057,7 +1064,7 @@ public struct HomeStitchView: View {
                 var paths: [String] = []
                 for (index, frame) in frames.enumerated() {
                     if let data = frame.jpegData(compressionQuality: 0.9),
-                       let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                       let path = SharedStore.shared.writeImportSlice(data: data, index: index, importId: importId) {
                         paths.append(path)
                     }
                 }
@@ -1093,12 +1100,15 @@ public struct HomeStitchView: View {
         requestOptions.isNetworkAccessAllowed = true
         
         Task.detached(priority: .userInitiated) {
+            let importId = UUID()
+            defer { SharedStore.shared.cleanupImportDirectory(importId: importId) }
+            
             var paths: [String] = []
             let sortedAssets = assets.sorted { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }
             for (index, asset) in sortedAssets.enumerated() {
                 imageManager.requestImageDataAndOrientation(for: asset, options: requestOptions) { data, _, _, _ in
                     if let data = data,
-                       let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                       let path = SharedStore.shared.writeImportSlice(data: data, index: index, importId: importId) {
                         paths.append(path)
                     }
                 }
@@ -1186,12 +1196,15 @@ public struct HomeStitchView: View {
         requestOptions.isNetworkAccessAllowed = true
         
         Task.detached(priority: .userInitiated) {
+            let importId = UUID()
+            defer { SharedStore.shared.cleanupImportDirectory(importId: importId) }
+            
             var paths: [String] = []
             let sortedAssets = assets.sorted { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }
             for (index, asset) in sortedAssets.enumerated() {
                 imageManager.requestImageDataAndOrientation(for: asset, options: requestOptions) { data, _, _, _ in
                     if let data = data,
-                       let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                       let path = SharedStore.shared.writeImportSlice(data: data, index: index, importId: importId) {
                         paths.append(path)
                     }
                 }
@@ -1245,6 +1258,9 @@ public struct HomeStitchView: View {
             }
             
             Task.detached(priority: .userInitiated) {
+                let importId = UUID()
+                defer { SharedStore.shared.cleanupImportDirectory(importId: importId) }
+                
                 do {
                     let frames = try await VideoFrameExtractor.shared.extractFrames(from: avAsset) { current, total in
                         Task { @MainActor in
@@ -1262,7 +1278,7 @@ public struct HomeStitchView: View {
                     var paths: [String] = []
                     for (index, frame) in frames.enumerated() {
                         if let data = frame.jpegData(compressionQuality: 0.9),
-                           let path = SharedStore.shared.writeBroadcastSlice(data: data, index: index) {
+                           let path = SharedStore.shared.writeImportSlice(data: data, index: index, importId: importId) {
                             paths.append(path)
                         }
                     }

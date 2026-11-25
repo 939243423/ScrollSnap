@@ -65,6 +65,11 @@ public final class StitchEngine {
                     return
                 }
                 
+                // Trim leading ReplayKit app-switch / Control Center transition frames before stitching
+                if source == .replayKitBroadcast && (presetMode != .movieSubtitles && presetMode != .horizontalCompare) {
+                    loadedSlices = Self.trimLeadingTransitionFrames(slices: loadedSlices)
+                }
+                
                 // Intelligent Bidirectional Sequence Detection:
                 // If user selected slices in reverse order (e.g. from newest to oldest in PhotosPicker),
                 // evaluate forward vs reverse correlation across multiple adjacent slice pairs to reach consensus.
@@ -407,6 +412,33 @@ public final class StitchEngine {
     }
     
     // MARK: - Keyframe Selection & Deduplication
+    
+    /// Drops up to 3 leading unrelated transition frames (e.g. Control Center / Home Screen captured right after ReplayKit countdown)
+    /// when they exhibit zero overlap with the subsequent screen, before a coherent overlapping scroll run begins.
+    public static func trimLeadingTransitionFrames(
+        slices: [(path: String, image: CGImage)]
+    ) -> [(path: String, image: CGImage)] {
+        guard slices.count >= 4 else { return slices }
+        
+        let maxTrim = min(3, slices.count - 2)
+        for startIdx in 0..<maxTrim {
+            let fwd = ImageOverlapDetector.findOverlap(topSlice: slices[startIdx].image, bottomSlice: slices[startIdx + 1].image)
+            let rev = ImageOverlapDetector.findOverlap(topSlice: slices[startIdx + 1].image, bottomSlice: slices[startIdx].image)
+            let pairConfidence = max(fwd.confidence, rev.confidence)
+            let pairOverlap = max(fwd.offset, rev.offset)
+            
+            if pairConfidence >= 0.40 && pairOverlap > 10 {
+                return startIdx > 0 ? Array(slices.dropFirst(startIdx)) : slices
+            }
+            // If current leading pair is unrelated (< 0.30), continue checking if the next pair forms a valid overlap;
+            // stop early if even pairConfidence is borderline (0.30..<0.40) so normal fast scrolls aren't trimmed.
+            if pairConfidence >= 0.30 {
+                return slices
+            }
+        }
+        
+        return slices
+    }
     
     /// Filters out completely redundant stationary duplicate frames from screen recordings (e.g. pauses during scrolling)
     /// Never discards normal moving frames.

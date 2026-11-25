@@ -479,11 +479,19 @@ public final class TiledImageRenderer {
     
     private static func drawBrushStrokes(brushStrokes: [RedactionStroke], in context: CGContext, canvasSize: CGSize) {
         guard !brushStrokes.isEmpty else { return }
-        let scale = canvasSize.width / 393.0
         
         for stroke in brushStrokes {
             guard let first = stroke.points.first else { continue }
-            let scaledLineWidth = stroke.lineWidth * scale
+            let refWidth = stroke.referenceCanvasSize?.width ?? 393.0
+            let scaleX = canvasSize.width / max(1.0, refWidth)
+            let scaleY: CGFloat
+            if let refHeight = stroke.referenceCanvasSize?.height, refHeight > 0 {
+                scaleY = canvasSize.height / refHeight
+            } else {
+                scaleY = scaleX
+            }
+            let lineScale = (scaleX + scaleY) * 0.5
+            let scaledLineWidth = stroke.lineWidth * lineScale
             
             context.saveGState()
             context.setLineWidth(scaledLineWidth)
@@ -491,9 +499,9 @@ public final class TiledImageRenderer {
             context.setLineJoin(.round)
             
             let path = CGMutablePath()
-            path.move(to: CGPoint(x: first.x * scale, y: first.y * scale))
+            path.move(to: CGPoint(x: first.x * scaleX, y: first.y * scaleY))
             for pt in stroke.points.dropFirst() {
-                path.addLine(to: CGPoint(x: pt.x * scale, y: pt.y * scale))
+                path.addLine(to: CGPoint(x: pt.x * scaleX, y: pt.y * scaleY))
             }
             
             switch stroke.brushType {
@@ -504,14 +512,14 @@ public final class TiledImageRenderer {
                 
             case .frostedGlass:
                 context.setStrokeColor(UIColor(white: 0.94, alpha: 0.92).cgColor)
-                context.setShadow(offset: .zero, blur: 4.0 * scale, color: UIColor.white.cgColor)
+                context.setShadow(offset: .zero, blur: 4.0 * lineScale, color: UIColor.white.cgColor)
                 context.addPath(path)
                 context.strokePath()
                 
             case .pixelateMosaic:
-                let blockSize = max(10.0 * scale, scaledLineWidth * 0.8)
+                let blockSize = max(10.0 * lineScale, scaledLineWidth * 0.8)
                 for pt in stroke.points {
-                    let rect = CGRect(x: pt.x * scale - blockSize / 2, y: pt.y * scale - blockSize / 2, width: blockSize, height: blockSize)
+                    let rect = CGRect(x: pt.x * scaleX - blockSize / 2, y: pt.y * scaleY - blockSize / 2, width: blockSize, height: blockSize)
                     applyRedaction(in: context, rect: rect, style: .pixelatedMosaic)
                 }
             }

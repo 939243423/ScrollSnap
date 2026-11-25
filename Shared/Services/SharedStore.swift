@@ -88,6 +88,30 @@ public final class SharedStore {
         }
     }
     
+    /// Writes imported photo/video slices into an isolated temporary staging folder so they never pollute ReplayKit's active_session.
+    public func writeImportSlice(data: Data, index: Int, importId: UUID) -> String? {
+        let relDir = "sessions/import_\(importId.uuidString)"
+        let dir = AppGroupConstants.containerURL.appendingPathComponent(relDir, isDirectory: true)
+        let fileName = String(format: "slice_%04d.jpg", index)
+        let fileURL = dir.appendingPathComponent(fileName)
+        
+        do {
+            try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+            try data.write(to: fileURL, options: .atomic)
+            return "\(relDir)/\(fileName)"
+        } catch {
+            print("[SharedStore] writeImportSlice failed: \(error)")
+            return nil
+        }
+    }
+    
+    /// Cleans up a temporary import staging folder after StitchEngine has persisted the final session slices.
+    public func cleanupImportDirectory(importId: UUID) {
+        let relDir = "sessions/import_\(importId.uuidString)"
+        let dir = AppGroupConstants.containerURL.appendingPathComponent(relDir, isDirectory: true)
+        try? fileManager.removeItem(at: dir)
+    }
+    
     public func listActiveBroadcastSlicePaths() -> [String] {
         let dir = AppGroupConstants.activeSessionDirectory
         guard let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {

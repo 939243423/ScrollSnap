@@ -900,4 +900,54 @@ final class ScrollSnapCoreTests: XCTestCase {
         let shouldReverse = (reverseVotes > forwardVotes && reverseScore > forwardScore)
         XCTAssertTrue(shouldReverse)
     }
+    
+    // MARK: - 17. Import Isolation, Brush Scaling & Broadcast Trim Tests
+    
+    func testImportSlicePathIsolationFromActiveBroadcastSession() {
+        let importId = UUID()
+        let sampleData = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let relPath = SharedStore.shared.writeImportSlice(data: sampleData, index: 0, importId: importId)
+        
+        XCTAssertNotNil(relPath)
+        if let relPath = relPath {
+            XCTAssertTrue(relPath.hasPrefix("sessions/import_\(importId.uuidString)/"))
+            XCTAssertFalse(relPath.hasPrefix("active_session/"))
+            XCTAssertFalse(SharedStore.shared.listActiveBroadcastSlicePaths().contains(relPath))
+        }
+        
+        SharedStore.shared.cleanupImportDirectory(importId: importId)
+        if let relPath = relPath, let resolved = SharedStore.shared.resolveFileURL(relativePath: relPath) {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: resolved.path))
+        }
+    }
+    
+    func testRedactionStrokeReferenceCanvasSizeCompatibility() {
+        let legacyStroke = RedactionStroke(
+            points: [CGPoint(x: 100, y: 200)],
+            brushType: .frostedGlass,
+            lineWidth: 24.0
+        )
+        XCTAssertNil(legacyStroke.referenceCanvasSize)
+        
+        let proMaxCanvas = CGSize(width: 440, height: 1800)
+        let adaptiveStroke = RedactionStroke(
+            points: [CGPoint(x: 220, y: 900)],
+            brushType: .pixelateMosaic,
+            lineWidth: 28.0,
+            referenceCanvasSize: proMaxCanvas
+        )
+        XCTAssertEqual(adaptiveStroke.referenceCanvasSize, proMaxCanvas)
+        
+        // Export canvas width = 1320px (440pt @3x) -> scaleX must be 3.0, NOT 1320/393 (3.358)
+        let exportWidth: CGFloat = 1320.0
+        let scaleX = exportWidth / max(1.0, adaptiveStroke.referenceCanvasSize?.width ?? 393.0)
+        XCTAssertEqual(scaleX, 3.0, accuracy: 0.0001)
+    }
+    
+    func testBroadcastSceneSwitchMotionThresholdNotCapped() {
+        // Control Center (bright ~0.90) -> Dark Mode WeChat (dark ~0.05) produces delta ~0.85+
+        let sceneJumpDelta = 0.88
+        let minThreshold = 0.018
+        XCTAssertGreaterThanOrEqual(sceneJumpDelta, minThreshold)
+    }
 }

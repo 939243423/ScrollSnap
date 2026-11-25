@@ -94,6 +94,9 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
             return .result(dialog: "未找到 5 分钟内的连续截图，请先截屏后再试")
         }
         
+        let importId = UUID()
+        defer { SharedStore.shared.cleanupImportDirectory(importId: importId) }
+        
         var paths: [String] = []
         let manager = PHImageManager.default()
         let options = PHImageRequestOptions()
@@ -105,7 +108,7 @@ public struct QuickStitchRecentScreenshotsIntent: AppIntent {
             let asset = assets.object(at: i)
             manager.requestImageDataAndOrientation(for: asset, options: options) { data, _, _, _ in
                 if let data = data,
-                   let savedPath = SharedStore.shared.writeBroadcastSlice(data: data, index: i) {
+                   let savedPath = SharedStore.shared.writeImportSlice(data: data, index: i, importId: importId) {
                     paths.append(savedPath)
                 }
             }
