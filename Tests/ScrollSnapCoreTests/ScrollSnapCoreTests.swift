@@ -950,4 +950,65 @@ final class ScrollSnapCoreTests: XCTestCase {
         let minThreshold = 0.018
         XCTAssertGreaterThanOrEqual(sceneJumpDelta, minThreshold)
     }
+    
+    // MARK: - 18. Cross-App Precision Upgrade Tests
+    
+    func testResolutionIndependentScenarioRatioClassification() {
+        // Case 1: Compact Safari / web reader (120px top bar, 80px bottom toolbar on 2556px screen)
+        let origH: CGFloat = 2556
+        let webTopRatio = 120.0 / origH   // 0.0469
+        let webBotRatio = 80.0 / origH    // 0.0313
+        let isWebChat = webTopRatio >= 0.085 && webTopRatio <= 0.19 && webBotRatio >= 0.075 && webBotRatio <= 0.18
+        let isWebArticle = !isWebChat && (webTopRatio >= 0.025 || webBotRatio >= 0.020) && webTopRatio <= 0.16 && webBotRatio <= 0.12
+        XCTAssertFalse(isWebChat)
+        XCTAssertTrue(isWebArticle)
+        
+        // Case 2: WeChat chat (294px top nav, 270px bottom input bar on 2556px screen)
+        let chatTopRatio = 294.0 / origH  // 0.1150
+        let chatBotRatio = 270.0 / origH  // 0.1056
+        let isChat = chatTopRatio >= 0.085 && chatTopRatio <= 0.19 && chatBotRatio >= 0.075 && chatBotRatio <= 0.18
+        XCTAssertTrue(isChat)
+        
+        // Case 3: Split-screen Xiaohongshu video note (top video 1100px on 2556px screen)
+        let splitRatio = 1100.0 / origH   // 0.430
+        XCTAssertGreaterThan(splitRatio, 0.19)
+    }
+    
+    func testFullWidthStridedRefinementSamplingCoverage() {
+        let widths = [750, 1179, 1320, 2048]
+        for origW in widths {
+            let startX = max(16, origW / 24)
+            let sampleW = max(40, origW - 2 * startX)
+            let colStride = max(2, sampleW / 280)
+            let sampledColsPerRow = max(1, (sampleW + colStride - 1) / colStride)
+            
+            // Covers left edge (<10%) and right edge (>90%) while bounding per-row samples <= ~350
+            XCTAssertLessThanOrEqual(Double(startX) / Double(origW), 0.05)
+            XCTAssertGreaterThanOrEqual(Double(startX + sampleW) / Double(origW), 0.95)
+            XCTAssertLessThanOrEqual(sampledColsPerRow, 360)
+        }
+    }
+    
+    func testStationaryWallpaperDampeningMath() {
+        // Static wallpaper pixels (identical in-place at yA and yB) receive 25% penalty weight
+        let clampedDiff = 48
+        let staticA = 1
+        let staticB = 2
+        let weighted = (staticA <= 3 && staticB <= 3 && clampedDiff > 6) ? (clampedDiff >> 2) : clampedDiff
+        XCTAssertEqual(weighted, 12)
+        
+        // Moving chat bubble pixel keeps full 100% weight
+        let movingStaticA = 42
+        let movingWeighted = (movingStaticA <= 3 && staticB <= 3 && clampedDiff > 6) ? (clampedDiff >> 2) : clampedDiff
+        XCTAssertEqual(movingWeighted, 48)
+    }
+    
+    func testActiveZoneFourBandMotionDeltaForSparseScrolling() {
+        // Simulate 4 bands where only bottom band (band 3, e.g. half-screen comment sheet) scrolled
+        let bandRMSs = [0.002, 0.003, 0.002, 0.036]
+        let overallRMS = sqrt(bandRMSs.map { $0 * $0 }.reduce(0, +) / 4.0) // ~0.0181
+        let maxBandDelta = bandRMSs.max() ?? 0.0
+        let effectiveDelta = max(overallRMS, maxBandDelta * 0.75) // 0.027 >= 0.018 threshold
+        XCTAssertGreaterThan(effectiveDelta, 0.018)
+    }
 }

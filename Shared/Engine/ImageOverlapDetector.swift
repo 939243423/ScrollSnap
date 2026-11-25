@@ -211,9 +211,11 @@ public final class ImageOverlapDetector {
             staticDiff[y] = Double(diffSum) / Double(numCols)
         }
         
+        let minTailReserve = max(80, H / 9)
+        
         // Scan from top downward for moving content
         var movingStartTop = 0
-        let maxTopScan = min(Int(Double(H) * 0.65), H - 80)
+        let maxTopScan = min(Int(Double(H) * 0.65), max(1, H - minTailReserve))
         var consecutiveMoving = 0
         for y in 0..<maxTopScan {
             let isMoving = (staticDiff[y] > 11.0) && (topFP.rowVariance[y] > 3.0 || botFP.rowVariance[y] > 3.0)
@@ -228,7 +230,9 @@ public final class ImageOverlapDetector {
             }
         }
         
-        let maxStandardNavScan = min(105, Int(Double(H) * 0.16)) // ~380px native max for standard iOS navigation bar
+        // Covers standard iOS navigation bar plus search/tab headers (~19% height ceiling)
+        let maxStandardNavScan = max(60, min(Int(Double(H) * 0.19), max(60, H - minTailReserve)))
+        let mediaThreshold = max(25, Int(Double(H) * 0.042))
         
         // Extended static media verification (e.g. video player in Xiaohongshu video notes)
         var hasExtendedMedia = false
@@ -239,16 +243,17 @@ public final class ImageOverlapDetector {
                     mediaTexturedCount += 1
                 }
             }
-            if mediaTexturedCount >= 30 {
+            if mediaTexturedCount >= mediaThreshold {
                 hasExtendedMedia = true
             }
         }
         
-        // Hairline separator snap for standard iOS navigation bar (rows 35..maxStandardNavScan)
+        // Hairline separator snap for standard iOS navigation bar (starts below status bar)
+        let topHairlineScanMin = max(24, Int(Double(H) * 0.048))
         var bestTopHairline = 0
-        let hairlineScanEnd = (movingStartTop > 35 && movingStartTop <= maxStandardNavScan + 5) ? movingStartTop : maxStandardNavScan
-        if hairlineScanEnd >= 35 {
-            for y in stride(from: hairlineScanEnd, through: 35, by: -1) {
+        let hairlineScanEnd = (movingStartTop > topHairlineScanMin && movingStartTop <= maxStandardNavScan + 5) ? movingStartTop : maxStandardNavScan
+        if hairlineScanEnd >= topHairlineScanMin {
+            for y in stride(from: hairlineScanEnd, through: topHairlineScanMin, by: -1) {
                 guard y > 0, y < H else { continue }
                 if staticDiff[y] < 8.0 && staticDiff[y - 1] < 8.0 {
                     let off0 = (y - 1) * numCols
@@ -281,6 +286,8 @@ public final class ImageOverlapDetector {
             }
         }
         
+        let minNavFallback = max(60, Int(Double(H) * 0.112))
+        let topFeaturePad = max(4, Int(Double(H) * 0.005))
         var topChrome = 0
         if hasExtendedMedia {
             topChrome = movingStartTop
@@ -290,14 +297,14 @@ public final class ImageOverlapDetector {
             topChrome = movingStartTop
         } else if confirmedTopCount >= 2 {
             // Whitespace below title text (e.g. WeChat chat background): navigation bar ends after title text features
-            topChrome = min(maxStandardNavScan, max(78, lastStaticFeatureTop + 4))
+            topChrome = min(maxStandardNavScan, max(minNavFallback, lastStaticFeatureTop + topFeaturePad))
         } else {
             topChrome = 0
         }
         
         // Scan from bottom upward for moving content
         var movingStartBot = 0
-        let maxBotScan = min(Int(Double(H) * 0.35), H - 80)
+        let maxBotScan = min(Int(Double(H) * 0.35), max(1, H - minTailReserve))
         consecutiveMoving = 0
         for i in 0..<maxBotScan {
             let y = H - 1 - i
@@ -314,13 +321,14 @@ public final class ImageOverlapDetector {
             }
         }
         
-        let maxStandardBotScan = min(90, Int(Double(H) * 0.14)) // ~330px native max for iOS tab/input bar
+        let maxStandardBotScan = max(50, min(Int(Double(H) * 0.145), max(50, H - minTailReserve)))
+        let botHairlineScanMin = max(16, Int(Double(H) * 0.030))
         
         // Hairline separator snap for standard bottom bar (e.g. WeChat chat input bar separator)
         var bestBotHairline = 0
-        let botHairlineScanEnd = (movingStartBot > 20 && movingStartBot <= maxStandardBotScan + 5) ? movingStartBot : maxStandardBotScan
-        if botHairlineScanEnd >= 20 {
-            for i in stride(from: botHairlineScanEnd, through: 20, by: -1) {
+        let botHairlineScanEnd = (movingStartBot > botHairlineScanMin && movingStartBot <= maxStandardBotScan + 5) ? movingStartBot : maxStandardBotScan
+        if botHairlineScanEnd >= botHairlineScanMin {
+            for i in stride(from: botHairlineScanEnd, through: botHairlineScanMin, by: -1) {
                 let y = H - 1 - i
                 guard y > 0, y < H else { continue }
                 if staticDiff[y] < 8.0 && staticDiff[y - 1] < 8.0 {
@@ -356,6 +364,7 @@ public final class ImageOverlapDetector {
             }
         }
         
+        let minBotFallback = max(54, Int(Double(H) * 0.105))
         var botChrome = 0
         if bestBotHairline > 0 {
             botChrome = bestBotHairline
@@ -363,7 +372,7 @@ public final class ImageOverlapDetector {
             botChrome = movingStartBot
         } else if confirmedBotCount >= 2 {
             // Whitespace above bottom bar (e.g. WeChat chat background): bottom bar ends before input bar features
-            botChrome = min(maxStandardBotScan, max(74, lastStaticFeatureBot + 4))
+            botChrome = min(maxStandardBotScan, max(minBotFallback, lastStaticFeatureBot + topFeaturePad))
         } else {
             botChrome = 0
         }
@@ -384,14 +393,27 @@ public final class ImageOverlapDetector {
         let H = min(topFP.height, botFP.height)
         let numCols = topFP.numCols
         
+        let minSpan = max(30, Int(Double(H) * 0.04))
         let yTop = topChrome
         let yBot = H - botChrome
-        guard yBot > yTop + 30 else {
+        guard yBot > yTop + minSpan else {
             return (0, 0)
         }
         
-        let minD = 4
-        let maxD = max(minD, yBot - yTop - 15)
+        let minD = max(4, H / 170)
+        let minOverlapRows = max(15, Int(Double(H) * 0.022))
+        let maxD = max(minD, yBot - yTop - minOverlapRows)
+        
+        // Precompute per-row static difference in-place to identify moving content vs static chat wallpaper / widgets
+        var rowStaticDiff = [Double](repeating: 0.0, count: H)
+        for y in 0..<H {
+            let off = y * numCols
+            var sSum = 0
+            for m in 0..<numCols {
+                sSum += abs(Int(topFP.samples[off + m]) - Int(botFP.samples[off + m]))
+            }
+            rowStaticDiff[y] = Double(sSum) / Double(numCols)
+        }
         
         // Early Duplicate Check (identical screenshots taken accidentally without scrolling):
         var dupDiffSum = 0
@@ -417,9 +439,13 @@ public final class ImageOverlapDetector {
         }
         
         var totalTexturedInZone = 0
+        var totalMovingTexturedInZone = 0
         for y in yTop..<yBot {
             if topFP.rowVariance[y] > 3.5 || botFP.rowVariance[y] > 3.5 {
                 totalTexturedInZone += 1
+                if rowStaticDiff[y] > 4.5 {
+                    totalMovingTexturedInZone += 1
+                }
             }
         }
         
@@ -429,8 +455,10 @@ public final class ImageOverlapDetector {
         // Forward scroll search: content in topFP at y moved to botFP at y - d
         for d in minD...maxD {
             let K = yBot - yTop - d
-            guard K >= 15 else { continue }
+            guard K >= minOverlapRows else { continue }
             
+            var movingTexturedSum: Int = 0
+            var movingTexturedRows: Int = 0
             var texturedSum: Int = 0
             var texturedRows: Int = 0
             var totalSum: Int = 0
@@ -443,21 +471,39 @@ public final class ImageOverlapDetector {
                 let offB = yB * numCols
                 
                 let isTextured = (topFP.rowVariance[yA] > 3.5 || botFP.rowVariance[yB] > 3.5)
+                let isMovingRow = (rowStaticDiff[yA] > 4.5 || rowStaticDiff[yB] > 4.5)
                 var rowDiff: Int = 0
                 for m in 0..<numCols {
                     let diff = abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offB + m]))
-                    rowDiff += min(diff, 60) // Huber robust clamping against floating buttons/watermarks
+                    let clamped = min(diff, 60) // Huber robust clamping against avatars/badges
+                    // Stationary-pixel dampening: pixels identical at BOTH in-place positions (custom chat wallpaper / floating button)
+                    // get reduced weight (25%) so moving text/bubbles lock accurately over textured backgrounds.
+                    let staticA = abs(Int(topFP.samples[offA + m]) - Int(botFP.samples[offA + m]))
+                    let staticB = abs(Int(topFP.samples[offB + m]) - Int(botFP.samples[offB + m]))
+                    if staticA <= 3 && staticB <= 3 && clamped > 6 {
+                        rowDiff += (clamped >> 2)
+                    } else {
+                        rowDiff += clamped
+                    }
                 }
                 
                 totalSum += rowDiff
                 if isTextured {
                     texturedSum += rowDiff
                     texturedRows += 1
+                    if isMovingRow {
+                        movingTexturedSum += rowDiff
+                        movingTexturedRows += 1
+                    }
                 }
             }
             
             let effectiveScore: Double
-            if texturedRows >= 3 {
+            if totalMovingTexturedInZone >= 3 && movingTexturedRows >= 3 {
+                let meanDiff = Double(movingTexturedSum) / Double(movingTexturedRows * numCols)
+                let textureSupport = min(1.0, Double(movingTexturedRows) / Double(max(3, totalMovingTexturedInZone)))
+                effectiveScore = meanDiff - (textureSupport * 1.0)
+            } else if texturedRows >= 3 {
                 let meanDiff = Double(texturedSum) / Double(texturedRows * numCols)
                 let textureSupport = min(1.0, Double(texturedRows) / Double(max(3, totalTexturedInZone)))
                 effectiveScore = meanDiff - (textureSupport * 0.8)
@@ -497,6 +543,7 @@ public final class ImageOverlapDetector {
         topImage: CGImage,
         bottomImage: CGImage,
         coarseDy: CGFloat,
+        coarseConfidence: Double,
         scaleY: CGFloat,
         topCrop: CGFloat,
         botCrop: CGFloat,
@@ -505,26 +552,30 @@ public final class ImageOverlapDetector {
         let origW = min(topImage.width, bottomImage.width)
         let origH = min(topImage.height, bottomImage.height)
         guard origW > 60, origH > 200 else {
-            return (coarseDy * scaleY, 0.8)
+            return (coarseDy * scaleY, coarseConfidence)
         }
         
         let targetDy = coarseDy * scaleY
         let rawOverlap = CGFloat(origH) - targetDy
         guard rawOverlap > 30 else {
-            return (targetDy, 0.8)
+            return (targetDy, coarseConfidence)
         }
         
         let startYB = topCrop + 10
         let endYB = min(CGFloat(origH) - botCrop - 20, rawOverlap - 10)
         guard endYB > startYB + 30 else {
-            return (targetDy, 0.8)
+            return (targetDy, coarseConfidence)
         }
         
         let patchH = 32
-        let sampleW = min(origW - 40, 480)
-        let startX = (origW - sampleW) / 2
+        // Full-width sampling (left avatars, center articles, 2-column feeds, and right replies)
+        // with adaptive horizontal stride so per-row work stays O(280) pixels regardless of screen resolution.
+        let startX = max(16, origW / 24)
+        let sampleW = max(40, origW - 2 * startX)
+        let colStride = max(2, sampleW / 280)
+        let sampledColsPerRow = max(1, (sampleW + colStride - 1) / colStride)
         // Scale-adaptive search radius: guarantees capturing coarse estimation drift (up to 2.5 downscaled rows) on @3x displays
-        let searchRadius = max(8, Int(ceil(scaleY * 2.5)))
+        let searchRadius = max(6, Int(ceil(scaleY * 2.5)))
         
         // 4-Zone dynamic peak anchor selection:
         // Divides the valid overlap into 4 zones and selects the peak-variance row in each zone
@@ -625,12 +676,12 @@ public final class ImageOverlapDetector {
                 for r in 0..<patchH {
                     let rA = offA + r * sampleW
                     let rB = r * sampleW
-                    for c in stride(from: 0, to: sampleW, by: 2) {
+                    for c in stride(from: 0, to: sampleW, by: colStride) {
                         let diff = abs(Int(stripA[rA + c]) - Int(patchB[rB + c]))
                         diffSum += min(diff, 60) // Huber robust penalty against local avatars/badges
                     }
                 }
-                let mad = Double(diffSum) / Double(sampleW * patchH / 2)
+                let mad = Double(diffSum) / Double(sampledColsPerRow * patchH)
                 errorMap[delta] = mad
                 if mad < minMAD {
                     minMAD = mad
@@ -658,7 +709,9 @@ public final class ImageOverlapDetector {
         }
         
         guard !refinedVotes.isEmpty else {
-            return (targetDy, 0.8)
+            // Preserve honest confidence when subpixel patches fail so weak/bad seams are never disguised as 0.8
+            let fallbackConf = coarseConfidence < 0.65 ? min(coarseConfidence, 0.45) : coarseConfidence * 0.90
+            return (targetDy, fallbackConf)
         }
         
         // Robust consensus clustering: reject outlier votes from live reaction animations,
@@ -700,7 +753,8 @@ public final class ImageOverlapDetector {
         }
         
         let avgErr = bestErrors.reduce(0.0, +) / Double(bestErrors.count)
-        let conf = max(0.60, min(1.0, 1.0 - (avgErr / 30.0)))
+        let rawRefineConf = max(0.55, min(1.0, 1.0 - (avgErr / 30.0)))
+        let conf = refinedVotes.count == 1 ? (rawRefineConf * 0.6 + coarseConfidence * 0.4) : rawRefineConf
         return (finalDy, conf)
     }
     
@@ -728,8 +782,8 @@ public final class ImageOverlapDetector {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
-        guard let topBuf = createGrayscaleBuffer(from: topSlice, targetWidth: 320),
-              let botBuf = createGrayscaleBuffer(from: bottomSlice, targetWidth: 320) else {
+        guard let topBuf = createGrayscaleBuffer(from: topSlice, targetWidth: 480),
+              let botBuf = createGrayscaleBuffer(from: bottomSlice, targetWidth: 480) else {
             return OverlapMatchResult(offset: 0, confidence: 0, optimalSeamY: 0)
         }
         
@@ -765,6 +819,7 @@ public final class ImageOverlapDetector {
             topImage: topSlice,
             bottomImage: bottomSlice,
             coarseDy: coarseMatch.displacement,
+            coarseConfidence: coarseMatch.confidence,
             scaleY: topBuf.scaleY,
             topCrop: bottomSliceTopCrop,
             botCrop: topSliceBottomCrop,
@@ -851,8 +906,8 @@ public final class ImageOverlapDetector {
             )
         }
         
-        guard let topBuf = createGrayscaleBuffer(from: topImage, targetWidth: 320),
-              let botBuf = createGrayscaleBuffer(from: bottomImage, targetWidth: 320) else {
+        guard let topBuf = createGrayscaleBuffer(from: topImage, targetWidth: 480),
+              let botBuf = createGrayscaleBuffer(from: bottomImage, targetWidth: 480) else {
             return ScrollZoneDetectionResult(
                 topAnchorHeight: 0,
                 bottomAnchorHeight: 0,
@@ -876,10 +931,12 @@ public final class ImageOverlapDetector {
         
         let fullTopAnchor = CGFloat(chrome.topChromeRows) * topBuf.scaleY
         let fullBottomAnchor = CGFloat(chrome.botChromeRows) * topBuf.scaleY
+        let topRatio = fullTopAnchor / CGFloat(origH)
+        let botRatio = fullBottomAnchor / CGFloat(origH)
         
-        let isSplitMedia = fullTopAnchor > (CGFloat(origH) * 0.18)
-        let isChatApp = !isSplitMedia && fullTopAnchor >= 70 && fullTopAnchor <= 420 && fullBottomAnchor >= 50 && fullBottomAnchor <= 420
-        let isWebArticle = !isSplitMedia && !isChatApp && fullTopAnchor >= 60 && fullTopAnchor <= 320 && fullBottomAnchor >= 40 && fullBottomAnchor <= 240
+        let isSplitMedia = topRatio > 0.19
+        let isChatApp = !isSplitMedia && topRatio >= 0.085 && topRatio <= 0.19 && botRatio >= 0.075 && botRatio <= 0.18
+        let isWebArticle = !isSplitMedia && !isChatApp && (topRatio >= 0.025 || botRatio >= 0.020) && topRatio <= 0.16 && botRatio <= 0.12
         
         let scenario: AppLayoutScenario
         if isSplitMedia {

@@ -156,22 +156,26 @@ public final class StitchEngine {
                     effectiveScenario = presetMode.correspondingScenario
                 }
                 
-                // Scenario-adaptive fallback safety insets (Dynamic Island 294px nav bar, WeChat 270px input bar)
-                if effectiveScenario == .chatApp || presetMode == .chatRecord {
+                // Scenario-adaptive fallback safety insets:
+                // - Explicit .chatRecord mode or genuine .chatApp detection enforces WeChat nav/input bar safety floors when under-detected.
+                // - In .smartAuto with .webArticle, preserve the dynamically detected compact browser bars instead of over-cropping with 240/160.
+                if presetMode == .chatRecord || effectiveScenario == .chatApp {
                     if let firstImage = loadedSlices.first?.image {
                         let h = CGFloat(firstImage.height)
-                        let chatTopFallback = min(h * 0.13, 294.0)
-                        let chatBottomFallback = min(h * 0.11, 270.0)
+                        let chatTopFallback = min(h * 0.115, 294.0)
+                        let chatBottomFallback = min(h * 0.105, 270.0)
                         detectedTopBar = max(detectedTopBar, chatTopFallback)
                         detectedBottomBar = max(detectedBottomBar, chatBottomFallback)
                     }
-                } else if effectiveScenario == .webArticle || presetMode == .webArticle {
+                } else if presetMode == .webArticle {
                     if let firstImage = loadedSlices.first?.image {
                         let h = CGFloat(firstImage.height)
-                        let webTopFallback = min(h * 0.10, 240.0)
-                        let webBottomFallback = min(h * 0.08, 160.0)
-                        detectedTopBar = max(detectedTopBar, webTopFallback)
-                        detectedBottomBar = max(detectedBottomBar, webBottomFallback)
+                        if detectedTopBar < 20 {
+                            detectedTopBar = min(h * 0.10, 240.0)
+                        }
+                        if detectedBottomBar < 20 {
+                            detectedBottomBar = min(h * 0.07, 160.0)
+                        }
                     }
                 }
                 

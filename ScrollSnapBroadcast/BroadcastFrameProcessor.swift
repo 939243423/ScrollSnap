@@ -47,7 +47,7 @@ public final class BroadcastFrameProcessor {
             return
         }
         
-        let motionDelta = calculateEuclideanDelta(lastLuminanceProjection, currentProjection)
+        let motionDelta = calculateActiveZoneMotionDelta(lastLuminanceProjection, currentProjection)
         
         // Anti-jitter: ignore stationary pauses (< 0.018), while capturing any genuine scroll or scene transition (>= 0.018)
         // Updating lastLuminanceProjection on large scene jumps (e.g. Control Center -> Dark Mode WeChat) prevents freezing subsequent keyframes.
@@ -58,7 +58,7 @@ public final class BroadcastFrameProcessor {
             saveKeyframe(pixelBuffer: pixelBuffer)
         } else if !lastSavedProjection.isEmpty {
             // If subtle movement occurred since last saved keyframe, cache ending frame so bottom is never lost
-            let deltaFromLastSave = calculateEuclideanDelta(lastSavedProjection, currentProjection)
+            let deltaFromLastSave = calculateActiveZoneMotionDelta(lastSavedProjection, currentProjection)
             if deltaFromLastSave >= 0.010 {
                 autoreleasepool {
                     #if canImport(UIKit)
@@ -107,8 +107,12 @@ public final class BroadcastFrameProcessor {
         guard let baseAddress = baseAddress else { return [] }
         let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
         
-        let stepY = max(1, height / 128)
-        let sampleCountY = height / stepY
+        // Sample active scrolling zone [12% ... 88%] to exclude static status bar / Dynamic Island / home indicator jitter.
+        let activeTop = Int(Double(height) * 0.12)
+        let activeBottom = max(activeTop + 32, Int(Double(height) * 0.88))
+        let activeHeight = activeBottom - activeTop
+        let stepY = max(1, activeHeight / 128)
+        let sampleCountY = activeHeight / stepY
         
         // Sample 16 columns spanning from 0.06W to 0.94W to capture left avatars (x ~ 0.08W),
         // right avatars (x ~ 0.92W), and sparse text bubbles across the chat screen.
@@ -123,7 +127,7 @@ public final class BroadcastFrameProcessor {
         
         var projection = [Double](repeating: 0.0, count: sampleCountY * colCount)
         
-        for (idx, y) in stride(from: 0, to: height, by: stepY).enumerated() {
+        for (idx, y) in stride(from: activeTop, to: activeBottom, by: stepY).enumerated() {
             guard idx < sampleCountY else { break }
             let rowOffset = y * bytesPerRow
             let outRowOffset = idx * colCount
@@ -149,15 +153,35 @@ public final class BroadcastFrameProcessor {
         return projection
     }
     
-    private func calculateEuclideanDelta(_ p1: [Double], _ p2: [Double]) -> Double {
+    /// Evaluates both overall active-zone RMS delta and 4-band peak local delta so sparse chats
+    /// or half-screen popup comment sheets trigger keyframe capture reliably without false jitter.
+    private func calculateActiveZoneMotionDelta(_ p1: [Double], _ p2: [Double]) -> Double {
         let count = min(p1.count, p2.count)
         guard count > 0 else { return 0 }
-        var sumSquares = 0.0
-        for i in 0..<count {
-            let diff = p1[i] - p2[i]
-            sumSquares += diff * diff
+        
+        let bandCount = 4
+        let bandSize = max(1, count / bandCount)
+        var totalSq = 0.0
+        var maxBandDelta = 0.0
+        
+        for band in 0..<bandCount {
+            let start = band * bandSize
+            let end = (band == bandCount - 1) ? count : min(count, start + bandSize)
+            guard end > start else { continue }
+            var bandSq = 0.0
+            for i in start..<end {
+                let diff = p1[i] - p2[i]
+                bandSq += diff * diff
+            }
+            totalSq += bandSq
+            let bandRMS = sqrt(bandSq / Double(end - start))
+            if bandRMS > maxBandDelta {
+                maxBandDelta = bandRMS
+            }
         }
-        return sqrt(sumSquares / Double(count))
+        
+        let overallRMS = sqrt(totalSq / Double(count))
+        return max(overallRMS, maxBandDelta * 0.75)
     }
     
     // MARK: - Immediate Disk Flush (50MB Jetsam Guard)
